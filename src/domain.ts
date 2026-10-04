@@ -28,9 +28,33 @@ export type Snapshot = {
   logs: LegacyStudyLog[];
   completedTaskIds: string[];
   hasSamples: boolean;
+  taskNotes?: TaskNote[];
+  attachments?: TaskAttachment[];
 };
 export type Workspace = { id: string; name: string; owner_id: string };
 export type Member = { id: string; workspace_id: string; email: string; role: 'editor' };
+export type TaskNote = {
+  id: string;
+  workspace_id: string;
+  task_id: string;
+  created_by: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+};
+export type TaskAttachment = {
+  id: string;
+  workspace_id: string;
+  task_id: string;
+  note_id: string | null;
+  created_by: string;
+  filename: string;
+  mime_type: string;
+  size_bytes: number;
+  object_path: string;
+  state: 'pending' | 'ready';
+  created_at: string;
+};
 export const emptySnapshot = (): Snapshot => ({
   version: 1,
   tasks: [],

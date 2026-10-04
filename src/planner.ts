@@ -7,7 +7,10 @@ import {
   type Task,
   type Workspace,
   type Member,
+  type TaskNote,
+  type TaskAttachment,
 } from './domain';
+import { FILE_BUCKET, removeFileRecords, validateFile } from './files';
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -34,15 +37,21 @@ const localInitial = readLocal();
 const throwIf = (error: { message: string } | null) => {
   if (error) throw new Error(error.message);
 };
-async function readAllRows<T>(table: string, space: string, columns = '*'): Promise<T[]> {
+async function readAllRows<T>(
+  table: string,
+  space: string,
+  columns = '*',
+  filter?: { column: string; value: string },
+): Promise<T[]> {
   const rows: T[] = [];
   for (let start = 0; ; start += 500) {
-    const result = await supabase!
+    const query = supabase!
       .from(table)
       .select(columns)
       .eq('workspace_id', space)
       .order(table === 'task_completions' ? 'task_id' : 'id')
       .range(start, start + 499);
+    const result = await (filter ? query.eq(filter.column, filter.value) : query);
     throwIf(result.error);
     const batch = result.data as T[];
     rows.push(...batch);
@@ -80,6 +89,7 @@ export function usePlanner() {
   const activeSession = useRef<Session | null>(null);
   const generation = useRef(0);
   const lock = useRef(false);
+  const provisionedUser = useRef<string | null>(null);
   const data = session ? remoteData : localData;
   const isOwner = !session || workspace?.owner_id === session.user.id;
   const canWrite = !loading && Boolean(session && workspace) && !passwordRecovery;
@@ -89,23 +99,39 @@ export function usePlanner() {
     const token = ++generation.current;
     setLoading(true);
     try {
+      if (provisionedUser.current !== user.user.id) {
+        const personal = await supabase.rpc('ensure_personal_workspace');
+        throwIf(personal.error);
+        provisionedUser.current = user.user.id;
+      }
       const result = await supabase
         .from('workspaces')
         .select('id,name,owner_id')
         .order('created_at');
       throwIf(result.error);
       const list = (result.data || []) as Workspace[];
+      let remembered = '';
+      try {
+        remembered = localStorage.getItem(`dayly.workspace.${user.user.id}`) || '';
+      } catch {
+        /* Optional preference. */
+      }
       const selected =
-        list.find((x) => x.id === (preferredId || activeWorkspace.current?.id)) || list[0] || null;
+        list.find((x) => x.id === (preferredId || activeWorkspace.current?.id || remembered)) ||
+        list.find((x) => x.owner_id === user.user.id) ||
+        list[0] ||
+        null;
       let next = emptySnapshot(),
         nextMembers: Member[] = [];
       if (selected) {
-        const [tasks, checks, granted] = await Promise.all([
+        const [tasks, checks, granted, taskNotes, attachments] = await Promise.all([
           readAllRows<Task>('tasks', selected.id),
           readAllRows<{ task_id: string }>('task_completions', selected.id, 'task_id'),
           selected.owner_id === user.user.id
             ? readAllRows<Member>('workspace_members', selected.id)
             : Promise.resolve([] as Member[]),
+          readAllRows<TaskNote>('task_notes', selected.id),
+          readAllRows<TaskAttachment>('task_attachments', selected.id),
         ]);
         next = {
           version: 1,
@@ -113,6 +139,8 @@ export function usePlanner() {
           logs: [],
           completedTaskIds: checks.map((x) => x.task_id),
           hasSamples: false,
+          taskNotes,
+          attachments,
         };
         nextMembers = granted;
       }
@@ -120,6 +148,11 @@ export function usePlanner() {
       setWorkspaces(list);
       setWorkspace(selected);
       activeWorkspace.current = selected;
+      try {
+        if (selected) localStorage.setItem(`dayly.workspace.${user.user.id}`, selected.id);
+      } catch {
+        /* Optional preference. */
+      }
       setRemoteData(next);
       setMembers(nextMembers);
       setError('');
@@ -139,6 +172,7 @@ export function usePlanner() {
     const update = (next: Session | null) => {
       if (!alive) return;
       if (next?.user.id !== activeSession.current?.user.id) {
+        provisionedUser.current = null;
         setRemoteData(emptySnapshot());
         setWorkspace(null);
         activeWorkspace.current = null;
@@ -196,27 +230,46 @@ export function usePlanner() {
   useEffect(() => {
     if (!session) return;
     const onFocus = () => {
-      if (!lock.current && activeSession.current)
+      if (!lock.current && !document.hidden && activeSession.current)
         void refresh(activeSession.current).catch(() => {});
     };
     window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    const interval = window.setInterval(onFocus, 30000);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+      clearInterval(interval);
+    };
   }, [session, refresh]);
 
   async function mutate(
     local: (state: Snapshot) => Snapshot,
     remote: (space: Workspace, user: Session) => Promise<void>,
   ) {
-    if (lock.current || !canWrite) throw new Error('잠시 후 다시 시도해 주세요.');
+    if (
+      lock.current ||
+      !canWrite ||
+      activeSession.current?.user.id !== session?.user.id ||
+      activeWorkspace.current?.id !== workspace?.id
+    )
+      throw new Error('사용 공간을 확인하고 다시 시도해 주세요.');
     lock.current = true;
     setBusy(true);
     try {
       if (!session || !workspace) throw new Error('로그인하고 사용할 공간을 선택해 주세요.');
       await remote(workspace, session);
+      if (
+        activeSession.current?.user.id !== session.user.id ||
+        activeWorkspace.current?.id !== workspace.id
+      )
+        return;
       setRemoteData((state) => local(state));
       // A failed reload must not tell the user that an already committed write failed.
       await refresh(session, workspace.id).catch(() => {});
     } catch (e) {
+      if (session && activeSession.current?.user.id === session.user.id)
+        await refresh(session).catch(() => {});
       setError((e as Error).message);
       throw e;
     } finally {
@@ -285,6 +338,11 @@ export function usePlanner() {
         completedTaskIds: state.completedTaskIds.filter((x) => x !== id),
       }),
       async (space) => {
+        const files = await readAllRows<TaskAttachment>('task_attachments', space.id, '*', {
+          column: 'task_id',
+          value: id,
+        });
+        await removeFileRecords(supabase!, files, space.id);
         const result = await supabase!
           .from('tasks')
           .delete()
@@ -295,6 +353,98 @@ export function usePlanner() {
         throwIf(result.error);
       },
     );
+  const saveNote = (taskId: string, id: string, body: string, editing: boolean) =>
+    mutate(
+      (state) => state,
+      async (space, user) => {
+        const result = editing
+          ? await supabase!
+              .from('task_notes')
+              .update({ body })
+              .eq('id', id)
+              .eq('workspace_id', space.id)
+              .select('id')
+              .single()
+          : await supabase!.from('task_notes').insert({
+              id,
+              workspace_id: space.id,
+              task_id: taskId,
+              created_by: user.user.id,
+              body,
+            });
+        throwIf(result.error);
+      },
+    );
+  const deleteNote = (id: string) =>
+    mutate(
+      (state) => state,
+      async (space) => {
+        const files = await readAllRows<TaskAttachment>('task_attachments', space.id, '*', {
+          column: 'note_id',
+          value: id,
+        });
+        await removeFileRecords(supabase!, files, space.id);
+        const result = await supabase!
+          .from('task_notes')
+          .delete()
+          .eq('id', id)
+          .eq('workspace_id', space.id)
+          .select('id')
+          .single();
+        throwIf(result.error);
+      },
+    );
+  const deleteAttachment = (file: TaskAttachment) =>
+    mutate(
+      (state) => state,
+      async (space) => {
+        await removeFileRecords(supabase!, [file], space.id);
+      },
+    );
+  const attachFile = async (taskId: string, noteId: string | null, file: File) => {
+    const mime = await validateFile(file);
+    await mutate(
+      (state) => state,
+      async (space, user) => {
+        const id = crypto.randomUUID(),
+          path = `${space.id}/${taskId}/${id}`;
+        const inserted = await supabase!.from('task_attachments').insert({
+          id,
+          workspace_id: space.id,
+          task_id: taskId,
+          note_id: noteId,
+          created_by: user.user.id,
+          filename: file.name,
+          mime_type: mime,
+          size_bytes: file.size,
+          object_path: path,
+          state: 'pending',
+        });
+        throwIf(inserted.error);
+        try {
+          const upload = await supabase!.storage
+            .from(FILE_BUCKET)
+            .upload(path, file, { contentType: mime, upsert: false });
+          throwIf(upload.error);
+          const ready = await supabase!
+            .from('task_attachments')
+            .update({ state: 'ready' })
+            .eq('id', id)
+            .select('id')
+            .single();
+          throwIf(ready.error);
+        } catch (e) {
+          // Keep pending metadata if cleanup fails, so the file remains manageable.
+          const cleanup = await supabase!.storage.from(FILE_BUCKET).remove([path]);
+          if (!cleanup.error) await supabase!.from('task_attachments').delete().eq('id', id);
+          await refresh(user, space.id).catch(() => {});
+          throw new Error(
+            `“${file.name}”을 올리지 못했어요. 다시 시도해 주세요. ${(e as Error).message}`,
+          );
+        }
+      },
+    );
+  };
   async function createWorkspace(name: string) {
     if (!supabase || !session || lock.current || passwordRecovery) return;
     setBusy(true);
@@ -327,6 +477,20 @@ export function usePlanner() {
     throwIf(result.error);
     await refresh(session);
   }
+  const renameWorkspace = (name: string) =>
+    mutate(
+      (state) => state,
+      async (space, user) => {
+        if (space.owner_id !== user.user.id) throw new Error('내 공간의 이름만 변경할 수 있어요.');
+        const result = await supabase!
+          .from('workspaces')
+          .update({ name: name.trim() })
+          .eq('id', space.id)
+          .select('id')
+          .single();
+        throwIf(result.error);
+      },
+    );
   async function revokeMember(id: string) {
     if (!supabase || !session || !workspace || !canWrite || !isOwner)
       throw new Error('관리자로 로그인해 주세요.');
@@ -356,12 +520,18 @@ export function usePlanner() {
     saveTask,
     toggleTask,
     deleteTask,
+    saveNote,
+    deleteNote,
+    attachFile,
+    deleteAttachment,
     passwordRecovery,
     completePasswordRecovery,
     createWorkspace,
     grantMember,
+    renameWorkspace,
     revokeMember,
     refresh: () => (session ? refresh(session) : Promise.resolve()),
     selectWorkspace: (id: string) => (session ? refresh(session, id) : Promise.resolve()),
   };
 }
+export type Planner = ReturnType<typeof usePlanner>;

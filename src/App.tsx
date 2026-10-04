@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import {
   CalendarDays,
   Check,
@@ -11,6 +11,7 @@ import {
   Leaf,
   LockKeyhole,
   Mail,
+  Paperclip,
   Plus,
   RefreshCw,
   Search,
@@ -30,7 +31,6 @@ import {
   formatDate,
   shiftMonth,
   sortedTasks,
-  SUBJECT_MAX_LENGTH,
   subjectStats,
   todayKey,
   weeklyStats,
@@ -40,6 +40,8 @@ import {
 } from './domain';
 import { usePlanner } from './planner';
 import Account from './Account';
+import TaskDetail from './TaskDetail';
+import WorkspacePanel from './WorkspacePanel';
 
 type View = 'home' | 'calendar' | 'stats' | 'settings';
 type ModalState = { kind: 'task'; item?: Task } | { kind: 'search' } | { kind: 'account' } | null;
@@ -77,6 +79,7 @@ function Modal({
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   useEffect(() => {
     const el = ref.current!;
     el.showModal();
@@ -95,13 +98,13 @@ function Modal({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      aria-labelledby="modal-title"
+      aria-labelledby={titleId}
     >
       <div className="modal-inner">
         <button className="icon-button modal-close" aria-label="닫기" onClick={onClose}>
           <X size={21} />
         </button>
-        <h2 id="modal-title">{title}</h2>
+        <h2 id={titleId}>{title}</h2>
         {subtitle && <p className="modal-subtitle">{subtitle}</p>}
         {children}
       </div>
@@ -152,6 +155,12 @@ export default function App() {
   const [month, setMonth] = useState(() => todayKey().slice(0, 7) + '-01');
   const [now, setNow] = useState(new Date());
   const [modal, setModal] = useState<ModalState>(null);
+  const [taskDetailBusy, setTaskDetailBusy] = useState(false);
+  useEffect(() => {
+    setModal((current) =>
+      current?.kind === 'task' || current?.kind === 'search' ? null : current,
+    );
+  }, [planner.workspace?.id, planner.session?.user.id]);
   const [toast, setToast] = useState('');
   const [search, setSearch] = useState('');
   const [confirmation, setConfirmation] = useState<{
@@ -196,6 +205,10 @@ export default function App() {
   }).format(now);
   const canEdit = (item: Task) =>
     canWrite && (isOwner || item.created_by === planner.session?.user.id);
+  const canManageTask = (item?: Task) =>
+    Boolean(planner.session && planner.workspace) &&
+    !planner.passwordRecovery &&
+    (!item || isOwner || item.created_by === planner.session?.user.id);
   const act = async (action: () => Promise<unknown>, success?: string) => {
     try {
       await action();
@@ -234,6 +247,24 @@ export default function App() {
   );
   const dateNav = (
     <div className="date-nav">
+      <label className="date-input-label" title="날짜 선택">
+        <span className="date-display">{formatDate(date)}</span>
+        <input
+          aria-label="조회 날짜"
+          type="date"
+          value={date}
+          onClick={(e) => {
+            try {
+              e.currentTarget.showPicker();
+            } catch {
+              /* Native date entry remains available. */
+            }
+          }}
+          onChange={(e) => {
+            if (e.target.value) setDate(e.target.value);
+          }}
+        />
+      </label>
       <button
         className="icon-button"
         aria-label="이전 날짜"
@@ -241,17 +272,6 @@ export default function App() {
       >
         <ChevronLeft size={18} />
       </button>
-      <label className="date-input-label">
-        <span className="sr-only">조회 날짜</span>
-        <input
-          aria-label="조회 날짜"
-          type="date"
-          value={date}
-          onChange={(e) => {
-            if (e.target.value) setDate(e.target.value);
-          }}
-        />
-      </label>
       <button
         className="icon-button"
         aria-label="다음 날짜"
@@ -322,6 +342,21 @@ export default function App() {
                   {task.title}
                 </button>
                 {task.subject && <Tag subject={task.subject} />}
+                {(data.attachments || []).filter(
+                  (file) => file.task_id === task.id && file.state === 'ready',
+                ).length > 0 && (
+                  <span
+                    className="task-file-count"
+                    aria-label={`첨부 파일 ${(data.attachments || []).filter((file) => file.task_id === task.id && file.state === 'ready').length}개`}
+                  >
+                    <Paperclip size={13} />
+                    {
+                      (data.attachments || []).filter(
+                        (file) => file.task_id === task.id && file.state === 'ready',
+                      ).length
+                    }
+                  </span>
+                )}
               </div>
               <time className="task-time">{task.time || '시간 자유'}</time>
             </li>
@@ -400,7 +435,7 @@ export default function App() {
       <header className="topbar">
         <button className="mode-chip" onClick={() => setView('settings')}>
           <span className={`status-dot ${planner.session ? 'online' : ''}`} />
-          {planner.session ? (isOwner ? '나의 공유 공간' : '함께 쓰는 공간') : '로그인 전'}
+          {planner.session ? (isOwner ? '내 공간' : '승인받은 공간') : '로그인 전'}
         </button>
         {planner.session && (
           <button
@@ -454,31 +489,26 @@ export default function App() {
           <div className="onboarding-banner">
             <ShieldCheck size={21} />
             <div>
-              <strong>로그인했어요. 공부할 공간을 선택해 주세요.</strong>
-              <p>
-                초대받은 이메일이라면 승인된 공간이 여기에 나타납니다. 직접 시작하려면 나의 공간을
-                만들어 주세요.
-              </p>
+              <strong>내 공간을 아직 불러오지 못했어요.</strong>
+              <p>새로고침하면 내 공간을 자동으로 준비하고 승인받은 공간을 확인합니다.</p>
             </div>
             <button
               className="soft-button"
               disabled={busy}
-              onClick={() =>
-                void act(
-                  () => planner.createWorkspace('나의 공부 공간'),
-                  '나의 공부 공간을 만들었어요.',
-                )
-              }
+              onClick={() => void act(planner.refresh, '공간을 다시 확인했어요.')}
             >
-              나의 공간 만들기
+              다시 불러오기
             </button>
           </div>
+        )}
+        {planner.session && planner.workspace && view !== 'settings' && (
+          <WorkspacePanel planner={planner} compact />
         )}
         {view === 'home' && (
           <div className="home-layout">
             <div className="daily-column">
               <div className="page-heading">
-                <p className="eyebrow">{formatDate(date)}</p>
+                {dateNav}
                 <h1>
                   {date === today ? (
                     <>
@@ -491,7 +521,6 @@ export default function App() {
                 </h1>
                 <div className="heading-subrow">
                   <p>작은 공부가 모여, 나의 내일이 되니까.</p>
-                  {dateNav}
                 </div>
               </div>
               {taskCard}
@@ -503,7 +532,7 @@ export default function App() {
                     ? '공유 공간에 저장되어 있어요'
                     : '공유 기록'
                   : '로그인 전 조회 화면이에요'}
-                <span>SEOUL · KST</span>
+                <span>SEOUL (KST)</span>
               </p>
             </div>
             <aside className="moment">
@@ -674,22 +703,7 @@ export default function App() {
                   {planner.session ? '계정 보기' : '로그인 / 회원가입'}
                 </button>
               </div>
-              {planner.workspaces.length > 0 && (
-                <Field label="사용 중인 공유 공간">
-                  <select
-                    value={planner.workspace?.id || ''}
-                    disabled={busy || loading}
-                    onChange={(e) => void act(() => planner.selectWorkspace(e.target.value))}
-                  >
-                    {planner.workspaces.map((x) => (
-                      <option key={x.id} value={x.id}>
-                        {x.name}
-                        {x.owner_id === planner.session?.user.id ? ' · 관리자' : ' · 작성자'}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              )}
+              {planner.session && <WorkspacePanel planner={planner} />}
             </section>
             <section className="glass-card settings-card">
               <h2>
@@ -779,8 +793,9 @@ export default function App() {
                 나의 기록 보관
               </h2>
               <p className="setting-description">
-                현재 화면의 할 일을 JSON 파일로 보관할 수 있어요. 이전에 이 브라우저에 저장한 개인
-                기록도 로그인 전에 내려받을 수 있습니다.
+                현재 공간의 할 일과 수행 내용, 파일 목록을 JSON으로 보관합니다. 파일 원본은 포함되지
+                않으니 각 파일의 내려받기를 이용해 주세요. 이전 개인 기록은 로그인 전에 보관할 수
+                있어요.
               </p>
               <div className="backup-actions">
                 <button className="soft-button" onClick={exportData}>
@@ -805,23 +820,22 @@ export default function App() {
           title={modal.item ? '할 일 살펴보기' : '하나씩, 오늘 할 일'}
           subtitle="작은 계획 하나가 하루의 방향을 만들어 줘요."
           onClose={() => {
-            if (!busy) setModal(null);
+            if (!busy && !taskDetailBusy) setModal(null);
           }}
         >
-          <TaskForm
+          <TaskDetail
             key={modal.item?.id || 'new'}
             item={modal.item}
             date={date}
-            userId={planner.session?.user.id || 'local'}
-            editable={!modal.item ? canWrite : canEdit(modal.item)}
-            busy={busy}
+            planner={planner}
+            onBusyChange={setTaskDetailBusy}
+            editable={canManageTask(modal.item)}
             onLogin={
               !planner.session || planner.passwordRecovery
                 ? () => setModal({ kind: 'account' })
                 : undefined
             }
-            onSave={async (task) => {
-              await planner.saveTask(task, Boolean(modal.item));
+            onDone={() => {
               setModal(null);
               setToast('할 일을 저장했어요.');
             }}
@@ -949,127 +963,6 @@ export default function App() {
   );
 }
 
-function TaskForm({
-  item,
-  date,
-  userId,
-  editable,
-  busy,
-  onSave,
-  onDelete,
-  onLogin,
-}: {
-  item?: Task;
-  date: string;
-  userId: string;
-  editable: boolean;
-  busy: boolean;
-  onSave: (x: Task) => Promise<void>;
-  onDelete?: () => void;
-  onLogin?: () => void;
-}) {
-  const [error, setError] = useState('');
-  async function submit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const values = new FormData(e.currentTarget),
-      title = String(values.get('title')).trim();
-    if (!title) {
-      setError('할 일을 적어 주세요.');
-      return;
-    }
-    try {
-      await onSave({
-        id: item?.id || crypto.randomUUID(),
-        title,
-        subject: String(values.get('subject') || '').trim(),
-        date: String(values.get('date')),
-        time: String(values.get('time')),
-        details: String(values.get('details')).trim(),
-        created_by: item?.created_by || userId,
-      });
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }
-  return (
-    <form onSubmit={submit} className="editor-form">
-      <fieldset disabled={!editable || busy}>
-        <Field label="할 일">
-          <input
-            name="title"
-            required
-            maxLength={150}
-            defaultValue={item?.title}
-            placeholder="예: 구조 역학 3장 연습문제 풀기"
-            autoFocus
-          />
-        </Field>
-        <div className="form-grid">
-          <Field label="날짜">
-            <input name="date" type="date" required defaultValue={item?.date || date} />
-          </Field>
-          <Field label="예정 시간">
-            <input name="time" type="time" defaultValue={item?.time || ''} />
-          </Field>
-        </div>
-        <Field label="과목">
-          <input
-            name="subject"
-            type="text"
-            aria-label="과목"
-            aria-describedby="subject-hint"
-            maxLength={SUBJECT_MAX_LENGTH}
-            defaultValue={item?.subject || ''}
-            placeholder="예: 건축시공학, 구조역학"
-          />
-          <small id="subject-hint" className="field-hint">
-            원하는 과목명을 자유롭게 적어 주세요. 비워 두어도 괜찮아요.
-          </small>
-        </Field>
-        <Field label="메모">
-          <textarea
-            name="details"
-            rows={3}
-            maxLength={10000}
-            defaultValue={item?.details}
-            placeholder="공부할 범위, 참고할 책이나 링크를 적어 주세요."
-          />
-        </Field>
-      </fieldset>
-      {error && (
-        <p className="form-error" role="alert">
-          {error}
-        </p>
-      )}
-      {editable ? (
-        <div className="form-actions">
-          {onDelete && (
-            <button
-              className="icon-button delete-button"
-              type="button"
-              aria-label="이 할 일 삭제"
-              onClick={onDelete}
-              disabled={busy}
-            >
-              <Trash2 size={19} />
-            </button>
-          )}
-          <button className="primary-button" disabled={busy} type="submit">
-            <Check size={17} />
-            {busy ? '저장 중…' : '할 일 저장'}
-          </button>
-        </div>
-      ) : onLogin ? (
-        <button className="soft-button full-width" type="button" onClick={onLogin}>
-          <LockKeyhole size={17} />
-          로그인하고 편집하기
-        </button>
-      ) : (
-        <p className="card-footnote">이 할 일의 작성자와 관리자만 수정할 수 있어요.</p>
-      )}
-    </form>
-  );
-}
 function MemberForm({
   onSubmit,
   onSuccess,

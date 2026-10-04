@@ -93,7 +93,10 @@ test('login errors, signup and reset requests keep editing locked; logout locks 
   await expect(page.getByRole('checkbox').first()).toBeDisabled();
   expect(
     cloud.requests.filter(
-      (request) => request.path.startsWith('/rest/') && request.method !== 'GET',
+      (request) =>
+        request.path.startsWith('/rest/') &&
+        !request.path.includes('/rpc/ensure_personal_workspace') &&
+        request.method !== 'GET',
     ),
   ).toHaveLength(0);
 });
