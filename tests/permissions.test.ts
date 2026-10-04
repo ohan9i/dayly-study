@@ -51,11 +51,11 @@ test('an approved but unverified email cannot access records', async () => {
   await asUser(UNVERIFIED);
   expect((await db.query('select * from public.workspaces')).rows).toHaveLength(0);
 });
-test('approved editors can read and create their own tasks and study logs', async () => {
+test('approved editors can read and create their own tasks with custom subjects', async () => {
   await asUser(EDITOR);
   expect((await db.query('select * from public.tasks')).rows).toHaveLength(1);
   const result = await db.query<{ id: string }>(
-    `insert into public.tasks(workspace_id,created_by,title,subject,date) values($1,$2,'건축 계획','전공','2026-10-04') returning id`,
+    `insert into public.tasks(workspace_id,created_by,title,subject,date) values($1,$2,'건축 계획','철근콘크리트공학','2026-10-04') returning id`,
     [SPACE, EDITOR],
   );
   await db.query('update public.tasks set title=$1 where id=$2', ['계획 수정', result.rows[0].id]);
@@ -66,10 +66,20 @@ test('approved editors can read and create their own tasks and study logs', asyn
       ])
     ).rows[0].title,
   ).toBe('계획 수정');
-  await db.query(
-    `insert into public.study_logs(workspace_id,created_by,title,subject,date,minutes) values($1,$2,'공부 기록','전공','2026-10-04',30)`,
-    [SPACE, EDITOR],
-  );
+  await db.query('update public.tasks set subject=$1 where id=$2', ['', result.rows[0].id]);
+  expect(
+    (
+      await db.query<{ subject: string }>('select subject from public.tasks where id=$1', [
+        result.rows[0].id,
+      ])
+    ).rows[0].subject,
+  ).toBe('');
+  await expect(
+    db.query('update public.tasks set subject=$1 where id=$2', [
+      '가'.repeat(41),
+      result.rows[0].id,
+    ]),
+  ).rejects.toThrow(/check constraint/);
 });
 test('editors cannot alter another author, complete tasks, or approve new people', async () => {
   await asUser(EDITOR);
@@ -112,7 +122,6 @@ test('revoking an editor immediately removes database access', async () => {
   );
   await asUser(EDITOR);
   expect((await db.query('select * from public.tasks')).rows).toHaveLength(0);
-  expect((await db.query('select * from public.study_logs')).rows).toHaveLength(0);
 });
 test('a signed-in user can create and read their own workspace without impersonating an owner', async () => {
   await asUser(STRANGER);
@@ -125,3 +134,26 @@ test('a signed-in user can create and read their own workspace without impersona
     db.query('insert into public.workspaces(owner_id,name) values($1,$2)', [OWNER, '가짜 소유자']),
   ).rejects.toThrow(/row-level security/);
 });
+
+test('the upgrade accepts custom subjects and preserves existing tasks and completion checks', async () => {
+  const legacy = new PGlite();
+  try {
+    await legacy.exec(`create table public.tasks(id text primary key, subject text not null default '기타' check(subject in ('전공','수학','생활','기록','기타')));
+      create table public.task_completions(task_id text references public.tasks(id));
+      insert into public.tasks values('old-task','전공');
+      insert into public.task_completions values('old-task');`);
+    await legacy.exec(
+      readFileSync(
+        new URL('../supabase/migrations/20261005_custom_subjects.sql', import.meta.url),
+        'utf8',
+      ),
+    );
+    await legacy.query('insert into public.tasks values($1,$2)', ['new-task', '건축시공학']);
+    expect((await legacy.query('select * from public.tasks')).rows).toHaveLength(2);
+    expect((await legacy.query('select * from public.task_completions')).rows).toEqual([
+      { task_id: 'old-task' },
+    ]);
+  } finally {
+    await legacy.close();
+  }
+}, 30000);

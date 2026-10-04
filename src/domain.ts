@@ -1,6 +1,6 @@
 export const LOCAL_KEY = 'dayly.planner.v1';
-export const SUBJECTS = ['전공', '수학', '생활', '기록', '기타'] as const;
-export type Subject = (typeof SUBJECTS)[number];
+export const SUBJECT_MAX_LENGTH = 40;
+export type Subject = string;
 export type Task = {
   id: string;
   title: string;
@@ -11,7 +11,8 @@ export type Task = {
   created_by: string;
   workspace_id?: string;
 };
-export type StudyLog = {
+// Preserve old journals in local backups without exposing the removed feature.
+type LegacyStudyLog = {
   id: string;
   title: string;
   subject: Subject;
@@ -24,7 +25,7 @@ export type StudyLog = {
 export type Snapshot = {
   version: 1;
   tasks: Task[];
-  logs: StudyLog[];
+  logs: LegacyStudyLog[];
   completedTaskIds: string[];
   hasSamples: boolean;
 };
@@ -82,7 +83,7 @@ export function sampleSnapshot(date = todayKey()): Snapshot {
     ['구조 역학 정리하기', '전공', '11:00'],
     ['점심 먹고 잠깐 산책하기', '생활', '12:30'],
     ['건축계획 문제 풀기', '전공', '14:00'],
-    ['오늘 공부한 내용 기록하기', '기록', '22:00'],
+    ['건축시공학 노트 복습하기', '건축시공학', '20:30'],
   ];
   const tasks = rows.map(([title, subject, time], i) => ({
     id: `sample-${i}`,
@@ -116,14 +117,15 @@ export function parseSnapshot(value: unknown): Snapshot {
     v.tasks.length + v.logs.length > 10000
   )
     return fail();
-  const base = (x: Task | StudyLog) =>
+  const base = (x: Task | LegacyStudyLog) =>
     x &&
     typeof x.id === 'string' &&
     x.id.length > 0 &&
     typeof x.title === 'string' &&
     x.title.trim().length > 0 &&
     x.title.length <= 150 &&
-    SUBJECTS.includes(x.subject) &&
+    typeof x.subject === 'string' &&
+    x.subject.length <= SUBJECT_MAX_LENGTH &&
     validDate(x.date) &&
     typeof x.created_by === 'string';
   if (
@@ -189,7 +191,22 @@ export function weeklyStats(data: Snapshot, end: string) {
       date,
       total: tasks.length,
       completed: tasks.filter((x) => completed.has(x.id)).length,
-      minutes: data.logs.filter((x) => x.date === date).reduce((sum, x) => sum + x.minutes, 0),
     };
   });
+}
+export function subjectStats(data: Snapshot, end: string) {
+  const start = addDays(end, -6),
+    completed = new Set(data.completedTaskIds);
+  const grouped = new Map<string, { subject: string; total: number; completed: number }>();
+  for (const task of data.tasks) {
+    if (task.date < start || task.date > end) continue;
+    const subject = task.subject.trim();
+    const group = grouped.get(subject) || { subject, total: 0, completed: 0 };
+    group.total++;
+    if (completed.has(task.id)) group.completed++;
+    grouped.set(subject, group);
+  }
+  return [...grouped.values()].sort(
+    (a, b) => b.total - a.total || a.subject.localeCompare(b.subject, 'ko'),
+  );
 }

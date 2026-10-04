@@ -3,10 +3,8 @@ import { createClient, type Session } from '@supabase/supabase-js';
 import {
   emptySnapshot,
   readLocal,
-  writeLocal,
   type Snapshot,
   type Task,
-  type StudyLog,
   type Workspace,
   type Member,
 } from './domain';
@@ -54,7 +52,7 @@ async function readAllRows<T>(table: string, space: string, columns = '*'): Prom
 
 export function usePlanner() {
   const [session, setSession] = useState<Session | null>(null);
-  const [localData, setLocalData] = useState<Snapshot>(localInitial.data);
+  const localData = localInitial.data;
   const [remoteData, setRemoteData] = useState<Snapshot>(emptySnapshot);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
@@ -63,13 +61,28 @@ export function usePlanner() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(configurationError || localInitial.warning);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [passwordRecovery, setPasswordRecovery] = useState(() => {
+    try {
+      return sessionStorage.getItem('dayly.passwordRecovery') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const completePasswordRecovery = () => {
+    try {
+      sessionStorage.removeItem('dayly.passwordRecovery');
+    } catch {
+      /* The in-memory state still clears. */
+    }
+    setPasswordRecovery(false);
+  };
   const activeWorkspace = useRef<Workspace | null>(null);
   const activeSession = useRef<Session | null>(null);
   const generation = useRef(0);
   const lock = useRef(false);
   const data = session ? remoteData : localData;
   const isOwner = !session || workspace?.owner_id === session.user.id;
-  const canWrite = !loading && (!session || Boolean(workspace));
+  const canWrite = !loading && Boolean(session && workspace) && !passwordRecovery;
 
   const refresh = useCallback(async (user: Session, preferredId?: string) => {
     if (!supabase) return;
@@ -87,9 +100,8 @@ export function usePlanner() {
       let next = emptySnapshot(),
         nextMembers: Member[] = [];
       if (selected) {
-        const [tasks, logs, checks, granted] = await Promise.all([
+        const [tasks, checks, granted] = await Promise.all([
           readAllRows<Task>('tasks', selected.id),
-          readAllRows<StudyLog>('study_logs', selected.id),
           readAllRows<{ task_id: string }>('task_completions', selected.id, 'task_id'),
           selected.owner_id === user.user.id
             ? readAllRows<Member>('workspace_members', selected.id)
@@ -98,7 +110,7 @@ export function usePlanner() {
         next = {
           version: 1,
           tasks,
-          logs,
+          logs: [],
           completedTaskIds: checks.map((x) => x.task_id),
           hasSamples: false,
         };
@@ -137,6 +149,7 @@ export function usePlanner() {
       if (next) {
         void refresh(next).catch(() => {});
       } else {
+        completePasswordRecovery();
         generation.current++;
         setWorkspace(null);
         activeWorkspace.current = null;
@@ -154,6 +167,14 @@ export function usePlanner() {
       } else update(data.session);
     });
     const { data: listener } = supabase.auth.onAuthStateChange((event, next) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        try {
+          sessionStorage.setItem('dayly.passwordRecovery', '1');
+        } catch {
+          /* The current page remains in recovery mode. */
+        }
+        setPasswordRecovery(true);
+      }
       // Database requests run outside the auth callback to avoid auth-client lock contention.
       if (
         event !== 'INITIAL_SESSION' &&
@@ -190,18 +211,11 @@ export function usePlanner() {
     lock.current = true;
     setBusy(true);
     try {
-      if (session && workspace) {
-        await remote(workspace, session);
-        setRemoteData((state) => local(state));
-        // A failed reload must not tell the user that an already committed write failed.
-        await refresh(session, workspace.id).catch(() => {});
-      } else {
-        const next = local(localData);
-        writeLocal(next);
-        setLocalData(next);
-        setLastSaved(new Date());
-        setError('');
-      }
+      if (!session || !workspace) throw new Error('로그인하고 사용할 공간을 선택해 주세요.');
+      await remote(workspace, session);
+      setRemoteData((state) => local(state));
+      // A failed reload must not tell the user that an already committed write failed.
+      await refresh(session, workspace.id).catch(() => {});
     } catch (e) {
       setError((e as Error).message);
       throw e;
@@ -240,34 +254,6 @@ export function usePlanner() {
         throwIf(result.error);
       },
     );
-  const saveLog = (log: StudyLog, editing: boolean) =>
-    mutate(
-      (state) => ({
-        ...state,
-        logs: editing ? state.logs.map((x) => (x.id === log.id ? log : x)) : [...state.logs, log],
-      }),
-      async (space, user) => {
-        const fields = {
-          title: log.title,
-          subject: log.subject,
-          date: log.date,
-          content: log.content,
-          minutes: log.minutes,
-        };
-        const result = editing
-          ? await supabase!
-              .from('study_logs')
-              .update(fields)
-              .eq('id', log.id)
-              .eq('workspace_id', space.id)
-              .select('id')
-              .single()
-          : await supabase!
-              .from('study_logs')
-              .insert({ ...fields, id: log.id, workspace_id: space.id, created_by: user.user.id });
-        throwIf(result.error);
-      },
-    );
   const toggleTask = (id: string) =>
     mutate(
       (state) => ({
@@ -291,19 +277,16 @@ export function usePlanner() {
         throwIf(result.error);
       },
     );
-  const deleteItem = (id: string, kind: 'task' | 'log') =>
+  const deleteTask = (id: string) =>
     mutate(
-      (state) =>
-        kind === 'task'
-          ? {
-              ...state,
-              tasks: state.tasks.filter((x) => x.id !== id),
-              completedTaskIds: state.completedTaskIds.filter((x) => x !== id),
-            }
-          : { ...state, logs: state.logs.filter((x) => x.id !== id) },
+      (state) => ({
+        ...state,
+        tasks: state.tasks.filter((x) => x.id !== id),
+        completedTaskIds: state.completedTaskIds.filter((x) => x !== id),
+      }),
       async (space) => {
         const result = await supabase!
-          .from(kind === 'task' ? 'tasks' : 'study_logs')
+          .from('tasks')
           .delete()
           .eq('id', id)
           .eq('workspace_id', space.id)
@@ -312,15 +295,8 @@ export function usePlanner() {
         throwIf(result.error);
       },
     );
-  const replaceLocal = async (next: Snapshot) => {
-    if (session) throw new Error('백업 불러오기는 개인 모드에서 사용할 수 있습니다.');
-    writeLocal(next);
-    setLocalData(next);
-    setLastSaved(new Date());
-    setError('');
-  };
   async function createWorkspace(name: string) {
-    if (!supabase || !session || lock.current) return;
+    if (!supabase || !session || lock.current || passwordRecovery) return;
     setBusy(true);
     lock.current = true;
     try {
@@ -340,7 +316,8 @@ export function usePlanner() {
     }
   }
   async function grantMember(email: string) {
-    if (!workspace || !supabase || !session) return;
+    if (!workspace || !supabase || !session || !canWrite || !isOwner)
+      throw new Error('관리자로 로그인해 주세요.');
     if (email.trim().toLowerCase() === session.user.email?.toLowerCase())
       throw new Error('본인은 이미 이 공간의 관리자입니다.');
     const result = await supabase
@@ -351,7 +328,8 @@ export function usePlanner() {
     await refresh(session);
   }
   async function revokeMember(id: string) {
-    if (!supabase || !session || !workspace) return;
+    if (!supabase || !session || !workspace || !canWrite || !isOwner)
+      throw new Error('관리자로 로그인해 주세요.');
     const result = await supabase
       .from('workspace_members')
       .delete()
@@ -376,10 +354,10 @@ export function usePlanner() {
     canWrite,
     lastSaved,
     saveTask,
-    saveLog,
     toggleTask,
-    deleteItem,
-    replaceLocal,
+    deleteTask,
+    passwordRecovery,
+    completePasswordRecovery,
     createWorkspace,
     grantMember,
     revokeMember,
