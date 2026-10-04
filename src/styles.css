@@ -1,5 +1,13 @@
 :root {
-  font-family: 'Noto Sans KR Variable', 'Malgun Gothic', sans-serif;
+  font-family:
+    'Pretendard Variable',
+    Pretendard,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Apple SD Gothic Neo',
+    'Segoe UI',
+    'Malgun Gothic',
+    sans-serif;
   color: #20344e;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -295,10 +303,10 @@ button svg {
   margin-bottom: 9px;
 }
 h1 {
-  font-size: clamp(27px, 2.7vw, 38px);
-  font-weight: 450;
-  letter-spacing: -1.4px;
-  line-height: 1.55;
+  font-size: clamp(27px, 2.7vw, 36px);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.5;
   color: #1f384f;
 }
 .name-line {
@@ -402,7 +410,7 @@ h1 {
 h2 {
   font-size: 18px;
   letter-spacing: -0.45px;
-  font-weight: 620;
+  font-weight: 600;
   color: #20344c;
   line-height: 1.55;
 }
@@ -634,7 +642,7 @@ h2 {
   margin: 29px auto 26px;
 }
 .moment blockquote {
-  font-weight: 350;
+  font-weight: 300;
   line-height: 1.9;
   font-size: 20px;
   letter-spacing: -0.4px;
@@ -1218,7 +1226,7 @@ h2 {
 }
 .modal h2 {
   font-size: 22px;
-  font-weight: 550;
+  font-weight: 600;
   padding-right: 25px;
   letter-spacing: -0.6px;
 }
@@ -1623,7 +1631,7 @@ h2 {
   }
   h1 {
     font-size: 26px;
-    letter-spacing: -1px;
+    letter-spacing: -0.025em;
     line-height: 1.5;
   }
   .name-line {

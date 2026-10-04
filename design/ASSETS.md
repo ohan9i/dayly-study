@@ -14,6 +14,23 @@
 - 참고 이미지에서 아이콘을 잘라 쓰지 않고 Lucide SVG와 CSS로 구현했습니다. 각 아이콘은 버튼의 가운데에 정렬하고, 주요 버튼은 최소 44px 크기로 눌리는 영역을 확보했습니다.
 - 청량한 배경 이미지, 반투명 카드와 전체 화면 구도는 기존 디자인을 유지합니다.
 
+## 글꼴과 타이포그래피
+
+본문과 UI에는 [Pretendard 공식 프로젝트](https://github.com/orioncactus/pretendard)의 `pretendard@1.3.9` 가변 다이나믹 서브셋을 사용합니다. `src/main.tsx`에서 패키지의 CSS를 가져오며, 빌드한 WOFF2 파일은 홈페이지와 함께 배포됩니다. 브라우저는 화면에 필요한 글자의 서브셋만 내려받습니다.
+
+| 영역                | 글꼴                | 굵기와 간격                     |
+| ------------------- | ------------------- | ------------------------------- |
+| 본문, 할 일, 입력란 | Pretendard Variable | 기본 400                        |
+| 큰 제목             | Pretendard Variable | 500, 자간 -0.025em, 줄 높이 1.5 |
+| 카드 제목           | Pretendard Variable | 600                             |
+| 큰 시계             | Pretendard Variable | 250, 숫자 폭 고정               |
+| 오늘의 문구         | Pretendard Variable | 300                             |
+| Dayly 로고          | Caveat              | 500                             |
+
+홈의 큰 제목은 PC에서 최대 36px, 휴대폰에서는 26px를 사용합니다. 370px 이하 화면은 23px입니다. 날짜는 PC 20px, 휴대폰 17px를 유지합니다.
+
+Pretendard의 SIL Open Font License 원문은 `public/fonts/Pretendard-LICENSE.txt`에 함께 보관하고 배포합니다. Caveat의 라이선스는 `@fontsource/caveat` 패키지를 따릅니다.
+
 ## 최종 프롬프트
 
 ```text

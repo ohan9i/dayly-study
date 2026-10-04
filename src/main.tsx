@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import '@fontsource-variable/noto-sans-kr';
+import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import '@fontsource/caveat/500.css';
 import App from './App';
 import './styles.css';
