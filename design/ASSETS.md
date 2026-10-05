@@ -21,13 +21,15 @@
 | 영역                | 글꼴                | 굵기와 간격                     |
 | ------------------- | ------------------- | ------------------------------- |
 | 본문, 할 일, 입력란 | Pretendard Variable | 기본 400                        |
-| 큰 제목             | Pretendard Variable | 500, 자간 -0.025em, 줄 높이 1.5 |
+| 큰 제목             | Pretendard Variable | 500, 자간 -0.035em, 줄 높이 1.4 |
 | 카드 제목           | Pretendard Variable | 600                             |
-| 큰 시계             | Pretendard Variable | 250, 숫자 폭 고정               |
-| 오늘의 문구         | Pretendard Variable | 300                             |
+| 큰 시계             | Pretendard Variable | 260, 숫자 폭 고정               |
+| 오늘의 문구         | Pretendard Variable | 350                             |
 | Dayly 로고          | Caveat              | 500                             |
 
-홈의 큰 제목은 PC에서 최대 36px, 휴대폰에서는 26px를 사용합니다. 370px 이하 화면은 23px입니다. 날짜는 PC 20px, 휴대폰 17px를 유지합니다.
+홈의 큰 제목은 PC에서 28~34px, 휴대폰에서는 26px를 사용합니다. 380px 이하 화면은 24px입니다. 홈 날짜는 PC와 휴대폰 모두 17px입니다. 보조 정보는 12px 이상으로 맞췄고, 휴대폰 입력란은 16px로 표시합니다. 시계는 PC 56~64px, 큰 화면에서는 70px로 표시하며 1000px 이하에서는 할 일에 집중하도록 숨깁니다.
+
+2026-10-05 시각 개선의 토큰, 화면 크기별 규칙과 검증 결과는 [디자인 시스템](../docs/DESIGN_SYSTEM.md)에 기록했습니다. 새 이미지, 폰트, 아이콘 라이브러리는 추가하지 않았습니다.
 
 Pretendard의 SIL Open Font License 원문은 `public/fonts/Pretendard-LICENSE.txt`에 함께 보관하고 배포합니다. Caveat의 라이선스는 `@fontsource/caveat` 패키지를 따릅니다.
 

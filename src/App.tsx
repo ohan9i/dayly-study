@@ -238,13 +238,6 @@ export default function App() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     setToast('할 일을 백업 파일로 내려받았어요.');
   }
-  const sampleNotice = !planner.session && data.hasSamples && (
-    <div className="sample-notice">
-      <Leaf size={16} />
-      <span>로그인 전 예시 일정이에요. 나의 공간에서 오늘의 계획을 시작해 보세요.</span>
-      <button onClick={() => setModal({ kind: 'account' })}>로그인하고 시작</button>
-    </div>
-  );
   const dateNav = (
     <div className="date-nav">
       <label className="date-input-label" title="날짜 선택">
@@ -295,21 +288,23 @@ export default function App() {
           </span>
           {date === today ? '오늘 할 일' : '이날 할 일'}
         </h2>
-        <div className="task-progress">
-          <span>
-            <b>{count}</b> / {tasks.length} 완료
-          </span>
-          <div
-            className="progress-track"
-            role="progressbar"
-            aria-label="할 일 완료율"
-            aria-valuenow={count}
-            aria-valuemin={0}
-            aria-valuemax={Math.max(tasks.length, 1)}
-          >
-            <i style={{ width: `${tasks.length ? (count / tasks.length) * 100 : 0}%` }} />
+        {tasks.length > 0 && (
+          <div className="task-progress">
+            <span className="progress-copy" aria-live="polite" aria-atomic="true">
+              <b key={count}>{count}</b> / {tasks.length} 완료
+            </span>
+            <div
+              className="progress-track"
+              role="progressbar"
+              aria-label="할 일 완료율"
+              aria-valuenow={count}
+              aria-valuemin={0}
+              aria-valuemax={Math.max(tasks.length, 1)}
+            >
+              <i style={{ width: `${tasks.length ? (count / tasks.length) * 100 : 0}%` }} />
+            </div>
           </div>
-        </div>
+        )}
         <button
           className="add-button"
           aria-label="할 일 추가"
@@ -382,7 +377,11 @@ export default function App() {
       {!planner.session && (
         <div className="editing-notice">
           <LockKeyhole size={14} />
-          <span>로그인 후 할 일을 편집할 수 있어요.</span>
+          <span>
+            {data.hasSamples
+              ? '예시 일정이에요. 로그인하고 나의 하루를 시작해 보세요.'
+              : '로그인 후 할 일을 편집할 수 있어요.'}
+          </span>
           <button className="text-button" onClick={() => setModal({ kind: 'account' })}>
             로그인
           </button>
@@ -401,7 +400,7 @@ export default function App() {
         <button className="brand" aria-label="Dayly 홈" onClick={() => setView('home')}>
           Dayly<span className="brand-dot">.</span>
         </button>
-        <nav aria-label="주 메뉴">
+        <nav aria-label="주 메뉴" data-active={view}>
           {navigation.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -414,11 +413,7 @@ export default function App() {
                 if (id === 'calendar') setMonth(date.slice(0, 7) + '-01');
               }}
             >
-              <Icon
-                size={27}
-                strokeWidth={id === 'stats' ? 3 : 1.8}
-                fill={id === 'home' && view === 'home' ? 'currentColor' : 'none'}
-              />
+              <Icon size={25} strokeWidth={1.7} />
               <span>{label}</span>
             </button>
           ))}
@@ -524,16 +519,13 @@ export default function App() {
                 </div>
               </div>
               {taskCard}
-              {sampleNotice}
-              <p className="save-note">
-                <CircleCheck size={13} />
-                {planner.session
-                  ? planner.lastSaved
-                    ? '공유 공간에 저장되어 있어요'
-                    : '공유 기록'
-                  : '로그인 전 조회 화면이에요'}
-                <span>SEOUL (KST)</span>
-              </p>
+              {planner.session && (
+                <p className="save-note">
+                  <CircleCheck size={13} />
+                  {planner.lastSaved ? '공유 공간에 저장되어 있어요' : '공유 기록'}
+                  <span>SEOUL (KST)</span>
+                </p>
+              )}
             </div>
             <aside className="moment">
               <div className="live-clock" aria-label={`현재 시각 ${clock}`}>
@@ -542,10 +534,9 @@ export default function App() {
               <p>{formatDate(today, true)}</p>
               <div className="quote-divider" />
               <blockquote>
-                <span className="quote-mark">“</span>꾸준한 오늘이
-                <br />더 멀리 데려다 줄 거야.<span className="quote-mark last">”</span>
+                꾸준한 오늘이
+                <br />더 멀리 데려다 줄 거야.
               </blockquote>
-              <span className="moment-label">A LITTLE EVERY DAY</span>
             </aside>
           </div>
         )}
@@ -597,7 +588,7 @@ export default function App() {
                   return (
                     <button
                       key={value}
-                      className={`calendar-day ${value.slice(0, 7) !== month.slice(0, 7) ? 'outside-month' : ''} ${value === today ? 'is-today' : ''} ${value === date ? 'selected-day' : ''}`}
+                      className={`calendar-day ${value.slice(0, 7) !== month.slice(0, 7) ? 'outside-month' : ''} ${value === today ? 'is-today' : ''} ${value === date ? 'selected-day' : ''} ${dailyTasks.length ? 'has-tasks' : ''}`}
                       aria-label={`${formatDate(value)} 할 일 ${dailyTasks.length}개, ${done}개 완료`}
                       onClick={() => goDate(value)}
                     >
@@ -610,7 +601,8 @@ export default function App() {
                             <span className="tiny-dot" />
                           )}
                           <span>
-                            {done}/{dailyTasks.length} 완료
+                            {done}/{dailyTasks.length}
+                            <span className="calendar-count-label"> 완료</span>
                           </span>
                         </span>
                       )}
@@ -781,7 +773,6 @@ export default function App() {
                 )
               ) : (
                 <div className="setting-placeholder">
-                  <Users size={24} />
                   <p>공유 계정을 연결하면 이메일로 작성자를 승인할 수 있어요.</p>
                   <span>로그인하고 나의 공간을 만들면 시작할 수 있어요.</span>
                 </div>
@@ -1023,30 +1014,30 @@ function Stats({ data, date }: { data: Snapshot; date: string }) {
   const subjects = subjectStats(data, date);
   return (
     <>
-      <div className="stats-summary">
-        <div className="glass-card stat-tile">
+      <div className="glass-card stats-summary">
+        <div className="stat-tile">
           <span>
             <CheckCheck size={18} />
             완료한 할 일
           </span>
           <strong>
             {done}
-            <small> / {total}개</small>
+            {total > 0 && <small> / {total}개</small>}
           </strong>
-          <p>한 걸음씩 해냈어요.</p>
+          <p>{total ? '한 걸음씩 해냈어요.' : '첫 할 일을 적어 보세요.'}</p>
         </div>
-        <div className="glass-card stat-tile">
+        <div className="stat-tile">
           <span>
             <CircleCheck size={18} />
             계획 달성률
           </span>
           <strong>
-            {rate}
-            <small>%</small>
+            {total ? rate : '—'}
+            {total > 0 && <small>%</small>}
           </strong>
           <p>{total ? '작은 계획을 실천하는 힘.' : '첫 계획부터 시작해 보세요.'}</p>
         </div>
-        <div className="glass-card stat-tile">
+        <div className="stat-tile">
           <span>
             <Leaf size={18} />할 일을 해낸 날
           </span>
@@ -1060,42 +1051,56 @@ function Stats({ data, date }: { data: Snapshot; date: string }) {
       <section className="glass-card chart-card">
         <div className="card-header">
           <h2>지난 7일의 할 일</h2>
-          <div className="chart-legend">
-            <i />
-            완료 <i className="pale" />
-            계획
-          </div>
-        </div>
-        <div
-          className="bar-chart"
-          role="img"
-          aria-label={week
-            .map((day) => `${day.date}: ${day.total}개 중 ${day.completed}개 완료`)
-            .join(', ')}
-        >
-          {week.map((day) => (
-            <div className="chart-column" key={day.date}>
-              <span className="bar-value">
-                {day.completed}
-                <small>/{day.total}</small>
-              </span>
-              <div className="bar-track">
-                <div className="bar-planned" style={{ height: `${(day.total / max) * 100}%` }}>
-                  <div
-                    className="bar-completed"
-                    style={{ height: `${day.total ? (day.completed / day.total) * 100 : 0}%` }}
-                  />
-                </div>
-              </div>
-              <span className={day.date === date ? 'chart-day current' : 'chart-day'}>
-                {shortDay(day.date)}
-              </span>
-              <small className="chart-date">
-                {Number(day.date.slice(5, 7))}.{Number(day.date.slice(8))}
-              </small>
+          {total > 0 && (
+            <div className="chart-legend">
+              <i />
+              완료 <i className="pale" />
+              계획
             </div>
-          ))}
+          )}
         </div>
+        {total > 0 ? (
+          <div
+            className="bar-chart"
+            role="img"
+            aria-label={week
+              .map((day) => `${day.date}: ${day.total}개 중 ${day.completed}개 완료`)
+              .join(', ')}
+          >
+            {week.map((day) => (
+              <div className={`chart-column ${day.total ? '' : 'is-empty'}`} key={day.date}>
+                <span className="bar-value">
+                  {day.total > 0 && (
+                    <>
+                      {day.completed}
+                      <small>/{day.total}</small>
+                    </>
+                  )}
+                </span>
+                <div className="bar-track">
+                  <div className="bar-planned" style={{ height: `${(day.total / max) * 100}%` }}>
+                    <div
+                      className="bar-completed"
+                      style={{ height: `${day.total ? (day.completed / day.total) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+                <span className={day.date === date ? 'chart-day current' : 'chart-day'}>
+                  {shortDay(day.date)}
+                </span>
+                <small className="chart-date">
+                  {Number(day.date.slice(5, 7))}.{Number(day.date.slice(8))}
+                </small>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <Empty
+            icon="check"
+            title="아직은, 여백이 있는 한 주"
+            text="할 일을 적고 하나씩 완료하면 이곳에 나의 흐름이 쌓여요."
+          />
+        )}
       </section>
       <section className="glass-card subjects-card">
         <h2>과목별 할 일</h2>
