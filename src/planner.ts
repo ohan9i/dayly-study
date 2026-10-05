@@ -171,7 +171,8 @@ export function usePlanner() {
     let alive = true;
     const update = (next: Session | null) => {
       if (!alive) return;
-      if (next?.user.id !== activeSession.current?.user.id) {
+      const accountChanged = next?.user.id !== activeSession.current?.user.id;
+      if (accountChanged) {
         provisionedUser.current = null;
         setRemoteData(emptySnapshot());
         setWorkspace(null);
@@ -181,7 +182,9 @@ export function usePlanner() {
       activeSession.current = next;
       setSession(next);
       if (next) {
-        void refresh(next).catch(() => {});
+        // Supabase can emit SIGNED_IN again when a tab becomes visible.
+        // Renew the session without disabling editors or reloading their data.
+        if (accountChanged) void refresh(next).catch(() => {});
       } else {
         completePasswordRecovery();
         generation.current++;
@@ -226,22 +229,6 @@ export function usePlanner() {
       generation.current++;
     };
   }, [refresh]);
-
-  useEffect(() => {
-    if (!session) return;
-    const onFocus = () => {
-      if (!lock.current && !document.hidden && activeSession.current)
-        void refresh(activeSession.current).catch(() => {});
-    };
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onFocus);
-    const interval = window.setInterval(onFocus, 30000);
-    return () => {
-      window.removeEventListener('focus', onFocus);
-      document.removeEventListener('visibilitychange', onFocus);
-      clearInterval(interval);
-    };
-  }, [session, refresh]);
 
   async function mutate(
     local: (state: Snapshot) => Snapshot,
