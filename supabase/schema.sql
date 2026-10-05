@@ -28,6 +28,11 @@ create table public.tasks (
   date date not null,
   time text not null default '' check (time = '' or time ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'),
   details text not null default '' check (char_length(details) <= 10000),
+  detail_items text[] check (detail_items is null or (
+    (cardinality(detail_items) = 0 or array_ndims(detail_items) = 1)
+    and array_position(detail_items, null) is null
+    and char_length(array_to_json(detail_items)::text) <= 10000
+  )),
   created_at timestamptz not null default now(),
   unique (id, workspace_id)
 );
@@ -68,7 +73,7 @@ grant select, insert on public.workspaces to authenticated;
 grant update(name) on public.workspaces to authenticated;
 grant select, insert, delete on public.workspace_members to authenticated;
 grant select, insert, delete on public.tasks to authenticated;
-grant update(title, subject, date, time, details) on public.tasks to authenticated;
+grant update(title, subject, date, time, details, detail_items) on public.tasks to authenticated;
 grant select, insert, delete on public.task_completions to authenticated;
 
 create policy spaces_read on public.workspaces for select to authenticated using (owner_id = auth.uid() or private.is_workspace_member(id));

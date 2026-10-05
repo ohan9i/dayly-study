@@ -50,7 +50,7 @@ for (const width of [1536, 390]) {
     const initialReads = reads();
     await keepTypingAfterReturning(
       page,
-      page.getByRole('textbox', { name: '메모', exact: true }),
+      page.getByRole('textbox', { name: '세부 항목 1', exact: true }),
       '구조역학 문제를 풀면서 작성 중인 메모',
     );
     expect(reads()).toBe(initialReads);
@@ -58,7 +58,7 @@ for (const width of [1536, 390]) {
     await page.getByRole('button', { name: '할 일 저장', exact: true }).click();
     await expect(page.getByRole('dialog')).not.toBeVisible();
     await page.getByRole('button', { name: '자동 갱신 없이 공부 계획 작성 상세 보기' }).click();
-    await expect(page.getByRole('textbox', { name: '메모', exact: true })).toHaveValue(
+    await expect(page.getByRole('textbox', { name: '세부 항목 1', exact: true })).toHaveValue(
       '구조역학 문제를 풀면서 작성 중인 메모 계속 작성',
     );
 

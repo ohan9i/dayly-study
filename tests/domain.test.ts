@@ -5,8 +5,9 @@ import {
   parseSnapshot,
   sampleSnapshot,
   shiftMonth,
-  SUBJECT_MAX_LENGTH,
-  subjectStats,
+  cleanDetails,
+  encodeTaskDetails,
+  normalizeTask,
   validDate,
   weeklyStats,
 } from '../src/domain';
@@ -18,7 +19,7 @@ describe('dates and backups', () => {
     expect(shiftMonth('2026-01-31', 1)).toBe('2026-02-01');
     expect(validDate('2026-02-29')).toBe(false);
   });
-  test('custom and blank subjects round-trip while invalid backups are rejected', () => {
+  test('detail arrays round-trip and retired fields do not invalidate backups', () => {
     const snapshot = sampleSnapshot('2026-10-04');
     snapshot.tasks[0].subject = '철근콘크리트공학';
     snapshot.tasks[1].subject = '';
@@ -27,15 +28,56 @@ describe('dates and backups', () => {
     expect(() =>
       parseSnapshot({ ...snapshot, tasks: [...snapshot.tasks, snapshot.tasks[0]] }),
     ).toThrow();
-    expect(() =>
-      parseSnapshot({ ...snapshot, tasks: [{ ...snapshot.tasks[0], time: '25:99' }] }),
-    ).toThrow();
+    expect(
+      parseSnapshot({
+        ...snapshot,
+        tasks: [{ ...snapshot.tasks[0], time: '25:99', subject: '가'.repeat(80) }],
+        completedTaskIds: [],
+      }).tasks,
+    ).toHaveLength(1);
     expect(() =>
       parseSnapshot({
         ...snapshot,
-        tasks: [{ ...snapshot.tasks[0], subject: '가'.repeat(SUBJECT_MAX_LENGTH + 1) }],
+        tasks: [{ ...snapshot.tasks[0], details: [123] }],
+        completedTaskIds: [],
       }),
     ).toThrow();
+    const { subject: _subject, time: _time, ...task } = snapshot.tasks[0];
+    expect(parseSnapshot({ ...snapshot, tasks: [task], completedTaskIds: [] }).tasks[0]).toEqual(
+      task,
+    );
+  });
+  test('v1 string notes and memo fields migrate without changing task IDs or completion', () => {
+    const task = sampleSnapshot('2026-10-04').tasks[0];
+    const legacy = {
+      ...emptySnapshot(),
+      version: 1,
+      tasks: [{ ...task, details: '문제집 30페이지까지\n\n 오답 정리 ' }],
+      completedTaskIds: [task.id],
+    };
+    const migrated = parseSnapshot(legacy);
+    expect(migrated.version).toBe(2);
+    expect(migrated.tasks[0].details).toEqual(['문제집 30페이지까지', '오답 정리']);
+    expect(migrated.completedTaskIds).toEqual([task.id]);
+    expect(normalizeTask({ ...task, details: undefined, memo: '기존 메모' }).details).toEqual([
+      '기존 메모',
+    ]);
+  });
+  test('native arrays and structured text preserve order, duplicates and intentional empty lists', () => {
+    const task = sampleSnapshot().tasks[0];
+    const items = [' 순열 문제 10개 ', '', '   ', '조건부확률 복습', '순열 문제 10개'];
+    const cleaned = ['순열 문제 10개', '조건부확률 복습', '순열 문제 10개'];
+    expect(cleanDetails(items)).toEqual(cleaned);
+    expect(normalizeTask({ ...task, details: encodeTaskDetails(items) }).details).toEqual(cleaned);
+    expect(normalizeTask({ ...task, details: '예전 메모', detail_items: [] }).details).toEqual([]);
+    expect(
+      normalizeTask({ ...task, details: encodeTaskDetails([]), memo: '예전 메모' }).details,
+    ).toEqual([]);
+    expect(normalizeTask({ ...task, details: '메모', detail_items: null }).details).toEqual([
+      '메모',
+    ]);
+    // A memo that merely resembles JSON must not silently lose its original text.
+    expect(normalizeTask({ ...task, details: '["참고 문구"]' }).details).toEqual(['["참고 문구"]']);
   });
   test('old study logs remain in backups without appearing in task statistics', () => {
     const snapshot = emptySnapshot();
@@ -63,13 +105,12 @@ describe('dates and backups', () => {
     expect(
       weeklyStats(snapshot, '2026-10-04').every((day) => day.total === 0 && day.completed === 0),
     ).toBe(true);
-    expect(subjectStats(snapshot, '2026-10-04')).toEqual([]);
   });
-  test('weekly and custom-subject statistics include only the selected seven days', () => {
+  test('weekly statistics count main tasks only in the selected seven days', () => {
     const snapshot = emptySnapshot();
     const task = sampleSnapshot('2026-10-05').tasks[0];
     snapshot.tasks = [
-      { ...task, id: 'a', subject: '건축시공학' },
+      { ...task, id: 'a', details: ['하나', '둘', '셋'] },
       { ...task, id: 'b', date: '2026-09-29', subject: '건축시공학' },
       { ...task, id: 'c', date: '2026-09-28', subject: '기간 밖' },
       { ...task, id: 'd', date: '2026-10-06', subject: '미래' },
@@ -79,8 +120,5 @@ describe('dates and backups', () => {
     expect(week[0].date).toBe('2026-09-29');
     expect(week.reduce((sum, day) => sum + day.total, 0)).toBe(2);
     expect(week.reduce((sum, day) => sum + day.completed, 0)).toBe(1);
-    expect(subjectStats(snapshot, '2026-10-05')).toEqual([
-      { subject: '건축시공학', total: 2, completed: 1 },
-    ]);
   });
 });

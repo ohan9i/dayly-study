@@ -12,7 +12,8 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { SUBJECT_MAX_LENGTH, type Task, type TaskAttachment, type TaskNote } from './domain';
+import { cleanDetails, type Task, type TaskAttachment, type TaskNote } from './domain';
+import DetailItemsEditor from './DetailItemsEditor';
 import { supabase, type Planner } from './planner';
 import { FILE_ACCEPT, FILE_BUCKET, MAX_QUEUED_FILES, fileSize, validateFile } from './files';
 
@@ -539,12 +540,11 @@ export default function TaskDetail({
         setProgress('할 일 저장 중…');
         await planner.saveTask(
           {
+            ...item,
             id: id.current,
             title,
-            subject: String(values.get('subject') || '').trim(),
             date: String(values.get('date')),
-            time: String(values.get('time') || ''),
-            details: String(values.get('details') || '').trim(),
+            details: cleanDetails(values.getAll('detailItem').map(String)),
             created_by: taskAuthor,
           },
           persisted.current,
@@ -604,37 +604,11 @@ export default function TaskDetail({
               autoFocus
             />
           </label>
-          <div className="form-grid">
-            <label className="field">
-              <span>날짜</span>
-              <input name="date" type="date" required defaultValue={item?.date || date} />
-            </label>
-            <label className="field">
-              <span>예정 시간</span>
-              <input name="time" type="time" defaultValue={item?.time || ''} />
-            </label>
-          </div>
           <label className="field">
-            <span>과목</span>
-            <input
-              name="subject"
-              type="text"
-              aria-label="과목"
-              maxLength={SUBJECT_MAX_LENGTH}
-              defaultValue={item?.subject || ''}
-              placeholder="예: 건축시공학, 구조역학"
-            />
+            <span>날짜</span>
+            <input name="date" type="date" required defaultValue={item?.date || date} />
           </label>
-          <label className="field">
-            <span>메모</span>
-            <textarea
-              name="details"
-              rows={2}
-              maxLength={10000}
-              defaultValue={item?.details}
-              placeholder="공부할 범위나 참고할 내용을 짧게 적어 주세요."
-            />
-          </label>
+          <DetailItemsEditor initialItems={item?.details || []} editable={editable} />
         </fieldset>
         <FileList files={attached} planner={planner} taskAuthor={taskAuthor} disabled={disabled} />
         {canContribute && (
@@ -675,7 +649,7 @@ export default function TaskDetail({
           </button>
         ) : (
           <p className="card-footnote">
-            제목과 메모는 이 할 일의 작성자와 관리자만 수정할 수 있어요.
+            제목과 세부 항목은 이 할 일의 작성자와 관리자만 수정할 수 있어요.
           </p>
         )}
       </form>

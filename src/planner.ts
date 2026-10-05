@@ -2,9 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createClient, type Session } from '@supabase/supabase-js';
 import {
   emptySnapshot,
+  cleanDetails,
+  encodeTaskDetails,
+  normalizeTask,
   readLocal,
   type Snapshot,
   type Task,
+  type TaskRecord,
   type Workspace,
   type Member,
   type TaskNote,
@@ -90,6 +94,7 @@ export function usePlanner() {
   const generation = useRef(0);
   const lock = useRef(false);
   const provisionedUser = useRef<string | null>(null);
+  const nativeDetails = useRef<boolean | null>(null);
   const data = session ? remoteData : localData;
   const isOwner = !session || workspace?.owner_id === session.user.id;
   const canWrite = !loading && Boolean(session && workspace) && !passwordRecovery;
@@ -125,7 +130,7 @@ export function usePlanner() {
         nextMembers: Member[] = [];
       if (selected) {
         const [tasks, checks, granted, taskNotes, attachments] = await Promise.all([
-          readAllRows<Task>('tasks', selected.id),
+          readAllRows<TaskRecord>('tasks', selected.id),
           readAllRows<{ task_id: string }>('task_completions', selected.id, 'task_id'),
           selected.owner_id === user.user.id
             ? readAllRows<Member>('workspace_members', selected.id)
@@ -134,14 +139,15 @@ export function usePlanner() {
           readAllRows<TaskAttachment>('task_attachments', selected.id),
         ]);
         next = {
-          version: 1,
-          tasks,
+          version: 2,
+          tasks: tasks.map(normalizeTask),
           logs: [],
           completedTaskIds: checks.map((x) => x.task_id),
           hasSamples: false,
           taskNotes,
           attachments,
         };
+        if (tasks.length) nativeDetails.current = Object.hasOwn(tasks[0], 'detail_items');
         nextMembers = granted;
       }
       if (token !== generation.current || activeSession.current?.user.id !== user.user.id) return;
@@ -264,8 +270,12 @@ export function usePlanner() {
       setBusy(false);
     }
   }
-  const saveTask = (task: Task, editing: boolean) =>
-    mutate(
+  const saveTask = async (value: Task, editing: boolean) => {
+    const task = { ...value, details: cleanDetails(value.details) };
+    const encoded = encodeTaskDetails(task.details);
+    if (encoded.length > 10000)
+      throw new Error('세부 항목의 전체 내용이 저장 용량을 초과했어요. 내용을 조금 줄여 주세요.');
+    return mutate(
       (state) => ({
         ...state,
         tasks: editing
@@ -275,25 +285,46 @@ export function usePlanner() {
       async (space, user) => {
         const fields = {
           title: task.title,
-          subject: task.subject,
           date: task.date,
-          time: task.time,
-          details: task.details,
         };
-        const result = editing
-          ? await supabase!
-              .from('tasks')
-              .update(fields)
-              .eq('id', task.id)
-              .eq('workspace_id', space.id)
-              .select('id')
-              .single()
-          : await supabase!
-              .from('tasks')
-              .insert({ ...fields, id: task.id, workspace_id: space.id, created_by: user.user.id });
+        const write = async (details: { details: string; detail_items?: string[] }) =>
+          editing
+            ? await supabase!
+                .from('tasks')
+                .update({ ...fields, ...details })
+                .eq('id', task.id)
+                .eq('workspace_id', space.id)
+                .select('id')
+                .single()
+            : await supabase!
+                .from('tasks')
+                .insert({
+                  ...fields,
+                  ...details,
+                  id: task.id,
+                  workspace_id: space.id,
+                  created_by: user.user.id,
+                });
+        let result = await write(
+          nativeDetails.current === false
+            ? { details: encoded }
+            : { details: '', detail_items: task.details },
+        );
+        // Unknown-column failures occur before a write. Retry only this precise
+        // schema mismatch, never permission errors or uncertain network failures.
+        if (
+          nativeDetails.current !== true &&
+          result.error &&
+          ['PGRST204', '42703'].includes(result.error.code) &&
+          result.error.message.includes('detail_items')
+        ) {
+          nativeDetails.current = false;
+          result = await write({ details: encoded });
+        }
         throwIf(result.error);
       },
     );
+  };
   const toggleTask = (id: string) =>
     mutate(
       (state) => ({

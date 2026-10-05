@@ -12,8 +12,7 @@ test('task files and compact performance notes survive reload, preview, download
   await signIn(page);
   await page.getByRole('button', { name: '할 일 추가', exact: true }).click();
   await page.getByLabel('할 일', { exact: true }).fill('보의 휨 설계 수행');
-  await page.getByLabel('과목', { exact: true }).fill('철근콘크리트공학');
-  await page.getByLabel('메모', { exact: true }).fill('예제의 조건을 확인하고 풀이하기');
+  await page.getByLabel('세부 항목 1', { exact: true }).fill('예제의 조건을 확인하고 풀이하기');
   await page.getByLabel('파일 첨부', { exact: true }).setInputFiles([
     { name: '설계 문제.pdf', mimeType: 'application/pdf', buffer: PDF },
     { name: '참고 사진.png', mimeType: 'image/png', buffer: PNG },
@@ -169,13 +168,11 @@ test('mobile detail stays compact and rejects oversized, unsupported and too man
     buffer: Buffer.alloc(10 * 1024 * 1024 + 1),
   });
   await expect(page.getByRole('dialog').getByRole('alert')).toContainText('10MB');
-  await page
-    .getByLabel('파일 첨부', { exact: true })
-    .setInputFiles({
-      name: '확장자만 변경.png',
-      mimeType: 'image/png',
-      buffer: Buffer.from('not an image'),
-    });
+  await page.getByLabel('파일 첨부', { exact: true }).setInputFiles({
+    name: '확장자만 변경.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('not an image'),
+  });
   await expect(page.getByRole('dialog').getByRole('alert')).toContainText('확장자만 바꾼 파일');
   await page.getByLabel('파일 첨부', { exact: true }).setInputFiles(
     Array.from({ length: 6 }, (_, i) => ({

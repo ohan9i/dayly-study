@@ -4,12 +4,52 @@ export type Subject = string;
 export type Task = {
   id: string;
   title: string;
-  subject: Subject;
+  // Retired fields are optional and retained only for existing records/backups.
+  subject?: Subject;
   date: string;
-  time: string;
-  details: string;
+  time?: string;
+  details: string[];
   created_by: string;
   workspace_id?: string;
+};
+export type TaskRecord = Omit<Task, 'details'> & {
+  details?: unknown;
+  memo?: unknown;
+  detail_items?: unknown;
+};
+// The existing database has a text column. A versioned JSON envelope keeps each
+// item independent until the optional native text[] column is installed.
+export const DETAILS_PREFIX = 'dayly:details:v2:';
+export const cleanDetails = (items: string[]) => items.map((item) => item.trim()).filter(Boolean);
+export const encodeTaskDetails = (items: string[]) =>
+  DETAILS_PREFIX + JSON.stringify(cleanDetails(items));
+export function readTaskDetails(
+  task: Pick<TaskRecord, 'details' | 'memo' | 'detail_items'>,
+): string[] {
+  for (const value of [task.detail_items, task.details]) {
+    if (Array.isArray(value) && value.every((item) => typeof item === 'string'))
+      return cleanDetails(value);
+  }
+  const value =
+    typeof task.details === 'string' && task.details.trim()
+      ? task.details
+      : typeof task.memo === 'string'
+        ? task.memo
+        : '';
+  if (value.startsWith(DETAILS_PREFIX)) {
+    try {
+      const items: unknown = JSON.parse(value.slice(DETAILS_PREFIX.length));
+      if (Array.isArray(items) && items.every((item) => typeof item === 'string'))
+        return cleanDetails(items);
+    } catch {
+      // A malformed envelope remains readable as legacy text rather than disappearing.
+    }
+  }
+  return cleanDetails(value.split(/\r\n|\r|\n/));
+}
+export const normalizeTask = (task: TaskRecord): Task => {
+  const { detail_items: _items, memo: _memo, ...fields } = task;
+  return { ...fields, details: readTaskDetails(task) };
 };
 // Preserve old journals in local backups without exposing the removed feature.
 type LegacyStudyLog = {
@@ -23,7 +63,7 @@ type LegacyStudyLog = {
   workspace_id?: string;
 };
 export type Snapshot = {
-  version: 1;
+  version: 2;
   tasks: Task[];
   logs: LegacyStudyLog[];
   completedTaskIds: string[];
@@ -56,7 +96,7 @@ export type TaskAttachment = {
   created_at: string;
 };
 export const emptySnapshot = (): Snapshot => ({
-  version: 1,
+  version: 2,
   tasks: [],
   logs: [],
   completedTaskIds: [],
@@ -95,31 +135,26 @@ export const validDate = (value: unknown): value is string =>
   !Number.isNaN(dateObject(value).getTime()) &&
   dateObject(value).toISOString().slice(0, 10) === value;
 export const sortedTasks = (tasks: Task[]) =>
-  [...tasks].sort(
-    (a, b) =>
-      (a.time || '99:99').localeCompare(b.time || '99:99') || a.title.localeCompare(b.title, 'ko'),
-  );
+  [...tasks].sort((a, b) => a.title.localeCompare(b.title, 'ko'));
 export function sampleSnapshot(date = todayKey()): Snapshot {
-  const rows: [string, Subject, string][] = [
-    ['아침 스트레칭하기', '생활', '07:00'],
-    ['물 한 잔 마시기', '생활', '07:30'],
-    ['학습 문제 10문제 풀기', '수학', '09:00'],
-    ['구조 역학 정리하기', '전공', '11:00'],
-    ['점심 먹고 잠깐 산책하기', '생활', '12:30'],
-    ['건축계획 문제 풀기', '전공', '14:00'],
-    ['건축시공학 노트 복습하기', '건축시공학', '20:30'],
+  const rows: [string, string[]][] = [
+    ['아침 스트레칭하기', []],
+    ['물 한 잔 마시기', []],
+    ['수학 공부', ['순열 문제 10개 풀기', '조건부확률 복습', '오답노트 정리']],
+    ['구조 역학 정리하기', ['전단력·휨모멘트도 그리기', '연습문제 풀이 다시 확인']],
+    ['점심 먹고 잠깐 산책하기', []],
+    ['건축계획 문제 풀기', []],
+    ['건축시공학 노트 복습하기', []],
   ];
-  const tasks = rows.map(([title, subject, time], i) => ({
+  const tasks = rows.map(([title, details], i) => ({
     id: `sample-${i}`,
     title,
-    subject,
-    time,
     date,
-    details: '',
+    details,
     created_by: 'local',
   }));
   return {
-    version: 1,
+    version: 2,
     tasks,
     logs: [],
     completedTaskIds: tasks.slice(0, 5).map((x) => x.id),
@@ -131,9 +166,9 @@ export function parseSnapshot(value: unknown): Snapshot {
     throw new Error('Dayly 백업 파일의 형식이 올바르지 않습니다.');
   };
   if (!value || typeof value !== 'object') return fail();
-  const v = value as Snapshot;
+  const v = value as Omit<Snapshot, 'version' | 'tasks'> & { version: number; tasks: TaskRecord[] };
   if (
-    v.version !== 1 ||
+    (v.version !== 1 && v.version !== 2) ||
     !Array.isArray(v.tasks) ||
     !Array.isArray(v.logs) ||
     !Array.isArray(v.completedTaskIds) ||
@@ -141,25 +176,27 @@ export function parseSnapshot(value: unknown): Snapshot {
     v.tasks.length + v.logs.length > 10000
   )
     return fail();
-  const base = (x: Task | LegacyStudyLog) =>
+  const base = (x: TaskRecord | LegacyStudyLog) =>
     x &&
     typeof x.id === 'string' &&
     x.id.length > 0 &&
     typeof x.title === 'string' &&
     x.title.trim().length > 0 &&
     x.title.length <= 150 &&
-    typeof x.subject === 'string' &&
-    x.subject.length <= SUBJECT_MAX_LENGTH &&
     validDate(x.date) &&
     typeof x.created_by === 'string';
   if (
     !v.tasks.every(
       (x) =>
         base(x) &&
-        typeof x.details === 'string' &&
-        x.details.length <= 10000 &&
-        typeof x.time === 'string' &&
-        (x.time === '' || /^([01]\d|2[0-3]):[0-5]\d$/.test(x.time)),
+        [x.details, x.detail_items, x.memo].every(
+          (value) =>
+            value == null ||
+            (typeof value === 'string' && value.length <= 10000) ||
+            (Array.isArray(value) &&
+              value.every((item) => typeof item === 'string') &&
+              value.reduce((size, item) => size + item.length, 0) <= 10000),
+        ),
     )
   )
     return fail();
@@ -167,6 +204,8 @@ export function parseSnapshot(value: unknown): Snapshot {
     !v.logs.every(
       (x) =>
         base(x) &&
+        typeof x.subject === 'string' &&
+        x.subject.length <= SUBJECT_MAX_LENGTH &&
         typeof x.content === 'string' &&
         x.content.length <= 10000 &&
         Number.isInteger(x.minutes) &&
@@ -183,7 +222,7 @@ export function parseSnapshot(value: unknown): Snapshot {
     !v.completedTaskIds.every((x) => typeof x === 'string' && ids.has(x))
   )
     return fail();
-  return v;
+  return { ...v, version: 2, tasks: v.tasks.map(normalizeTask) };
 }
 export function readLocal(): { data: Snapshot; warning: string } {
   try {
@@ -217,20 +256,4 @@ export function weeklyStats(data: Snapshot, end: string) {
       completed: tasks.filter((x) => completed.has(x.id)).length,
     };
   });
-}
-export function subjectStats(data: Snapshot, end: string) {
-  const start = addDays(end, -6),
-    completed = new Set(data.completedTaskIds);
-  const grouped = new Map<string, { subject: string; total: number; completed: number }>();
-  for (const task of data.tasks) {
-    if (task.date < start || task.date > end) continue;
-    const subject = task.subject.trim();
-    const group = grouped.get(subject) || { subject, total: 0, completed: 0 };
-    group.total++;
-    if (completed.has(task.id)) group.completed++;
-    grouped.set(subject, group);
-  }
-  return [...grouped.values()].sort(
-    (a, b) => b.total - a.total || a.subject.localeCompare(b.subject, 'ko'),
-  );
 }

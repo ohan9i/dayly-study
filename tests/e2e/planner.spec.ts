@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { mockCloud, signIn, TEST_EMAIL, TEST_PASSWORD } from './cloud-fixture';
 
-test('custom subjects persist; search, calendar and statistics show task completion', async ({
+test('detail items persist; search, calendar and statistics show main task completion', async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -20,10 +20,10 @@ test('custom subjects persist; search, calendar and statistics show task complet
   await signIn(page);
   await page.getByRole('button', { name: '할 일 추가', exact: true }).click();
   await page.getByLabel('할 일', { exact: true }).fill('철근콘크리트 보의 휨 설계');
-  await expect(page.getByLabel('과목', { exact: true })).toHaveAttribute('type', 'text');
-  await page.getByLabel('과목', { exact: true }).fill('  철근콘크리트공학  ');
-  await page.getByLabel('예정 시간').fill('14:30');
-  await page.getByLabel('메모', { exact: true }).fill('압축응력블록 설계 예제 1번 풀기');
+  await expect(page.getByLabel('과목', { exact: true })).toHaveCount(0);
+  await expect(page.locator('input[type="time"]')).toHaveCount(0);
+  await expect(page.getByLabel('메모', { exact: true })).toHaveCount(0);
+  await page.getByLabel('세부 항목 1', { exact: true }).fill('압축응력블록 설계 예제 1번 풀기');
   await page.getByRole('button', { name: '할 일 저장' }).click();
   await expect(
     page.getByRole('button', { name: '철근콘크리트 보의 휨 설계 상세 보기' }),
@@ -33,9 +33,9 @@ test('custom subjects persist; search, calendar and statistics show task complet
   await expect(
     page.getByRole('checkbox', { name: '철근콘크리트 보의 휨 설계 완료' }),
   ).toHaveAttribute('aria-checked', 'true');
-  await expect(page.locator('.task-row .tag')).toHaveText('철근콘크리트공학');
+  await expect(page.locator('.task-details')).toContainText('압축응력블록 설계 예제 1번 풀기');
   await page.getByRole('button', { name: '할 일 검색', exact: true }).click();
-  await page.getByLabel('할 일 검색어').fill('철근콘크리트공학');
+  await page.getByLabel('할 일 검색어').fill('철근콘크리트');
   await expect(page.getByRole('dialog').locator('.search-results > button')).toHaveCount(1);
   await page.getByLabel('할 일 검색어').fill('압축응력');
   await expect(
@@ -45,7 +45,7 @@ test('custom subjects persist; search, calendar and statistics show task complet
   await page.getByRole('button', { name: '학습 흐름', exact: true }).click();
   await expect(page.locator('.stat-tile').nth(1)).toContainText('100');
   await expect(page.locator('.stat-tile').first()).toContainText('1 / 1개');
-  await expect(page.locator('.subject-stat')).toContainText('철근콘크리트공학');
+  await expect(page.locator('.subject-stat')).toHaveCount(0);
   await page.getByRole('button', { name: '달력', exact: true }).click();
   await expect(page.locator('.calendar-day').filter({ hasText: '1/1 완료' })).toBeVisible();
   await page.locator('.calendar-day').filter({ hasText: '1/1 완료' }).click();
@@ -55,10 +55,10 @@ test('custom subjects persist; search, calendar and statistics show task complet
   ).toHaveAttribute('aria-checked', 'true');
   await page.getByRole('button', { name: '철근콘크리트 보의 휨 설계 상세 보기' }).click();
   await page.getByLabel('할 일', { exact: true }).fill('철근콘크리트 복습');
-  await page.getByLabel('과목', { exact: true }).fill('건축시공학');
+  await page.getByLabel('세부 항목 1', { exact: true }).fill('건축시공학 복습');
   await page.getByRole('button', { name: '할 일 저장' }).click();
   await expect(page.getByRole('button', { name: '철근콘크리트 복습 상세 보기' })).toBeVisible();
-  await expect(page.locator('.task-row .tag')).toHaveText('건축시공학');
+  await expect(page.locator('.task-details')).toContainText('건축시공학 복습');
   expect(errors).toEqual([]);
 });
 test('login errors, signup and reset requests keep editing locked; logout locks again', async ({
@@ -113,7 +113,9 @@ test('mobile layout has no horizontal overflow and navigation and dialogs remain
   await page
     .getByLabel('할 일', { exact: true })
     .fill('건축공학 설계와 구조계획 및 시공관리 내용을 정리하고 연습문제 복습하기');
-  await page.getByLabel('과목', { exact: true }).fill('건축공학및환경설계와시공관리'.repeat(2));
+  await page
+    .getByLabel('세부 항목 1', { exact: true })
+    .fill('건축공학및환경설계와시공관리'.repeat(2));
   await page.getByRole('button', { name: '할 일 저장' }).click();
   for (const width of [320, 360, 390]) {
     await page.setViewportSize({ width, height: 844 });
@@ -128,7 +130,9 @@ test('mobile layout has no horizontal overflow and navigation and dialogs remain
   const downloadEvent = page.waitForEvent('download');
   await page.getByRole('button', { name: '백업 내려받기' }).click();
   const backup = JSON.parse(readFileSync((await (await downloadEvent).path())!, 'utf8'));
-  expect(backup.tasks[0].subject).toBe('건축공학및환경설계와시공관리'.repeat(2));
+  expect(backup.tasks[0].details).toEqual(['건축공학및환경설계와시공관리'.repeat(2)]);
+  expect(backup.tasks[0].subject).toBeUndefined();
+  expect(backup.tasks[0].time).toBeUndefined();
   await page.getByRole('button', { name: '내 계정', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText(TEST_EMAIL);
   await page.getByRole('button', { name: '닫기', exact: true }).click();

@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 import {
   todayKey,
-  type Task,
+  type TaskRecord,
   type TaskNote,
   type TaskAttachment,
   type Workspace,
@@ -41,7 +41,12 @@ function samplePdf() {
 export const PDF = samplePdf();
 export async function mockCloud(
   page: Page,
-  options: { approved?: boolean; startWithoutOwnSpace?: boolean } = {},
+  options: {
+    approved?: boolean;
+    startWithoutOwnSpace?: boolean;
+    tasks?: TaskRecord[];
+    nativeDetails?: boolean;
+  } = {},
 ) {
   const owner = '10000000-0000-0000-0000-000000000001',
     other = '10000000-0000-0000-0000-000000000002';
@@ -84,20 +89,22 @@ export async function mockCloud(
     : [];
   if (!options.startWithoutOwnSpace)
     spaces.push({ id: OWN_SPACE, name: '나의 공부 공간', owner_id: owner });
-  let tasks: Task[] = options.approved
-    ? [
-        {
-          id: '30000000-0000-0000-0000-000000000001',
-          workspace_id: SHARED_SPACE,
-          created_by: other,
-          title: '공유한 구조역학 문제',
-          subject: '구조역학',
-          date: todayKey(),
-          time: '',
-          details: '함께 풀어 주세요.',
-        },
-      ]
-    : [];
+  let tasks: TaskRecord[] =
+    options.tasks ||
+    (options.approved
+      ? [
+          {
+            id: '30000000-0000-0000-0000-000000000001',
+            workspace_id: SHARED_SPACE,
+            created_by: other,
+            title: '공유한 구조역학 문제',
+            subject: '구조역학',
+            date: todayKey(),
+            time: '',
+            details: '함께 풀어 주세요.',
+          },
+        ]
+      : []);
   let notes: TaskNote[] = [],
     files: TaskAttachment[] = [],
     completed: string[] = [],
@@ -200,9 +207,23 @@ export async function mockCloud(
     if (table === 'workspace_members') return send([]);
     if (table === 'tasks') {
       if (method === 'GET')
-        return send(tasks.filter((t) => !workspace || t.workspace_id === workspace));
+        return send(
+          tasks
+            .filter((t) => !workspace || t.workspace_id === workspace)
+            .map((t) =>
+              options.nativeDetails === false ? t : { ...t, detail_items: t.detail_items ?? null },
+            ),
+        );
+      if (options.nativeDetails === false && Object.hasOwn(body, 'detail_items'))
+        return send(
+          {
+            code: 'PGRST204',
+            message: "Could not find the 'detail_items' column of 'tasks' in the schema cache",
+          },
+          400,
+        );
       if (method === 'POST') {
-        tasks.push(body as Task);
+        tasks.push(body as TaskRecord);
         return send({});
       }
       const task = tasks.find((t) => t.id === id);

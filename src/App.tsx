@@ -31,11 +31,9 @@ import {
   formatDate,
   shiftMonth,
   sortedTasks,
-  subjectStats,
   todayKey,
   weeklyStats,
   type Snapshot,
-  type Subject,
   type Task,
 } from './domain';
 import { usePlanner } from './planner';
@@ -51,19 +49,6 @@ const navigation = [
   { id: 'stats', label: '학습 흐름', icon: ChartNoAxesColumnIncreasing },
   { id: 'settings', label: '설정', icon: Settings },
 ] as const;
-const subjectClass = (subject: string) => {
-  const familiar: Record<string, string> = {
-    전공: 'mint',
-    수학: 'blue',
-    생활: 'neutral',
-    기록: 'peach',
-    기타: 'lavender',
-  };
-  if (Object.hasOwn(familiar, subject)) return familiar[subject];
-  let hash = 0;
-  for (const character of subject) hash = (Math.imul(hash, 31) + character.codePointAt(0)!) >>> 0;
-  return ['blue', 'mint', 'lavender', 'peach'][hash % 4];
-};
 const shortDay = (date: string) =>
   new Intl.DateTimeFormat('ko-KR', { timeZone: 'UTC', weekday: 'short' }).format(dateObject(date));
 
@@ -131,13 +116,6 @@ function Empty({
     </div>
   );
 }
-function Tag({ subject }: { subject: Subject }) {
-  return (
-    <span className={`tag ${subjectClass(subject)}`} title={subject}>
-      {subject}
-    </span>
-  );
-}
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="field">
@@ -193,9 +171,7 @@ export default function App() {
   const completed = new Set(data.completedTaskIds);
   const count = tasks.filter((x) => completed.has(x.id)).length;
   const searchMatches = data.tasks.filter((task) =>
-    `${task.title} ${task.subject} ${task.details}`
-      .toLowerCase()
-      .includes(search.trim().toLowerCase()),
+    `${task.title} ${task.details.join(' ')}`.toLowerCase().includes(search.trim().toLowerCase()),
   );
   const clock = new Intl.DateTimeFormat('ko-KR', {
     timeZone: 'Asia/Seoul',
@@ -329,31 +305,38 @@ export default function App() {
                 {completed.has(task.id) && <Check size={18} strokeWidth={2.4} />}
               </button>
               <div className="task-copy">
-                <button
-                  className="task-title"
-                  aria-label={`${task.title} 상세 보기`}
-                  onClick={() => setModal({ kind: 'task', item: task })}
-                >
-                  {task.title}
-                </button>
-                {task.subject && <Tag subject={task.subject} />}
-                {(data.attachments || []).filter(
-                  (file) => file.task_id === task.id && file.state === 'ready',
-                ).length > 0 && (
-                  <span
-                    className="task-file-count"
-                    aria-label={`첨부 파일 ${(data.attachments || []).filter((file) => file.task_id === task.id && file.state === 'ready').length}개`}
+                <div className="task-heading">
+                  <button
+                    className="task-title"
+                    aria-label={`${task.title} 상세 보기`}
+                    onClick={() => setModal({ kind: 'task', item: task })}
                   >
-                    <Paperclip size={13} />
-                    {
-                      (data.attachments || []).filter(
-                        (file) => file.task_id === task.id && file.state === 'ready',
-                      ).length
-                    }
-                  </span>
+                    {task.title}
+                  </button>
+                  {(data.attachments || []).filter(
+                    (file) => file.task_id === task.id && file.state === 'ready',
+                  ).length > 0 && (
+                    <span
+                      className="task-file-count"
+                      aria-label={`첨부 파일 ${(data.attachments || []).filter((file) => file.task_id === task.id && file.state === 'ready').length}개`}
+                    >
+                      <Paperclip size={13} />
+                      {
+                        (data.attachments || []).filter(
+                          (file) => file.task_id === task.id && file.state === 'ready',
+                        ).length
+                      }
+                    </span>
+                  )}
+                </div>
+                {task.details.length > 0 && (
+                  <ul className="task-details" aria-label={`${task.title} 세부 항목`}>
+                    {task.details.map((detail, index) => (
+                      <li key={index}>{detail}</li>
+                    ))}
+                  </ul>
                 )}
               </div>
-              <time className="task-time">{task.time || '시간 자유'}</time>
             </li>
           ))}
         </ul>
@@ -865,7 +848,7 @@ export default function App() {
       {modal?.kind === 'search' && (
         <Modal
           title="나의 할 일 찾기"
-          subtitle="할 일, 과목, 메모로 찾아보세요."
+          subtitle="할 일 제목과 세부 항목으로 찾아보세요."
           onClose={() => setModal(null)}
         >
           <div className="search-input">
@@ -894,7 +877,6 @@ export default function App() {
                     <small>{task.date}</small>
                     <strong>{task.title}</strong>
                   </span>
-                  {task.subject && <Tag subject={task.subject} />}
                   <ChevronRight size={18} />
                 </button>
               ))}
@@ -909,7 +891,7 @@ export default function App() {
               )}
             </div>
           ) : (
-            <p className="search-empty">찾고 싶은 할 일이나 과목을 입력해 주세요.</p>
+            <p className="search-empty">찾고 싶은 할 일이나 세부 항목을 입력해 주세요.</p>
           )}
         </Modal>
       )}
@@ -1011,7 +993,6 @@ function Stats({ data, date }: { data: Snapshot; date: string }) {
     done = week.reduce((sum, day) => sum + day.completed, 0);
   const rate = total ? Math.round((done / total) * 100) : 0,
     max = Math.max(1, ...week.map((day) => day.total));
-  const subjects = subjectStats(data, date);
   return (
     <>
       <div className="glass-card stats-summary">
@@ -1100,26 +1081,6 @@ function Stats({ data, date }: { data: Snapshot; date: string }) {
             title="아직은, 여백이 있는 한 주"
             text="할 일을 적고 하나씩 완료하면 이곳에 나의 흐름이 쌓여요."
           />
-        )}
-      </section>
-      <section className="glass-card subjects-card">
-        <h2>과목별 할 일</h2>
-        {subjects.length ? (
-          subjects.map((group) => (
-            <div className="subject-stat" key={group.subject}>
-              <Tag subject={group.subject || '미지정'} />
-              <div className="subject-track">
-                <i style={{ width: `${(group.completed / group.total) * 100}%` }} />
-              </div>
-              <span>
-                {group.completed} / {group.total}개
-              </span>
-            </div>
-          ))
-        ) : (
-          <p className="setting-description">
-            할 일에 과목명을 적으면 과목별 완료 현황을 볼 수 있어요.
-          </p>
         )}
       </section>
     </>
