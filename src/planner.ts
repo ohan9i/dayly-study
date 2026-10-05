@@ -100,10 +100,10 @@ export function usePlanner() {
   const isOwner = !session || workspace?.owner_id === session.user.id;
   const canWrite = !loading && Boolean(session && workspace) && !passwordRecovery;
 
-  const refresh = useCallback(async (user: Session, preferredId?: string) => {
+  const refresh = useCallback(async (user: Session, preferredId?: string, background = false) => {
     if (!supabase) return;
     const token = ++generation.current;
-    setLoading(true);
+    if (!background) setLoading(true);
     try {
       if (provisionedUser.current !== user.user.id) {
         const personal = await supabase.rpc('ensure_personal_workspace');
@@ -174,7 +174,7 @@ export function usePlanner() {
         setError(`공유 기록을 불러오지 못했습니다. ${(e as Error).message}`);
       throw e;
     } finally {
-      if (token === generation.current) setLoading(false);
+      if (token === generation.current && !background) setLoading(false);
     }
   }, []);
 
@@ -267,8 +267,15 @@ export function usePlanner() {
       )
         return;
       if (!optimistic) setRemoteData((state) => local(state));
-      // A failed reload must not tell the user that an already committed write failed.
-      await refresh(session, workspace.id).catch(() => {});
+      if (optimistic) {
+        // Completion already has its canonical local state. A full reload here
+        // adds a loading banner above the page and moves the cards on every check.
+        setError('');
+        setLastSaved(new Date());
+      } else {
+        // A failed reload must not tell the user that an already committed write failed.
+        await refresh(session, workspace.id).catch(() => {});
+      }
     } catch (e) {
       if (
         optimistic &&
@@ -281,7 +288,7 @@ export function usePlanner() {
         activeSession.current?.user.id === session.user.id &&
         activeWorkspace.current?.id === workspace?.id
       )
-        await refresh(session).catch(() => {});
+        await refresh(session, workspace?.id, optimistic).catch(() => {});
       setError((e as Error).message);
       throw e;
     } finally {
