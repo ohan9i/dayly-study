@@ -36,7 +36,7 @@ test('title-only, one item and multiple items support ordered editing, empty fil
   await open(page);
   await field(page, 1).fill(' 순열 문제 10개 풀기 ');
   await save(page);
-  await expect(page.locator('.task-details li')).toHaveText(['순열 문제 10개 풀기']);
+  await expect(page.locator('.task-details .detail-row-title')).toHaveText(['순열 문제 10개 풀기']);
 
   await edit(page);
   await expect(field(page, 1)).toHaveValue('순열 문제 10개 풀기');
@@ -64,7 +64,7 @@ test('title-only, one item and multiple items support ordered editing, empty fil
   await expect(field(page, 2)).toBeFocused();
   await expect(page.locator('.detail-input-row')).toHaveCount(5);
   await save(page);
-  await expect(page.locator('.task-details li')).toHaveText([
+  await expect(page.locator('.task-details .detail-row-title')).toHaveText([
     '순열 문제 10개 풀기',
     '조건부확률 복습',
     '오답노트 정리',
@@ -80,7 +80,7 @@ test('title-only, one item and multiple items support ordered editing, empty fil
   await expect(field(page, 2)).toBeFocused();
   await field(page, 2).fill('조건부확률 다시 복습');
   await save(page);
-  await expect(page.locator('.task-details li')).toHaveText([
+  await expect(page.locator('.task-details .detail-row-title')).toHaveText([
     '순열 문제 10개 풀기',
     '조건부확률 다시 복습',
   ]);
@@ -140,7 +140,7 @@ test('Korean composition Enter does not insert a row or submit; normal Enter res
   await expect(field(page, 2)).toBeFocused();
   await field(page, 2).fill('오답 정리');
   await save(page);
-  await expect(page.locator('.task-details li')).toHaveText(['조건부확률 복습', '오답 정리']);
+  await expect(page.locator('.task-details .detail-row-title')).toHaveText(['조건부확률 복습', '오답 정리']);
 });
 
 test('legacy local memo and cloud string notes survive migration, editing and reload', async ({
@@ -177,7 +177,7 @@ test('legacy local memo and cloud string notes survive migration, editing and re
     ],
   });
   await page.goto('/');
-  await expect(page.locator('.task-details li')).toHaveText(['문제집 30페이지까지']);
+  await expect(page.locator('.task-details .detail-row-title')).toHaveText(['문제집 30페이지까지']);
   await expect(page.getByRole('checkbox', { name: '기존 수학 계획 완료' })).toHaveAttribute(
     'aria-checked',
     'true',
@@ -190,7 +190,7 @@ test('legacy local memo and cloud string notes survive migration, editing and re
   await field(page, 2).fill('오답노트 정리');
   await save(page);
   await page.reload();
-  await expect(page.locator('.task-details li')).toHaveText(['순열 복습', '오답노트 정리']);
+  await expect(page.locator('.task-details .detail-row-title')).toHaveText(['순열 복습', '오답노트 정리']);
   const data = await backup(page);
   expect(data.version).toBe(2);
   expect(data.tasks[0].subject).toBe('수학');
@@ -217,7 +217,7 @@ test('the existing text-only database stores a structured array and preserves it
     '오답 정리',
   ]);
   await page.reload();
-  await expect(page.locator('.task-details li')).toHaveText(['순열 문제 10개', '오답 정리']);
+  await expect(page.locator('.task-details .detail-row-title')).toHaveText(['순열 문제 10개', '오답 정리']);
   await edit(page);
   await page.getByRole('button', { name: '세부 항목 2 삭제', exact: true }).click();
   await page.getByRole('button', { name: '세부 항목 1 삭제', exact: true }).click();

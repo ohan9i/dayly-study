@@ -33,6 +33,7 @@ import {
   sortedTasks,
   taskProgress,
   dayProgress,
+  readDetailNote,
   todayKey,
   weeklyStats,
   type Snapshot,
@@ -43,6 +44,7 @@ import Account from './Account';
 import TaskDetail from './TaskDetail';
 import { TaskProgress, DayProgressRing } from './TaskProgress';
 import WorkspacePanel from './WorkspacePanel';
+import DetailRecord from './DetailRecord';
 
 type View = 'home' | 'calendar' | 'stats' | 'settings';
 type ModalState = { kind: 'task'; item?: Task } | { kind: 'search' } | { kind: 'account' } | null;
@@ -136,6 +138,7 @@ export default function App() {
   const [month, setMonth] = useState(() => todayKey().slice(0, 7) + '-01');
   const [now, setNow] = useState(new Date());
   const [modal, setModal] = useState<ModalState>(null);
+  const [openRecords, setOpenRecords] = useState<Set<string>>(() => new Set());
   const [taskDetailBusy, setTaskDetailBusy] = useState(false);
   useEffect(() => {
     setModal((current) =>
@@ -172,7 +175,6 @@ export default function App() {
   const today = todayKey();
   const tasks = sortedTasks(data.tasks.filter((x) => x.date === date));
   const completed = new Set(data.completedTaskIds);
-  const count = tasks.filter((x) => completed.has(x.id)).length;
   const totalProgress = dayProgress(tasks, completed);
   const searchMatches = data.tasks.filter((task) =>
     `${task.title} ${task.details.join(' ')}`.toLowerCase().includes(search.trim().toLowerCase()),
@@ -271,7 +273,7 @@ export default function App() {
         {tasks.length > 0 && (
           <div className="task-progress">
             <span className="progress-copy" aria-live="polite" aria-atomic="true">
-              <b key={count}>{count}</b> / {tasks.length} 완료
+              <b key={totalProgress.done}>{totalProgress.done}</b> / {totalProgress.total} 완료
             </span>
             <DayProgressRing
               progress={totalProgress}
@@ -329,30 +331,59 @@ export default function App() {
                 </div>
                 {task.details.length > 0 && (
                   <ul className="task-details" aria-label={`${task.title} 세부 항목`}>
-                    {task.details.map((detail, index) => (
-                      <li
-                        key={task.detailChecks?.[index]?.id || index}
-                        className={
-                          task.detailChecks?.[index]?.completed ? 'detail-is-complete' : ''
-                        }
-                      >
-                        <button
-                          className="detail-checkbox"
-                          role="checkbox"
-                          aria-label={`${task.title} 세부 항목 ${index + 1} 완료`}
-                          aria-checked={Boolean(task.detailChecks?.[index]?.completed)}
-                          disabled={!canWrite || busy || !isOwner}
-                          onClick={() =>
-                            void act(() =>
-                              planner.toggleDetail(task.id, task.detailChecks![index].id),
-                            )
-                          }
+                    {task.details.map((detail, index) => {
+                      const detailId =
+                        task.detailChecks?.[index]?.id || `${task.id}-detail-${index}`;
+                      const recordKey = `${task.id}:${detailId}`;
+                      const expanded = openRecords.has(recordKey);
+                      const hasRecord = (data.taskNotes || []).some(
+                        (note) =>
+                          note.task_id === task.id &&
+                          readDetailNote(note.body).detailId === detailId,
+                      );
+                      return (
+                        <li
+                          key={detailId}
+                          className={`${task.detailChecks?.[index]?.completed ? 'detail-is-complete' : ''} ${expanded ? 'detail-is-expanded' : ''}`}
                         >
-                          {task.detailChecks?.[index]?.completed && <Check size={11} />}
-                        </button>
-                        <span>{detail}</span>
-                      </li>
-                    ))}
+                          <div className="detail-row-main">
+                            <button
+                              className="detail-checkbox"
+                              role="checkbox"
+                              aria-label={`${task.title} 세부 항목 ${index + 1} 완료`}
+                              aria-checked={Boolean(task.detailChecks?.[index]?.completed)}
+                              disabled={!canWrite || busy || !isOwner}
+                              onClick={() =>
+                                void act(() => planner.toggleDetail(task.id, detailId))
+                              }
+                            >
+                              {task.detailChecks?.[index]?.completed && <Check size={11} />}
+                            </button>
+                            <span className="detail-row-title">{detail}</span>
+                            <button
+                              className="detail-record-toggle"
+                              aria-label={`${detail} 기록 ${expanded ? '접기' : '열기'}`}
+                              aria-expanded={expanded}
+                              onClick={() =>
+                                setOpenRecords((current) => {
+                                  const next = new Set(current);
+                                  if (next.has(recordKey)) next.delete(recordKey);
+                                  else next.add(recordKey);
+                                  return next;
+                                })
+                              }
+                            >
+                              기록
+                              {hasRecord && <span className="record-dot" aria-label="기록 있음" />}
+                              <ChevronRight size={14} />
+                            </button>
+                          </div>
+                          {expanded && (
+                            <DetailRecord task={task} detailId={detailId} planner={planner} />
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
                 {task.details.length > 0 && (
@@ -592,26 +623,18 @@ export default function App() {
                 {Array.from({ length: 42 }, (_, i) => {
                   const value = addDays(month, i - dateObject(month).getUTCDay()),
                     dailyTasks = data.tasks.filter((x) => x.date === value),
-                    done = dailyTasks.filter((x) => completed.has(x.id)).length;
+                    progress = dayProgress(dailyTasks, completed);
                   return (
                     <button
                       key={value}
-                      className={`calendar-day ${value.slice(0, 7) !== month.slice(0, 7) ? 'outside-month' : ''} ${value === today ? 'is-today' : ''} ${value === date ? 'selected-day' : ''} ${dailyTasks.length ? 'has-tasks' : ''}`}
-                      aria-label={`${formatDate(value)} 할 일 ${dailyTasks.length}개, ${done}개 완료`}
+                      className={`calendar-day ${value.slice(0, 7) !== month.slice(0, 7) ? 'outside-month' : ''} ${value === today ? 'is-today' : ''} ${value === date ? 'selected-day' : ''} ${dailyTasks.length ? 'has-tasks' : ''} ${dailyTasks.length && progress.done === progress.total ? 'is-complete-day' : ''}`}
+                      aria-label={`${formatDate(value)} 세부 항목 ${progress.total}개 중 ${progress.done}개 완료, ${progress.percent}%`}
                       onClick={() => goDate(value)}
                     >
                       <span className="day-number">{Number(value.slice(8))}</span>
                       {dailyTasks.length > 0 && (
-                        <span className="calendar-task-count">
-                          {done === dailyTasks.length ? (
-                            <Check size={12} />
-                          ) : (
-                            <span className="tiny-dot" />
-                          )}
-                          <span>
-                            {done}/{dailyTasks.length}
-                            <span className="calendar-count-label"> 완료</span>
-                          </span>
+                        <span className="calendar-progress-track" aria-hidden="true">
+                          <i style={{ width: `${progress.percent}%` }} />
                         </span>
                       )}
                     </button>
@@ -636,7 +659,7 @@ export default function App() {
             <div className="section-toolbar">{dateNav}</div>
             <Stats data={data} date={date} />
             <p className="stats-note">
-              선택한 날까지 최근 7일의 할 일과 완료 상태를 집계합니다.
+              선택한 날까지 최근 7일의 세부 항목 완료 상태를 집계합니다.
               {data.hasSamples && !planner.session && ' 현재 예시 일정이 포함되어 있어요.'}
             </p>
           </div>
@@ -1018,6 +1041,8 @@ function MemberForm({
 }
 function Stats({ data, date }: { data: Snapshot; date: string }) {
   const week = weeklyStats(data, date);
+  const selectedTasks = sortedTasks(data.tasks.filter((task) => task.date === date));
+  const completed = new Set(data.completedTaskIds);
   const total = week.reduce((sum, day) => sum + day.total, 0),
     done = week.reduce((sum, day) => sum + day.completed, 0);
   const rate = total ? Math.round((done / total) * 100) : 0,
@@ -1028,7 +1053,7 @@ function Stats({ data, date }: { data: Snapshot; date: string }) {
         <div className="stat-tile">
           <span>
             <CheckCheck size={18} />
-            완료한 할 일
+            완료한 항목
           </span>
           <strong>
             {done}
@@ -1049,7 +1074,8 @@ function Stats({ data, date }: { data: Snapshot; date: string }) {
         </div>
         <div className="stat-tile">
           <span>
-            <Leaf size={18} />할 일을 해낸 날
+            <Leaf size={18} />
+            공부를 해낸 날
           </span>
           <strong>
             {week.filter((day) => day.completed > 0).length}
@@ -1058,9 +1084,23 @@ function Stats({ data, date }: { data: Snapshot; date: string }) {
           <p>작은 꾸준함의 힘.</p>
         </div>
       </div>
+      {selectedTasks.length > 0 && (
+        <section className="study-flow" aria-label="선택한 날의 학습 흐름">
+          <h2>{formatDate(date)}의 학습 흐름</h2>
+          {selectedTasks.map((task) => {
+            const progress = taskProgress(task, completed);
+            return (
+              <div className="study-flow-row" key={task.id}>
+                <span>{task.title}</span>
+                <TaskProgress progress={progress} label={`${task.title} 학습 흐름`} />
+              </div>
+            );
+          })}
+        </section>
+      )}
       <section className="glass-card chart-card">
         <div className="card-header">
-          <h2>지난 7일의 할 일</h2>
+          <h2>지난 7일의 세부 항목</h2>
           {total > 0 && (
             <div className="chart-legend">
               <i />

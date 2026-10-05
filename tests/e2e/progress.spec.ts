@@ -89,9 +89,9 @@ test('partial checks, parent completion and the weighted day ring update immedia
   await page.reload();
   await expect(bar(page)).toHaveAttribute('aria-valuenow', '25');
   await expect(ring(page)).toHaveAttribute('aria-valuenow', '40');
-  await expect(page.locator('.progress-copy')).toContainText('1 / 2 완료');
+  await expect(page.locator('.progress-copy')).toContainText('2 / 5 완료');
   await page.getByRole('button', { name: '학습 흐름', exact: true }).click();
-  await expect(page.locator('.stat-tile').first()).toContainText('1 / 2개');
+  await expect(page.locator('.stat-tile').first()).toContainText('2 / 5개');
   expect(errors).toEqual([]);
 });
 

@@ -632,9 +632,164 @@ svg {
   word-break: keep-all;
 }
 .task-details li {
+  display: block;
+  border-radius: var(--radius-sm);
+  transition: background var(--duration) var(--ease);
+}
+@media (hover: hover) {
+  .task-details li:hover {
+    background: rgba(232, 244, 252, 0.32);
+  }
+}
+.task-details li.detail-is-expanded {
+  background: rgba(232, 244, 252, 0.38);
+}
+.detail-row-main {
   display: flex;
   align-items: flex-start;
   gap: var(--space-1);
+  min-width: 0;
+}
+.detail-row-title {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 0;
+  transition:
+    color var(--duration) var(--ease),
+    opacity var(--duration) var(--ease);
+}
+.detail-record-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  min-width: 56px;
+  min-height: 32px;
+  padding: 0 var(--space-1);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--type-meta);
+  white-space: nowrap;
+  transition: color var(--duration) var(--ease);
+}
+.detail-record-toggle:hover,
+.detail-record-toggle:focus-visible {
+  color: var(--sky-600);
+}
+.detail-record-toggle svg {
+  transition: transform var(--duration) var(--ease);
+}
+.detail-record-toggle[aria-expanded='true'] svg {
+  transform: rotate(90deg);
+}
+.record-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--sky-500);
+}
+.detail-record-panel {
+  margin: 0 var(--space-2) var(--space-2) 32px;
+  padding: var(--space-2) 0 var(--space-1) var(--space-3);
+  border-left: 1px solid rgba(70, 139, 194, 0.23);
+}
+.detail-record-notes {
+  display: grid;
+  gap: var(--space-2);
+}
+.detail-record-panel .task-note {
+  padding: var(--space-2) 0;
+  border-radius: 0;
+  background: transparent;
+}
+.detail-record-panel .task-note:last-child {
+  border-bottom: 0;
+}
+.detail-record-panel .note-body {
+  margin: 0;
+}
+.detail-record-form textarea {
+  width: 100%;
+  min-height: 64px;
+  padding: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.24);
+  color: var(--text);
+  font-size: var(--type-support);
+  line-height: 1.7;
+  resize: vertical;
+}
+.detail-record-form textarea:focus {
+  outline: none;
+  border-color: rgba(70, 139, 194, 0.28);
+  background: rgba(255, 255, 255, 0.5);
+}
+.detail-record-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.detail-record-panel .attachment-toolbar {
+  gap: var(--space-1);
+}
+.detail-record-panel .attachment-toolbar > span {
+  display: none;
+}
+.detail-record-panel .attachment-add {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--type-meta);
+}
+.detail-record-panel .attachment-add svg {
+  width: 14px;
+}
+.detail-record-save {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 36px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--sky-600);
+  font-size: var(--type-meta);
+}
+.detail-record-save:hover,
+.detail-record-save:focus-visible {
+  background: rgba(70, 139, 194, 0.09);
+}
+.detail-record-add {
+  min-height: 32px;
+  padding: 0 var(--space-2);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--type-meta);
+}
+.detail-record-add:hover,
+.detail-record-add:focus-visible {
+  color: var(--sky-600);
+}
+.detail-record-message,
+.detail-record-empty {
+  margin: var(--space-1) 0;
+  color: var(--text-muted);
+  font-size: var(--type-meta);
+}
+.detail-record-panel .attachment-card {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.3);
+}
+.detail-record-panel .attachment-list {
+  margin: var(--space-2) 0;
+}
+.detail-record-panel .file-queue {
+  margin-top: var(--space-1);
+}
+.detail-record-panel .form-error {
+  margin: var(--space-1) 0;
 }
 .detail-checkbox {
   position: relative;
@@ -671,11 +826,7 @@ svg {
   height: 11px;
   stroke-width: 2;
 }
-.task-details li > span {
-  min-width: 0;
-  padding-top: 2px;
-}
-.detail-is-complete > span,
+.detail-is-complete .detail-row-title,
 .detail-is-complete input[type='text'] {
   color: var(--text-muted);
   text-decoration: line-through;
@@ -922,6 +1073,53 @@ svg {
 }
 .calendar-day.has-tasks {
   background: rgba(231, 244, 253, 0.46);
+}
+.calendar-progress-track {
+  display: block;
+  width: 100%;
+  height: 3px;
+  margin-top: auto;
+  border-radius: 3px;
+  overflow: hidden;
+  background: rgba(67, 126, 169, 0.12);
+}
+.calendar-progress-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--sky-500);
+  transition: width var(--duration) var(--ease);
+}
+.calendar-day.is-complete-day .day-number {
+  font-weight: 600;
+}
+.study-flow {
+  margin: 0 0 var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: rgba(246, 251, 254, 0.72);
+}
+.study-flow h2 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--type-section);
+  font-weight: 550;
+}
+.study-flow-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--type-body);
+}
+.study-flow-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.study-flow-row .detail-progress {
+  flex: 0 0 35%;
+  margin: 0;
 }
 .calendar-day.selected-day {
   border-color: rgba(70, 139, 194, 0.4);
@@ -2272,6 +2470,12 @@ svg {
     padding-bottom: 6px;
     gap: var(--space-1);
   }
+  .calendar-progress-track {
+    width: 70%;
+  }
+  .study-flow-row .detail-progress {
+    flex-basis: 42%;
+  }
   .calendar-card {
     padding-top: 20px;
     padding-bottom: var(--space-4);
@@ -2510,6 +2714,23 @@ svg {
     padding: 2px 0;
     column-gap: 7px;
     row-gap: 6px;
+  }
+  .task-details .detail-checkbox {
+    flex-basis: 40px;
+    width: 40px;
+    height: 40px;
+  }
+  .detail-record-toggle {
+    min-height: 40px;
+  }
+  .detail-record-add {
+    min-height: 40px;
+  }
+  .detail-row-title {
+    padding-top: 8px;
+  }
+  .detail-record-panel {
+    margin-left: 40px;
   }
   .task-heading {
     align-items: flex-start;

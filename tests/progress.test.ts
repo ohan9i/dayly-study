@@ -8,6 +8,8 @@ import {
   reconcileCompletion,
   taskProgress,
   progressPercent,
+  encodeDetailNote,
+  readDetailNote,
   weeklyStats,
   type Task,
 } from '../src/domain';
@@ -26,6 +28,15 @@ const parent: Task = {
 };
 
 describe('detail completion and progress', () => {
+  test('detail note envelopes preserve legacy task notes and the stable detail id', () => {
+    const encoded = encodeDetailNote('detail-2', '오답 7번 재풀이');
+    expect(readDetailNote(encoded)).toEqual({ detailId: 'detail-2', body: '오답 7번 재풀이' });
+    expect(readDetailNote('기존 할 일 기록')).toEqual({ detailId: null, body: '기존 할 일 기록' });
+    expect(readDetailNote('dayly:detail-note:v1:{broken')).toEqual({
+      detailId: null,
+      body: 'dayly:detail-note:v1:{broken',
+    });
+  });
   test('100% appears only when every item is complete', () => {
     expect(progressPercent(199, 200)).toBe(99);
     expect(progressPercent(200, 200)).toBe(100);
@@ -57,7 +68,7 @@ describe('detail completion and progress', () => {
       ],
     });
     expect(finished.completedTaskIds).toEqual(['task']);
-    expect(weeklyStats(finished, parent.date).at(-1)?.completed).toBe(1);
+    expect(weeklyStats(finished, parent.date).at(-1)?.completed).toBe(3);
     expect(taskProgress(finished.tasks[0], new Set())).toEqual({ done: 3, total: 3, percent: 100 });
   });
   test('structured storage round-trips stable IDs, partial checks and duplicate text with or without a native array', () => {

@@ -191,6 +191,32 @@ export type TaskNote = {
   created_at: string;
   updated_at: string;
 };
+// Keep the existing task_notes table and its file relation. Older plain-text
+// notes remain task-level notes; only this exact envelope belongs to a detail.
+export const DETAIL_NOTE_PREFIX = 'dayly:detail-note:v1:';
+export function encodeDetailNote(detailId: string, body: string) {
+  return DETAIL_NOTE_PREFIX + JSON.stringify({ detailId, body });
+}
+export function readDetailNote(body: string): { detailId: string | null; body: string } {
+  if (body.startsWith(DETAIL_NOTE_PREFIX)) {
+    try {
+      const value: unknown = JSON.parse(body.slice(DETAIL_NOTE_PREFIX.length));
+      if (
+        value &&
+        typeof value === 'object' &&
+        'detailId' in value &&
+        typeof value.detailId === 'string' &&
+        value.detailId &&
+        'body' in value &&
+        typeof value.body === 'string'
+      )
+        return { detailId: value.detailId, body: value.body };
+    } catch {
+      /* Keep unreadable content visible as the original task note. */
+    }
+  }
+  return { detailId: null, body };
+}
 export type TaskAttachment = {
   id: string;
   workspace_id: string;
@@ -375,10 +401,11 @@ export function weeklyStats(data: Snapshot, end: string) {
   return Array.from({ length: 7 }, (_, i) => {
     const date = addDays(end, i - 6),
       tasks = data.tasks.filter((x) => x.date === date);
+    const progress = dayProgress(tasks, completed);
     return {
       date,
-      total: tasks.length,
-      completed: tasks.filter((x) => isTaskComplete(x, completed)).length,
+      total: progress.total,
+      completed: progress.done,
     };
   });
 }

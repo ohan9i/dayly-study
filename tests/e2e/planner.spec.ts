@@ -47,8 +47,10 @@ test('detail items persist; search, calendar and statistics show main task compl
   await expect(page.locator('.stat-tile').first()).toContainText('1 / 1개');
   await expect(page.locator('.subject-stat')).toHaveCount(0);
   await page.getByRole('button', { name: '달력', exact: true }).click();
-  await expect(page.locator('.calendar-day').filter({ hasText: '1/1 완료' })).toBeVisible();
-  await page.locator('.calendar-day').filter({ hasText: '1/1 완료' }).click();
+  await expect(
+    page.locator('.calendar-day[aria-label*="세부 항목 1개 중 1개 완료"]'),
+  ).toBeVisible();
+  await page.locator('.calendar-day[aria-label*="세부 항목 1개 중 1개 완료"]').click();
   await expect(page.getByLabel('조회 날짜')).toHaveValue(date);
   await expect(
     page.getByRole('checkbox', { name: '철근콘크리트 보의 휨 설계 완료' }),

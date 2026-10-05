@@ -106,7 +106,7 @@ describe('dates and backups', () => {
       weeklyStats(snapshot, '2026-10-04').every((day) => day.total === 0 && day.completed === 0),
     ).toBe(true);
   });
-  test('weekly statistics count main tasks only in the selected seven days', () => {
+  test('weekly statistics count detail items in the selected seven days', () => {
     const snapshot = emptySnapshot();
     const task = sampleSnapshot('2026-10-05').tasks[0];
     snapshot.tasks = [
@@ -118,7 +118,7 @@ describe('dates and backups', () => {
     snapshot.completedTaskIds = ['a', 'c'];
     const week = weeklyStats(snapshot, '2026-10-05');
     expect(week[0].date).toBe('2026-09-29');
-    expect(week.reduce((sum, day) => sum + day.total, 0)).toBe(2);
-    expect(week.reduce((sum, day) => sum + day.completed, 0)).toBe(1);
+    expect(week.reduce((sum, day) => sum + day.total, 0)).toBe(4);
+    expect(week.reduce((sum, day) => sum + day.completed, 0)).toBe(3);
   });
 });

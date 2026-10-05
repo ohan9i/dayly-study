@@ -12,12 +12,18 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { type Task, type TaskAttachment, type TaskNote } from './domain';
+import {
+  encodeDetailNote,
+  readDetailNote,
+  type Task,
+  type TaskAttachment,
+  type TaskNote,
+} from './domain';
 import DetailItemsEditor from './DetailItemsEditor';
 import { supabase, type Planner } from './planner';
 import { FILE_ACCEPT, FILE_BUCKET, MAX_QUEUED_FILES, fileSize, validateFile } from './files';
 
-function FilePicker({
+export function FilePicker({
   files,
   setFiles,
   disabled,
@@ -318,7 +324,7 @@ function FileList({
   ) : null;
 }
 
-function NoteCard({
+export function NoteCard({
   note,
   planner,
   taskAuthor,
@@ -329,8 +335,9 @@ function NoteCard({
   taskAuthor: string;
   disabled: boolean;
 }) {
+  const content = readDetailNote(note.body);
   const [editing, setEditing] = useState(false),
-    [body, setBody] = useState(note.body),
+    [body, setBody] = useState(content.body),
     [error, setError] = useState('');
   const [expanded, setExpanded] = useState(false),
     [confirmDelete, setConfirmDelete] = useState(false);
@@ -373,7 +380,7 @@ function NoteCard({
               aria-label="수행 내용 수정"
               disabled={disabled}
               onClick={() => {
-                setBody(note.body);
+                setBody(content.body);
                 setEditing(true);
               }}
             >
@@ -399,7 +406,12 @@ function NoteCard({
             void action(async () => {
               if (!body.trim() && !files.length)
                 throw new Error('수행 내용이나 파일을 남겨 주세요.');
-              await planner.saveNote(note.task_id, note.id, body.trim(), true);
+              await planner.saveNote(
+                note.task_id,
+                note.id,
+                content.detailId ? encodeDetailNote(content.detailId, body.trim()) : body.trim(),
+                true,
+              );
               setEditing(false);
             });
           }}
@@ -407,7 +419,7 @@ function NoteCard({
           <textarea
             aria-label="수행 내용 수정 글"
             rows={3}
-            maxLength={10000}
+            maxLength={content.detailId ? 9000 : 10000}
             value={body}
             onChange={(e) => setBody(e.target.value)}
             disabled={disabled}
@@ -428,8 +440,10 @@ function NoteCard({
         </form>
       ) : (
         <>
-          {note.body && <p className={`note-body ${expanded ? 'expanded' : ''}`}>{note.body}</p>}
-          {note.body.length > 180 && (
+          {content.body && (
+            <p className={`note-body ${expanded ? 'expanded' : ''}`}>{content.body}</p>
+          )}
+          {content.body.length > 180 && (
             <button
               type="button"
               className="text-button note-expand"
@@ -441,7 +455,7 @@ function NoteCard({
         </>
       )}
       <FileList files={files} planner={planner} taskAuthor={taskAuthor} disabled={disabled} />
-      {!note.body && !files.length && (
+      {!content.body && !files.length && (
         <p className="card-footnote">첨부가 완료되지 않은 수행 내용이에요.</p>
       )}
       {confirmDelete && (
@@ -512,7 +526,11 @@ export default function TaskDetail({
   const canContribute = Boolean(planner.session && planner.workspace) && !planner.passwordRecovery;
   const disabled = working || planner.busy || checking || !planner.canWrite;
   const notes = (planner.data.taskNotes || [])
-    .filter((note) => note.task_id === id.current)
+    .filter((note) => {
+      if (note.task_id !== id.current) return false;
+      const detailId = readDetailNote(note.body).detailId;
+      return !detailId || !item?.detailChecks?.some((check) => check.id === detailId);
+    })
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
   const attached = (planner.data.attachments || []).filter(
     (file) => file.task_id === id.current && !file.note_id,
