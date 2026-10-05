@@ -12,7 +12,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { cleanDetails, type Task, type TaskAttachment, type TaskNote } from './domain';
+import { type Task, type TaskAttachment, type TaskNote } from './domain';
 import DetailItemsEditor from './DetailItemsEditor';
 import { supabase, type Planner } from './planner';
 import { FILE_ACCEPT, FILE_BUCKET, MAX_QUEUED_FILES, fileSize, validateFile } from './files';
@@ -528,6 +528,16 @@ export default function TaskDetail({
     e.preventDefault();
     setError('');
     const values = new FormData(e.currentTarget);
+    const detailIds = values.getAll('detailId').map(String);
+    const detailDone = values.getAll('detailComplete').map(String);
+    const items = values
+      .getAll('detailItem')
+      .map((value, index) => ({
+        text: String(value).trim(),
+        id: detailIds[index],
+        completed: detailDone[index] === 'true',
+      }))
+      .filter((item) => item.text);
     const title = editable ? String(values.get('title') || '').trim() : item?.title || '';
     if (!title) {
       setError('할 일을 적어 주세요.');
@@ -544,7 +554,9 @@ export default function TaskDetail({
             id: id.current,
             title,
             date: String(values.get('date')),
-            details: cleanDetails(values.getAll('detailItem').map(String)),
+            details: items.map((item) => item.text),
+            detailChecks: items.map(({ id, completed }) => ({ id, completed })),
+            completed: planner.data.completedTaskIds.includes(id.current),
             created_by: taskAuthor,
           },
           persisted.current,
@@ -608,7 +620,18 @@ export default function TaskDetail({
             <span>날짜</span>
             <input name="date" type="date" required defaultValue={item?.date || date} />
           </label>
-          <DetailItemsEditor initialItems={item?.details || []} editable={editable} />
+          <DetailItemsEditor
+            initialItems={item?.details || []}
+            initialChecks={item?.detailChecks}
+            editable={editable}
+            canCheck={planner.isOwner && Boolean(planner.session)}
+            onCheckError={setError}
+            onToggle={async (detailId) => {
+              const stored = planner.data.tasks.find((task) => task.id === id.current);
+              if (stored?.detailChecks?.some((check) => check.id === detailId))
+                await planner.toggleDetail(id.current, detailId);
+            }}
+          />
         </fieldset>
         <FileList files={attached} planner={planner} taskAuthor={taskAuthor} disabled={disabled} />
         {canContribute && (

@@ -1,18 +1,33 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Check, Plus, X } from 'lucide-react';
+import { progressPercent, type DetailCheck } from './domain';
+import { TaskProgress } from './TaskProgress';
 
-type Row = { id: string; text: string };
-const makeRow = (text = ''): Row => ({ id: crypto.randomUUID(), text });
+type Row = { id: string; text: string; completed: boolean };
+const makeRow = (text = ''): Row => ({ id: crypto.randomUUID(), text, completed: false });
 
 export default function DetailItemsEditor({
   initialItems,
+  initialChecks,
   editable,
+  canCheck,
+  onToggle,
+  onCheckError,
 }: {
   initialItems: string[];
+  initialChecks?: DetailCheck[];
   editable: boolean;
+  canCheck: boolean;
+  onToggle?: (id: string) => Promise<void>;
+  onCheckError: (message: string) => void;
 }) {
   const [rows, setRows] = useState<Row[]>(() =>
-    initialItems.length ? initialItems.map(makeRow) : [makeRow()],
+    initialItems.length
+      ? initialItems.map((text, index) => ({
+          ...makeRow(text),
+          ...initialChecks?.[index],
+        }))
+      : [makeRow()],
   );
   const inputs = useRef(new Map<string, HTMLInputElement>());
   const addButton = useRef<HTMLButtonElement>(null);
@@ -38,6 +53,21 @@ export default function DetailItemsEditor({
     composing.current.delete(rows[index].id);
     setRows((current) => current.filter((_, i) => i !== index));
   }
+  async function toggle(row: Row) {
+    setRows((current) =>
+      current.map((item) => (item.id === row.id ? { ...item, completed: !item.completed } : item)),
+    );
+    try {
+      await onToggle?.(row.id);
+    } catch (error) {
+      setRows((current) =>
+        current.map((item) => (item.id === row.id ? { ...item, completed: row.completed } : item)),
+      );
+      onCheckError((error as Error).message);
+    }
+  }
+  const filled = rows.filter((row) => row.text.trim());
+  const done = filled.filter((row) => row.completed).length;
 
   function handleKey(e: KeyboardEvent<HTMLInputElement>, row: Row, index: number) {
     if (
@@ -68,7 +98,23 @@ export default function DetailItemsEditor({
       </div>
       <div className="detail-input-list">
         {rows.map((row, index) => (
-          <div className="detail-input-row" key={row.id}>
+          <div
+            className={`detail-input-row ${row.completed ? 'detail-is-complete' : ''}`}
+            key={row.id}
+          >
+            <button
+              className="detail-checkbox"
+              type="button"
+              role="checkbox"
+              aria-label={`세부 항목 ${index + 1} 완료`}
+              aria-checked={row.completed}
+              disabled={!canCheck || !row.text.trim()}
+              onClick={() => void toggle(row)}
+            >
+              {row.completed && <Check size={11} />}
+            </button>
+            <input type="hidden" name="detailId" value={row.id} />
+            <input type="hidden" name="detailComplete" value={String(row.completed)} />
             <input
               ref={(input) => {
                 if (input) inputs.current.set(row.id, input);
@@ -106,6 +152,16 @@ export default function DetailItemsEditor({
           </div>
         ))}
       </div>
+      {filled.length > 0 && (
+        <TaskProgress
+          progress={{
+            total: filled.length,
+            done,
+            percent: progressPercent(done, filled.length),
+          }}
+          label="세부 항목 진행률"
+        />
+      )}
       {editable && (
         <button
           ref={addButton}

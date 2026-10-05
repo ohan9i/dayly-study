@@ -632,14 +632,124 @@ svg {
   word-break: keep-all;
 }
 .task-details li {
-  position: relative;
-  padding-left: var(--space-3);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
 }
-.task-details li::before {
-  content: '·';
+.detail-checkbox {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
+  color: white;
+  background: transparent;
+}
+.detail-checkbox::before {
+  content: '';
   position: absolute;
-  left: 0;
-  color: var(--text-faint);
+  width: 14px;
+  height: 14px;
+  border: 1px solid rgba(89, 129, 155, 0.4);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.38);
+  transition:
+    background var(--duration) var(--ease),
+    border-color var(--duration) var(--ease);
+}
+.detail-checkbox[aria-checked='true']::before {
+  background: var(--sky-500);
+  border-color: var(--sky-500);
+}
+.detail-checkbox svg {
+  position: relative;
+  width: 11px;
+  height: 11px;
+  stroke-width: 2;
+}
+.task-details li > span {
+  min-width: 0;
+  padding-top: 2px;
+}
+.detail-is-complete > span,
+.detail-is-complete input[type='text'] {
+  color: var(--text-muted);
+  text-decoration: line-through;
+  text-decoration-color: rgba(96, 123, 141, 0.35);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.detail-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  font-size: var(--type-meta);
+  line-height: 1.6;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.detail-progress-track {
+  flex: 1;
+  max-width: 180px;
+  height: 4px;
+  border-radius: 99px;
+  background: rgba(67, 126, 169, 0.12);
+  overflow: hidden;
+}
+.detail-progress-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--sky-500);
+  transition: width var(--duration) var(--ease);
+}
+.day-progress-ring {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+.day-progress-ring svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.day-progress-ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+.ring-track {
+  stroke: rgba(67, 126, 169, 0.12);
+}
+.ring-value {
+  stroke: var(--sky-500);
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  transition: stroke-dashoffset var(--duration) var(--ease);
+}
+.day-progress-ring text {
+  fill: var(--text-muted);
+  font-family: inherit;
+  font-size: var(--type-meta);
+  font-weight: 400;
+}
+.detail-input-row .detail-checkbox {
+  flex-basis: 44px;
+  width: 44px;
+  height: 44px;
+}
+.detail-items-editor .detail-progress {
+  margin-top: var(--space-2);
+  padding-left: 48px;
+  padding-right: 48px;
+}
+.detail-items-editor .detail-progress-track {
+  max-width: none;
 }
 .task-row:has(.task-details) {
   align-items: flex-start;

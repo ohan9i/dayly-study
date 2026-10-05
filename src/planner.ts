@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createClient, type Session } from '@supabase/supabase-js';
 import {
   emptySnapshot,
-  cleanDetails,
-  encodeTaskDetails,
+  encodeTaskProgress,
+  reconcileCompletion,
+  isTaskComplete,
   normalizeTask,
   readLocal,
   type Snapshot,
@@ -138,15 +139,20 @@ export function usePlanner() {
           readAllRows<TaskNote>('task_notes', selected.id),
           readAllRows<TaskAttachment>('task_attachments', selected.id),
         ]);
-        next = {
+        next = reconcileCompletion({
           version: 2,
-          tasks: tasks.map(normalizeTask),
+          tasks: tasks.map((task) =>
+            normalizeTask(
+              task,
+              checks.some((check) => check.task_id === task.id),
+            ),
+          ),
           logs: [],
           completedTaskIds: checks.map((x) => x.task_id),
           hasSamples: false,
           taskNotes,
           attachments,
-        };
+        });
         if (tasks.length) nativeDetails.current = Object.hasOwn(tasks[0], 'detail_items');
         nextMembers = granted;
       }
@@ -239,6 +245,7 @@ export function usePlanner() {
   async function mutate(
     local: (state: Snapshot) => Snapshot,
     remote: (space: Workspace, user: Session) => Promise<void>,
+    optimistic = false,
   ) {
     if (
       lock.current ||
@@ -249,19 +256,31 @@ export function usePlanner() {
       throw new Error('사용 공간을 확인하고 다시 시도해 주세요.');
     lock.current = true;
     setBusy(true);
+    const previous = remoteData;
     try {
       if (!session || !workspace) throw new Error('로그인하고 사용할 공간을 선택해 주세요.');
+      if (optimistic) setRemoteData((state) => local(state));
       await remote(workspace, session);
       if (
         activeSession.current?.user.id !== session.user.id ||
         activeWorkspace.current?.id !== workspace.id
       )
         return;
-      setRemoteData((state) => local(state));
+      if (!optimistic) setRemoteData((state) => local(state));
       // A failed reload must not tell the user that an already committed write failed.
       await refresh(session, workspace.id).catch(() => {});
     } catch (e) {
-      if (session && activeSession.current?.user.id === session.user.id)
+      if (
+        optimistic &&
+        activeSession.current?.user.id === session?.user.id &&
+        activeWorkspace.current?.id === workspace?.id
+      )
+        setRemoteData(previous);
+      if (
+        session &&
+        activeSession.current?.user.id === session.user.id &&
+        activeWorkspace.current?.id === workspace?.id
+      )
         await refresh(session).catch(() => {});
       setError((e as Error).message);
       throw e;
@@ -270,18 +289,21 @@ export function usePlanner() {
       setBusy(false);
     }
   }
-  const saveTask = async (value: Task, editing: boolean) => {
-    const task = { ...value, details: cleanDetails(value.details) };
-    const encoded = encodeTaskDetails(task.details);
+  const saveTask = async (value: Task, editing: boolean, optimistic = false) => {
+    const completed = new Set(data.completedTaskIds);
+    const normalized = normalizeTask(value, completed.has(value.id));
+    const task = { ...normalized, completed: isTaskComplete(normalized, completed) };
+    const encoded = encodeTaskProgress(task, completed);
     if (encoded.length > 10000)
       throw new Error('세부 항목의 전체 내용이 저장 용량을 초과했어요. 내용을 조금 줄여 주세요.');
     return mutate(
-      (state) => ({
-        ...state,
-        tasks: editing
-          ? state.tasks.map((x) => (x.id === task.id ? task : x))
-          : [...state.tasks, task],
-      }),
+      (state) =>
+        reconcileCompletion({
+          ...state,
+          tasks: editing
+            ? state.tasks.map((x) => (x.id === task.id ? task : x))
+            : [...state.tasks, task],
+        }),
       async (space, user) => {
         const fields = {
           title: task.title,
@@ -296,19 +318,17 @@ export function usePlanner() {
                 .eq('workspace_id', space.id)
                 .select('id')
                 .single()
-            : await supabase!
-                .from('tasks')
-                .insert({
-                  ...fields,
-                  ...details,
-                  id: task.id,
-                  workspace_id: space.id,
-                  created_by: user.user.id,
-                });
+            : await supabase!.from('tasks').insert({
+                ...fields,
+                ...details,
+                id: task.id,
+                workspace_id: space.id,
+                created_by: user.user.id,
+              });
         let result = await write(
           nativeDetails.current === false
             ? { details: encoded }
-            : { details: '', detail_items: task.details },
+            : { details: encoded, detail_items: task.details },
         );
         // Unknown-column failures occur before a write. Retry only this precise
         // schema mismatch, never permission errors or uncertain network failures.
@@ -323,10 +343,30 @@ export function usePlanner() {
         }
         throwIf(result.error);
       },
+      optimistic,
     );
   };
-  const toggleTask = (id: string) =>
-    mutate(
+  const toggleTask = async (id: string) => {
+    if (!isOwner) throw new Error('완료 체크는 공간 관리자만 할 수 있어요.');
+    const task = data.tasks.find((task) => task.id === id);
+    if (!task) throw new Error('할 일을 찾지 못했습니다.');
+    if (task.details.length || task.completed !== undefined) {
+      const next = !isTaskComplete(task, new Set(data.completedTaskIds));
+      await saveTask(
+        {
+          ...task,
+          completed: next,
+          detailChecks: task.details.map((_, index) => ({
+            id: task.detailChecks?.[index]?.id || `${task.id}-detail-${index}`,
+            completed: next,
+          })),
+        },
+        true,
+        true,
+      );
+      return;
+    }
+    return mutate(
       (state) => ({
         ...state,
         completedTaskIds: state.completedTaskIds.includes(id)
@@ -347,7 +387,19 @@ export function usePlanner() {
               .insert({ task_id: id, workspace_id: space.id, completed_by: user.user.id });
         throwIf(result.error);
       },
+      true,
     );
+  };
+  const toggleDetail = async (taskId: string, detailId: string) => {
+    if (!isOwner) throw new Error('완료 체크는 공간 관리자만 할 수 있어요.');
+    const task = data.tasks.find((task) => task.id === taskId);
+    const index = task?.detailChecks?.findIndex((check) => check.id === detailId) ?? -1;
+    if (!task || index < 0) throw new Error('세부 항목을 찾지 못했습니다.');
+    const checks = task.detailChecks!.map((check, i) =>
+      i === index ? { ...check, completed: !check.completed } : check,
+    );
+    return saveTask({ ...task, detailChecks: checks }, true, true);
+  };
   const deleteTask = (id: string) =>
     mutate(
       (state) => ({
@@ -537,6 +589,7 @@ export function usePlanner() {
     lastSaved,
     saveTask,
     toggleTask,
+    toggleDetail,
     deleteTask,
     saveNote,
     deleteNote,

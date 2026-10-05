@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { mkdirSync, readFileSync } from 'node:fs';
-import { DETAILS_PREFIX, LOCAL_KEY, todayKey } from '../../src/domain';
+import { PROGRESS_PREFIX, LOCAL_KEY, todayKey } from '../../src/domain';
 import { mockCloud, signIn, OWN_SPACE } from './cloud-fixture';
 
 const field = (page: Page, index: number) => page.getByLabel(`세부 항목 ${index}`, { exact: true });
@@ -211,9 +211,11 @@ test('the existing text-only database stores a structured array and preserves it
   await save(page);
   const writes = cloud.requests.filter((r) => r.path === '/rest/v1/tasks' && r.method === 'POST');
   expect(writes).toHaveLength(2); // An unknown column rejects the first request before any insertion.
-  expect(writes[1].body.details).toBe(
-    DETAILS_PREFIX + JSON.stringify(['순열 문제 10개', '오답 정리']),
-  );
+  const stored = JSON.parse(String(writes[1].body.details).slice(PROGRESS_PREFIX.length));
+  expect(stored.items.map((item: { text: string }) => item.text)).toEqual([
+    '순열 문제 10개',
+    '오답 정리',
+  ]);
   await page.reload();
   await expect(page.locator('.task-details li')).toHaveText(['순열 문제 10개', '오답 정리']);
   await edit(page);
@@ -268,8 +270,8 @@ for (const width of [390, 360]) {
       .locator('.detail-input-row')
       .first()
       .evaluate((row) => {
-        const input = row.querySelector('input')!.getBoundingClientRect();
-        const button = row.querySelector('button')!.getBoundingClientRect();
+        const input = row.querySelector('input[type="text"]')!.getBoundingClientRect();
+        const button = row.querySelector('.detail-remove-button')!.getBoundingClientRect();
         const dialog = document.querySelector('dialog')!;
         return {
           inputWidth: input.width,
@@ -288,7 +290,7 @@ for (const width of [390, 360]) {
     await page.screenshot({ path: `.local/detail-items-${width}-editor.png` });
     await save(page);
     await expect(page.locator('.task-details li')).toHaveCount(12);
-    await expect(page.getByRole('checkbox')).toHaveCount(1);
+    await expect(page.locator('.task-checkbox')).toHaveCount(1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );

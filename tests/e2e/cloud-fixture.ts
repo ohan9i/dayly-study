@@ -319,5 +319,5 @@ export async function signIn(page: Page) {
   await page.getByLabel('비밀번호', { exact: true }).fill(TEST_PASSWORD);
   await page.getByRole('button', { name: '비밀번호로 로그인', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
-  await expect(page.getByText('여백이 있는 하루', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '공유 기록 새로고침', exact: true })).toBeEnabled();
 }

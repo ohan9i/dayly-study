@@ -1,6 +1,7 @@
 export const LOCAL_KEY = 'dayly.planner.v1';
 export const SUBJECT_MAX_LENGTH = 40;
 export type Subject = string;
+export type DetailCheck = { id: string; completed: boolean };
 export type Task = {
   id: string;
   title: string;
@@ -9,6 +10,8 @@ export type Task = {
   date: string;
   time?: string;
   details: string[];
+  detailChecks?: DetailCheck[];
+  completed?: boolean;
   created_by: string;
   workspace_id?: string;
 };
@@ -20,12 +23,47 @@ export type TaskRecord = Omit<Task, 'details'> & {
 // The existing database has a text column. A versioned JSON envelope keeps each
 // item independent until the optional native text[] column is installed.
 export const DETAILS_PREFIX = 'dayly:details:v2:';
+export const PROGRESS_PREFIX = 'dayly:progress:v1:';
+type StoredProgress = {
+  items: { id: string; text: string; completed: boolean }[];
+  completed: boolean;
+};
+function storedProgress(value: unknown): StoredProgress | undefined {
+  if (typeof value !== 'string' || !value.startsWith(PROGRESS_PREFIX)) return;
+  try {
+    const parsed = JSON.parse(value.slice(PROGRESS_PREFIX.length)) as StoredProgress;
+    if (
+      parsed &&
+      typeof parsed.completed === 'boolean' &&
+      Array.isArray(parsed.items) &&
+      parsed.items.every(
+        (item) =>
+          item &&
+          typeof item.id === 'string' &&
+          item.id &&
+          typeof item.text === 'string' &&
+          typeof item.completed === 'boolean',
+      ) &&
+      new Set(parsed.items.map((item) => item.id)).size === parsed.items.length
+    )
+      return parsed;
+  } catch {
+    /* Preserve unreadable payloads as legacy text. */
+  }
+}
 export const cleanDetails = (items: string[]) => items.map((item) => item.trim()).filter(Boolean);
 export const encodeTaskDetails = (items: string[]) =>
   DETAILS_PREFIX + JSON.stringify(cleanDetails(items));
 export function readTaskDetails(
   task: Pick<TaskRecord, 'details' | 'memo' | 'detail_items'>,
 ): string[] {
+  const progress = storedProgress(task.details);
+  if (
+    progress &&
+    (!Array.isArray(task.detail_items) ||
+      JSON.stringify(task.detail_items) === JSON.stringify(progress.items.map((item) => item.text)))
+  )
+    return cleanDetails(progress.items.map((item) => item.text));
   for (const value of [task.detail_items, task.details]) {
     if (Array.isArray(value) && value.every((item) => typeof item === 'string'))
       return cleanDetails(value);
@@ -47,10 +85,81 @@ export function readTaskDetails(
   }
   return cleanDetails(value.split(/\r\n|\r|\n/));
 }
-export const normalizeTask = (task: TaskRecord): Task => {
+export const normalizeTask = (task: TaskRecord, legacyCompleted = false): Task => {
   const { detail_items: _items, memo: _memo, ...fields } = task;
-  return { ...fields, details: readTaskDetails(task) };
+  const details = readTaskDetails(task);
+  const progress = storedProgress(task.details);
+  const matches =
+    progress && JSON.stringify(details) === JSON.stringify(progress.items.map((item) => item.text));
+  const checks = matches ? progress.items : task.detailChecks;
+  const source = matches
+    ? progress.items.map((item) => item.text)
+    : Array.isArray(task.detail_items) &&
+        task.detail_items.every((item) => typeof item === 'string')
+      ? (task.detail_items as string[])
+      : Array.isArray(task.details) && task.details.every((item) => typeof item === 'string')
+        ? (task.details as string[])
+        : details;
+  const normalized: Task = {
+    ...fields,
+    details,
+    detailChecks: source.flatMap((text, index) =>
+      text.trim()
+        ? [
+            {
+              id: checks?.[index]?.id || `${task.id}-detail-${index}`,
+              completed: checks?.[index]?.completed ?? (progress ? false : legacyCompleted),
+            },
+          ]
+        : [],
+    ),
+  };
+  if (matches) normalized.completed = progress.completed;
+  return normalized;
 };
+export const progressPercent = (done: number, total: number) =>
+  total ? (done === total ? 100 : Math.min(99, Math.round((done / total) * 100))) : 0;
+export function taskProgress(task: Task, completed: ReadonlySet<string>) {
+  const total = task.details.length || 1;
+  const done = task.details.length
+    ? task.details.filter((_, i) => task.detailChecks?.[i]?.completed ?? completed.has(task.id))
+        .length
+    : Number(task.completed ?? completed.has(task.id));
+  return { total, done, percent: progressPercent(done, total) };
+}
+export const isTaskComplete = (task: Task, completed: ReadonlySet<string>) => {
+  const progress = taskProgress(task, completed);
+  return progress.done === progress.total;
+};
+export function dayProgress(tasks: Task[], completed: ReadonlySet<string>) {
+  const totals = tasks.reduce(
+    (sum, task) => {
+      const progress = taskProgress(task, completed);
+      return { total: sum.total + progress.total, done: sum.done + progress.done };
+    },
+    { total: 0, done: 0 },
+  );
+  return { ...totals, percent: progressPercent(totals.done, totals.total) };
+}
+export function reconcileCompletion(data: Snapshot): Snapshot {
+  const completed = new Set(data.completedTaskIds);
+  return {
+    ...data,
+    completedTaskIds: data.tasks
+      .filter((task) => isTaskComplete(task, completed))
+      .map((task) => task.id),
+  };
+}
+export function encodeTaskProgress(task: Task, completed: ReadonlySet<string>) {
+  const normalized = normalizeTask(task, completed.has(task.id));
+  const items = normalized.details.map((text, index) => ({
+    text,
+    ...normalized.detailChecks![index],
+  }));
+  return (
+    PROGRESS_PREFIX + JSON.stringify({ items, completed: isTaskComplete(normalized, completed) })
+  );
+}
 // Preserve old journals in local backups without exposing the removed feature.
 type LegacyStudyLog = {
   id: string;
@@ -155,7 +264,7 @@ export function sampleSnapshot(date = todayKey()): Snapshot {
   }));
   return {
     version: 2,
-    tasks,
+    tasks: tasks.map((task, index) => normalizeTask(task, index < 5)),
     logs: [],
     completedTaskIds: tasks.slice(0, 5).map((x) => x.id),
     hasSamples: true,
@@ -189,6 +298,17 @@ export function parseSnapshot(value: unknown): Snapshot {
     !v.tasks.every(
       (x) =>
         base(x) &&
+        (x.completed === undefined || typeof x.completed === 'boolean') &&
+        (x.detailChecks === undefined ||
+          (Array.isArray(x.detailChecks) &&
+            x.detailChecks.every(
+              (check) =>
+                check &&
+                typeof check.id === 'string' &&
+                check.id &&
+                typeof check.completed === 'boolean',
+            ) &&
+            new Set(x.detailChecks.map((check) => check.id)).size === x.detailChecks.length)) &&
         [x.details, x.detail_items, x.memo].every(
           (value) =>
             value == null ||
@@ -222,7 +342,12 @@ export function parseSnapshot(value: unknown): Snapshot {
     !v.completedTaskIds.every((x) => typeof x === 'string' && ids.has(x))
   )
     return fail();
-  return { ...v, version: 2, tasks: v.tasks.map(normalizeTask) };
+  const completed = new Set(v.completedTaskIds);
+  return reconcileCompletion({
+    ...v,
+    version: 2,
+    tasks: v.tasks.map((task) => normalizeTask(task, completed.has(task.id))),
+  });
 }
 export function readLocal(): { data: Snapshot; warning: string } {
   try {
@@ -253,7 +378,7 @@ export function weeklyStats(data: Snapshot, end: string) {
     return {
       date,
       total: tasks.length,
-      completed: tasks.filter((x) => completed.has(x.id)).length,
+      completed: tasks.filter((x) => isTaskComplete(x, completed)).length,
     };
   });
 }

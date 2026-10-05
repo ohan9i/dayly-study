@@ -31,6 +31,8 @@ import {
   formatDate,
   shiftMonth,
   sortedTasks,
+  taskProgress,
+  dayProgress,
   todayKey,
   weeklyStats,
   type Snapshot,
@@ -39,6 +41,7 @@ import {
 import { usePlanner } from './planner';
 import Account from './Account';
 import TaskDetail from './TaskDetail';
+import { TaskProgress, DayProgressRing } from './TaskProgress';
 import WorkspacePanel from './WorkspacePanel';
 
 type View = 'home' | 'calendar' | 'stats' | 'settings';
@@ -170,6 +173,7 @@ export default function App() {
   const tasks = sortedTasks(data.tasks.filter((x) => x.date === date));
   const completed = new Set(data.completedTaskIds);
   const count = tasks.filter((x) => completed.has(x.id)).length;
+  const totalProgress = dayProgress(tasks, completed);
   const searchMatches = data.tasks.filter((task) =>
     `${task.title} ${task.details.join(' ')}`.toLowerCase().includes(search.trim().toLowerCase()),
   );
@@ -269,16 +273,10 @@ export default function App() {
             <span className="progress-copy" aria-live="polite" aria-atomic="true">
               <b key={count}>{count}</b> / {tasks.length} 완료
             </span>
-            <div
-              className="progress-track"
-              role="progressbar"
-              aria-label="할 일 완료율"
-              aria-valuenow={count}
-              aria-valuemin={0}
-              aria-valuemax={Math.max(tasks.length, 1)}
-            >
-              <i style={{ width: `${tasks.length ? (count / tasks.length) * 100 : 0}%` }} />
-            </div>
+            <DayProgressRing
+              progress={totalProgress}
+              label={date === today ? '오늘 진행률' : '이날 진행률'}
+            />
           </div>
         )}
         <button
@@ -332,9 +330,36 @@ export default function App() {
                 {task.details.length > 0 && (
                   <ul className="task-details" aria-label={`${task.title} 세부 항목`}>
                     {task.details.map((detail, index) => (
-                      <li key={index}>{detail}</li>
+                      <li
+                        key={task.detailChecks?.[index]?.id || index}
+                        className={
+                          task.detailChecks?.[index]?.completed ? 'detail-is-complete' : ''
+                        }
+                      >
+                        <button
+                          className="detail-checkbox"
+                          role="checkbox"
+                          aria-label={`${task.title} 세부 항목 ${index + 1} 완료`}
+                          aria-checked={Boolean(task.detailChecks?.[index]?.completed)}
+                          disabled={!canWrite || busy || !isOwner}
+                          onClick={() =>
+                            void act(() =>
+                              planner.toggleDetail(task.id, task.detailChecks![index].id),
+                            )
+                          }
+                        >
+                          {task.detailChecks?.[index]?.completed && <Check size={11} />}
+                        </button>
+                        <span>{detail}</span>
+                      </li>
                     ))}
                   </ul>
+                )}
+                {task.details.length > 0 && (
+                  <TaskProgress
+                    progress={taskProgress(task, completed)}
+                    label={`${task.title} 진행률`}
+                  />
                 )}
               </div>
             </li>
@@ -799,7 +824,11 @@ export default function App() {
         >
           <TaskDetail
             key={modal.item?.id || 'new'}
-            item={modal.item}
+            item={
+              modal.item
+                ? data.tasks.find((task) => task.id === modal.item!.id) || modal.item
+                : undefined
+            }
             date={date}
             planner={planner}
             onBusyChange={setTaskDetailBusy}
