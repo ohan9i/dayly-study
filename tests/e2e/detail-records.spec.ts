@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
+import { readDetailNote } from '../../src/domain';
 import { mockCloud, signIn, PNG } from './cloud-fixture';
 
 test('detail records stay inline, independent, and separate from progress', async ({ page }) => {
@@ -94,9 +95,22 @@ test('detail records stay inline, independent, and separate from progress', asyn
   });
   await page.getByRole('button', { name: '나의 하루', exact: true }).click();
   await page.getByRole('button', { name: '수학 공부 상세 보기' }).click();
+  await expect(page.locator('.task-notes-section')).toHaveCount(0);
   await page.getByRole('button', { name: '세부 항목 2 삭제' }).click();
   await page.getByRole('button', { name: '할 일 저장' }).click();
   await page.getByRole('button', { name: '수학 공부 상세 보기' }).click();
-  await expect(page.getByRole('dialog')).toContainText('7번을 다시 풀었어요.');
-  await expect(page.getByRole('dialog')).toContainText('오답.png');
+  await expect(page.locator('.task-notes-section')).toHaveCount(0);
+  await page.getByRole('button', { name: '닫기', exact: true }).click();
+  await page.getByRole('button', { name: '설정', exact: true }).click();
+  const downloadEvent = page.waitForEvent('download');
+  await page.getByRole('button', { name: '백업 내려받기', exact: true }).click();
+  const backup = JSON.parse(readFileSync((await (await downloadEvent).path())!, 'utf8'));
+  expect(
+    backup.taskNotes.some(
+      (note: { body: string }) => readDetailNote(note.body).body === '7번을 다시 풀었어요.',
+    ),
+  ).toBe(true);
+  expect(
+    backup.attachments.some((file: { filename: string }) => file.filename === '오답.png'),
+  ).toBe(true);
 });

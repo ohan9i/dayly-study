@@ -1,12 +1,10 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import {
   Check,
-  ChevronDown,
   Download,
   FileText,
   Image,
   LockKeyhole,
-  MessageSquareText,
   Paperclip,
   Pencil,
   Trash2,
@@ -509,36 +507,23 @@ export default function TaskDetail({
   const [files, setFiles] = useState<File[]>([]),
     [error, setError] = useState(''),
     [working, setWorking] = useState(false);
-  const [progress, setProgress] = useState(''),
-    [saved, setSaved] = useState(Boolean(item));
+  const [progress, setProgress] = useState('');
   const [checking, setChecking] = useState(false);
   useEffect(() => {
     onBusyChange(working || checking);
   }, [working, checking, onBusyChange]);
   useEffect(() => () => onBusyChange(false), [onBusyChange]);
-  const [noteBody, setNoteBody] = useState(''),
-    [noteFiles, setNoteFiles] = useState<File[]>([]),
-    [noteError, setNoteError] = useState('');
-  const noteId = useRef<string | null>(null),
-    noteBox = useRef<HTMLDetailsElement>(null);
   const userId = planner.session?.user.id || 'local',
     taskAuthor = item?.created_by || userId;
   const canContribute = Boolean(planner.session && planner.workspace) && !planner.passwordRecovery;
   const disabled = working || planner.busy || checking || !planner.canWrite;
-  const notes = (planner.data.taskNotes || [])
-    .filter((note) => {
-      if (note.task_id !== id.current) return false;
-      const detailId = readDetailNote(note.body).detailId;
-      return !detailId || !item?.detailChecks?.some((check) => check.id === detailId);
-    })
-    .sort((a, b) => a.created_at.localeCompare(b.created_at));
   const attached = (planner.data.attachments || []).filter(
     (file) => file.task_id === id.current && !file.note_id,
   );
-  async function upload(queue: File[], note: string | null, update: (files: File[]) => void) {
+  async function upload(queue: File[], update: (files: File[]) => void) {
     for (let i = 0; i < queue.length; i++) {
       setProgress(`파일 ${i + 1}/${queue.length} 올리는 중…`);
-      await planner.attachFile(id.current, note, queue[i]);
+      await planner.attachFile(id.current, null, queue[i]);
       update(queue.slice(i + 1));
     }
   }
@@ -580,40 +565,11 @@ export default function TaskDetail({
           persisted.current,
         );
         persisted.current = true;
-        setSaved(true);
       }
-      await upload(files, null, setFiles);
+      await upload(files, setFiles);
       onDone();
     } catch (e) {
       setError(`${persisted.current ? '할 일은 저장되어 있어요. ' : ''}${(e as Error).message}`);
-    } finally {
-      setWorking(false);
-      setProgress('');
-    }
-  }
-  async function submitNote(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setNoteError('');
-    if (!noteBody.trim() && !noteFiles.length) {
-      setNoteError('간단한 글이나 수행한 사진을 남겨 주세요.');
-      return;
-    }
-    setWorking(true);
-    try {
-      for (const file of noteFiles) await validateFile(file);
-      const nextId = noteId.current || crypto.randomUUID();
-      setProgress('수행 내용 저장 중…');
-      await planner.saveNote(id.current, nextId, noteBody.trim(), Boolean(noteId.current));
-      noteId.current = nextId;
-      await upload(noteFiles, nextId, setNoteFiles);
-      noteId.current = null;
-      setNoteBody('');
-      setNoteFiles([]);
-      if (noteBox.current) noteBox.current.open = false;
-    } catch (e) {
-      setNoteError(
-        `${noteId.current && noteBody.trim() ? '글은 저장되어 있어요. ' : ''}${(e as Error).message}`,
-      );
     } finally {
       setWorking(false);
       setProgress('');
@@ -694,66 +650,6 @@ export default function TaskDetail({
           </p>
         )}
       </form>
-      {saved && planner.session && (
-        <section className="task-notes-section" aria-label="이 할 일의 수행 내용">
-          <div className="task-notes-heading">
-            <h3>
-              <MessageSquareText size={17} />
-              수행 내용
-            </h3>
-            <span>{notes.length ? `${notes.length}개` : '이 할 일에 짧게 남기기'}</span>
-          </div>
-          {canContribute && (
-            <details ref={noteBox} className="note-composer">
-              <summary>
-                <Pencil size={16} />
-                수행 내용 남기기
-                <ChevronDown size={16} />
-              </summary>
-              <form onSubmit={submitNote}>
-                <textarea
-                  aria-label="수행 내용"
-                  rows={3}
-                  maxLength={10000}
-                  placeholder="어떻게 공부했는지 한두 줄 남기거나 사진을 올려 주세요."
-                  value={noteBody}
-                  onChange={(e) => setNoteBody(e.target.value)}
-                  disabled={disabled}
-                />
-                <FilePicker
-                  files={noteFiles}
-                  setFiles={setNoteFiles}
-                  disabled={disabled}
-                  label="수행 파일 첨부"
-                  onChecking={setChecking}
-                />
-                {noteError && (
-                  <p className="form-error" role="alert">
-                    {noteError}
-                  </p>
-                )}
-                <div className="note-edit-actions">
-                  <button className="soft-button" disabled={disabled}>
-                    <Check size={16} />
-                    {disabled ? progress || '저장 중…' : '수행 내용 저장'}
-                  </button>
-                </div>
-              </form>
-            </details>
-          )}
-          <div className="task-note-list">
-            {notes.map((note) => (
-              <NoteCard
-                key={note.id}
-                note={note}
-                planner={planner}
-                taskAuthor={taskAuthor}
-                disabled={disabled}
-              />
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 }

@@ -62,30 +62,31 @@ for (const width of [1536, 390]) {
       '구조역학 문제를 풀면서 작성 중인 메모 계속 작성',
     );
 
-    await page.getByText('수행 내용 남기기', { exact: true }).click();
+    await expect(page.locator('.task-notes-section')).toHaveCount(0);
+    await page.getByRole('button', { name: '닫기', exact: true }).click();
+    await page.locator('.detail-record-toggle').click();
     await page.getByLabel('수행 파일 첨부', { exact: true }).setInputFiles({
       name: '작성 중 풀이 사진.png',
       mimeType: 'image/png',
       buffer: PNG,
     });
-    await expect(page.locator('.note-composer .file-queue li')).toHaveCount(1);
+    await expect(page.locator('.detail-record-form .file-queue li')).toHaveCount(1);
     const noteReads = reads();
     await keepTypingAfterReturning(
       page,
-      page.getByLabel('수행 내용', { exact: true }),
+      page.locator('.detail-record-form textarea'),
       '보의 전단력과 휨모멘트 계산 과정을 정리했어요',
     );
     expect(reads()).toBe(noteReads);
-    await expect(page.locator('.note-composer')).toHaveAttribute('open', '');
-    await expect(page.locator('.note-composer .file-queue li')).toContainText(
+    await expect(page.locator('.detail-record-toggle')).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.locator('.detail-record-form .file-queue li')).toContainText(
       '작성 중 풀이 사진.png',
     );
-    await page.getByRole('button', { name: '수행 내용 저장', exact: true }).click();
+    await page.getByRole('button', { name: '기록 저장', exact: true }).click();
     await expect(page.locator('.task-note')).toContainText(
       '보의 전단력과 휨모멘트 계산 과정을 정리했어요 계속 작성',
     );
-    await expect(page.locator('.note-composer')).not.toHaveAttribute('open', '');
-    await page.getByRole('button', { name: '닫기', exact: true }).click();
+    await expect(page.locator('.detail-record-form')).toHaveCount(0);
 
     await page.getByRole('button', { name: '설정', exact: true }).click();
     const settingsReads = reads();
