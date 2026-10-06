@@ -527,7 +527,10 @@ export function usePlanner() {
         });
         throwIf(result.error);
         if (activeWorkspace.current?.id === space.id) {
-          const canonical = normalizeTask(result.data as TaskRecord);
+          // Table-valued RPC responses may be wrapped in a one-row array.
+          const record = Array.isArray(result.data) ? result.data[0] : result.data;
+          if (!record || record.id !== taskId) throw new Error('완료 결과를 다시 확인해 주세요.');
+          const canonical = normalizeTask(record as TaskRecord);
           setRemoteData((state) =>
             reconcileCompletion({
               ...state,

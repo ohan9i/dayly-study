@@ -226,7 +226,7 @@ export async function mockCloud(
         }
       }
       bump(String(body.p_workspace_id), String(body.p_request_id));
-      return send(record);
+      return send([record]);
     }
     if (url.pathname.startsWith('/storage/v1/')) {
       const prefix = '/storage/v1/object/';
