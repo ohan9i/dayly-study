@@ -83,7 +83,10 @@ for (const width of [1440, 390]) {
     });
     const reads = () =>
       cloud.requests.filter(
-        (request) => request.method === 'GET' && request.path.startsWith('/rest/'),
+        (request) =>
+          request.method === 'GET' &&
+          request.path.startsWith('/rest/') &&
+          !request.path.endsWith('/workspace_activity'),
       ).length;
     const before = reads();
     const child = page.getByRole('checkbox', {

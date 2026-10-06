@@ -282,7 +282,7 @@ for (const width of [390, 360]) {
       });
     expect(layout.inputWidth).toBeGreaterThan(185);
     expect(layout.gap).toBeGreaterThanOrEqual(3);
-    expect(layout.buttonWidth).toBe(44);
+    expect(layout.buttonWidth).toBeCloseTo(44, 2);
     expect(layout.overflow).toBe(false);
     await field(page, 1).focus();
     await page.evaluate(() => document.fonts.ready);

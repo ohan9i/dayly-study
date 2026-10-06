@@ -33,6 +33,15 @@ export default function DetailItemsEditor({
   const addButton = useRef<HTMLButtonElement>(null);
   const pendingFocus = useRef<string | null>(null);
   const composing = useRef(new Set<string>());
+  useEffect(() => {
+    // Keep draft text/focus, but reflect shared checks by stable ID.
+    setRows((current) =>
+      current.map((row) => {
+        const check = initialChecks?.find((check) => check.id === row.id);
+        return check ? { ...row, completed: check.completed } : row;
+      }),
+    );
+  }, [initialChecks]);
 
   useEffect(() => {
     if (!pendingFocus.current) return;
@@ -127,6 +136,7 @@ export default function DetailItemsEditor({
                 index === 0 ? '예: 순열 문제 10개 풀기' : '이어서 할 내용을 적어 주세요.'
               }
               value={row.text}
+              readOnly={!editable}
               maxLength={10000}
               onChange={(e) =>
                 setRows((current) =>
@@ -137,7 +147,9 @@ export default function DetailItemsEditor({
               }
               onCompositionStart={() => composing.current.add(row.id)}
               onCompositionEnd={() => composing.current.delete(row.id)}
-              onKeyDown={(e) => handleKey(e, row, index)}
+              onKeyDown={(e) => {
+                if (editable) handleKey(e, row, index);
+              }}
             />
             {editable && (
               <button

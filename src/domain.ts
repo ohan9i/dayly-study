@@ -1,7 +1,8 @@
 export const LOCAL_KEY = 'dayly.planner.v1';
 export const SUBJECT_MAX_LENGTH = 40;
 export type Subject = string;
-export type DetailCheck = { id: string; completed: boolean };
+export type CompletionAudit = { completedBy?: string | null; completedAt?: string | null };
+export type DetailCheck = CompletionAudit & { id: string; completed: boolean };
 export type Task = {
   id: string;
   title: string;
@@ -12,6 +13,9 @@ export type Task = {
   details: string[];
   detailChecks?: DetailCheck[];
   completed?: boolean;
+  completedBy?: string | null;
+  completedAt?: string | null;
+  revision?: number;
   created_by: string;
   workspace_id?: string;
 };
@@ -24,8 +28,8 @@ export type TaskRecord = Omit<Task, 'details'> & {
 // item independent until the optional native text[] column is installed.
 export const DETAILS_PREFIX = 'dayly:details:v2:';
 export const PROGRESS_PREFIX = 'dayly:progress:v1:';
-type StoredProgress = {
-  items: { id: string; text: string; completed: boolean }[];
+type StoredProgress = CompletionAudit & {
+  items: (DetailCheck & { text: string })[];
   completed: boolean;
 };
 function storedProgress(value: unknown): StoredProgress | undefined {
@@ -109,12 +113,18 @@ export const normalizeTask = (task: TaskRecord, legacyCompleted = false): Task =
             {
               id: checks?.[index]?.id || `${task.id}-detail-${index}`,
               completed: checks?.[index]?.completed ?? (progress ? false : legacyCompleted),
+              completedBy: checks?.[index]?.completedBy,
+              completedAt: checks?.[index]?.completedAt,
             },
           ]
         : [],
     ),
   };
-  if (matches) normalized.completed = progress.completed;
+  if (matches) {
+    normalized.completed = progress.completed;
+    normalized.completedBy = progress.completedBy;
+    normalized.completedAt = progress.completedAt;
+  }
   return normalized;
 };
 export const progressPercent = (done: number, total: number) =>
@@ -157,7 +167,13 @@ export function encodeTaskProgress(task: Task, completed: ReadonlySet<string>) {
     ...normalized.detailChecks![index],
   }));
   return (
-    PROGRESS_PREFIX + JSON.stringify({ items, completed: isTaskComplete(normalized, completed) })
+    PROGRESS_PREFIX +
+    JSON.stringify({
+      items,
+      completed: isTaskComplete(normalized, completed),
+      completedBy: normalized.completedBy,
+      completedAt: normalized.completedAt,
+    })
   );
 }
 // Preserve old journals in local backups without exposing the removed feature.

@@ -3113,6 +3113,19 @@ svg {
     transform: translateY(0);
   }
 }
+.task-move {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.task-move-picker {
+  display: grid;
+  gap: 8px;
+}
+.task-move select {
+  width: 100%;
+  min-width: 0;
+}
 @keyframes spin {
   to {
     transform: rotate(360deg);

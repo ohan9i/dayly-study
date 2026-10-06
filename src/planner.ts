@@ -96,14 +96,26 @@ export function usePlanner() {
   const lock = useRef(false);
   const provisionedUser = useRef<string | null>(null);
   const nativeDetails = useRef<boolean | null>(null);
+  const requestId = useRef(crypto.randomUUID());
+  const syncPending = useRef(false);
+  const syncReading = useRef(false);
+  const foregroundLoading = useRef(false);
+  const activitySeen = useRef<{ space: string; revision: number } | null>(null);
   const data = session ? remoteData : localData;
   const isOwner = !session || workspace?.owner_id === session.user.id;
   const canWrite = !loading && Boolean(session && workspace) && !passwordRecovery;
 
   const refresh = useCallback(async (user: Session, preferredId?: string, background = false) => {
     if (!supabase) return;
+    if (background && foregroundLoading.current) {
+      syncPending.current = true;
+      return;
+    }
     const token = ++generation.current;
-    if (!background) setLoading(true);
+    if (!background) {
+      foregroundLoading.current = true;
+      setLoading(true);
+    }
     try {
       if (provisionedUser.current !== user.user.id) {
         const personal = await supabase.rpc('ensure_personal_workspace');
@@ -129,7 +141,15 @@ export function usePlanner() {
         null;
       let next = emptySnapshot(),
         nextMembers: Member[] = [];
+      let revision = -1;
       if (selected) {
+        const activity = await supabase
+          .from('workspace_activity')
+          .select('revision')
+          .eq('workspace_id', selected.id)
+          .maybeSingle();
+        throwIf(activity.error);
+        revision = activity.data?.revision ?? 0;
         const [tasks, checks, granted, taskNotes, attachments] = await Promise.all([
           readAllRows<TaskRecord>('tasks', selected.id),
           readAllRows<{ task_id: string }>('task_completions', selected.id, 'task_id'),
@@ -160,6 +180,8 @@ export function usePlanner() {
       setWorkspaces(list);
       setWorkspace(selected);
       activeWorkspace.current = selected;
+      activitySeen.current = selected ? { space: selected.id, revision } : null;
+      syncPending.current = false;
       try {
         if (selected) localStorage.setItem(`dayly.workspace.${user.user.id}`, selected.id);
       } catch {
@@ -174,7 +196,10 @@ export function usePlanner() {
         setError(`공유 기록을 불러오지 못했습니다. ${(e as Error).message}`);
       throw e;
     } finally {
-      if (token === generation.current && !background) setLoading(false);
+      if (token === generation.current && !background) {
+        foregroundLoading.current = false;
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -242,6 +267,118 @@ export function usePlanner() {
     };
   }, [refresh]);
 
+  useEffect(() => {
+    if (!supabase || !session || !workspace || passwordRecovery) return;
+    let alive = true,
+      checking = false,
+      seen = activitySeen.current?.space === workspace.id ? activitySeen.current.revision : -1;
+    const spaceId = workspace.id;
+    const synchronize = async () => {
+      if (checking || !alive || activeWorkspace.current?.id !== spaceId) return;
+      if (lock.current || foregroundLoading.current) {
+        syncPending.current = true;
+        return;
+      }
+      checking = true;
+      syncReading.current = true;
+      try {
+        if (activitySeen.current?.space === spaceId)
+          seen = Math.max(seen, activitySeen.current.revision);
+        const activity = await supabase!
+          .from('workspace_activity')
+          .select('revision,request_id')
+          .eq('workspace_id', spaceId)
+          .maybeSingle();
+        if (activity.error) throw activity.error;
+        if (!alive || lock.current || foregroundLoading.current) {
+          syncPending.current = true;
+          return;
+        }
+        if (!activity.data) {
+          // A newly provisioned empty space has no activity row yet. Distinguish
+          // it from removed membership without repeatedly reloading a draft.
+          const access = await supabase!
+            .from('workspaces')
+            .select('id')
+            .eq('id', spaceId)
+            .maybeSingle();
+          throwIf(access.error);
+          if (!alive || lock.current || foregroundLoading.current) {
+            syncPending.current = true;
+            return;
+          }
+          if (!access.data) await refresh(activeSession.current!, spaceId, true);
+          else {
+            seen = 0;
+            syncPending.current = false;
+          }
+        } else if (activity.data.revision !== seen || syncPending.current) {
+          const previous = seen;
+          seen = activity.data.revision;
+          if (
+            previous < 0 ||
+            activity.data.request_id !== requestId.current ||
+            seen - previous > 1 ||
+            syncPending.current
+          ) {
+            syncPending.current = false;
+            await refresh(activeSession.current!, spaceId, true);
+          }
+        }
+      } catch {
+        // An offline tab keeps its draft and retries on the next heartbeat.
+        syncPending.current = true;
+      } finally {
+        checking = false;
+        syncReading.current = false;
+      }
+    };
+    const channel = supabase
+      .channel(`dayly-activity-${spaceId}-${requestId.current}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'workspace_activity',
+          filter: `workspace_id=eq.${spaceId}`,
+        },
+        (payload) => {
+          const activity = payload.new as { revision?: number; request_id?: string };
+          const known =
+            activitySeen.current?.space === spaceId
+              ? Math.max(seen, activitySeen.current.revision)
+              : seen;
+          if (activity.revision !== undefined && activity.revision <= known) return;
+          if (
+            activity.request_id === requestId.current &&
+            activity.revision === seen + 1 &&
+            !syncPending.current
+          ) {
+            seen = activity.revision;
+            return;
+          }
+          syncPending.current = true;
+          void synchronize();
+        },
+      )
+      .subscribe();
+    void synchronize();
+    const timer = window.setInterval(() => void synchronize(), 5000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void synchronize();
+    };
+    window.addEventListener('online', onVisible);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+      window.removeEventListener('online', onVisible);
+      document.removeEventListener('visibilitychange', onVisible);
+      void supabase!.removeChannel(channel);
+    };
+  }, [session?.user.id, workspace?.id, passwordRecovery, refresh]);
+
   async function mutate(
     local: (state: Snapshot) => Snapshot,
     remote: (space: Workspace, user: Session) => Promise<void>,
@@ -255,6 +392,8 @@ export function usePlanner() {
     )
       throw new Error('사용 공간을 확인하고 다시 시도해 주세요.');
     lock.current = true;
+    if (syncReading.current) syncPending.current = true;
+    generation.current++; // Discard a background read started before this write.
     setBusy(true);
     const previous = remoteData;
     try {
@@ -312,26 +451,30 @@ export function usePlanner() {
             : [...state.tasks, task],
         }),
       async (space, user) => {
+        if (editing) {
+          const result = await supabase!.rpc('update_task_content', {
+            p_task_id: task.id,
+            p_workspace_id: space.id,
+            p_title: task.title,
+            p_date: task.date,
+            p_items: task.details.map((text, i) => ({ id: task.detailChecks![i].id, text })),
+            p_request_id: requestId.current,
+          });
+          throwIf(result.error);
+          return;
+        }
         const fields = {
           title: task.title,
           date: task.date,
         };
         const write = async (details: { details: string; detail_items?: string[] }) =>
-          editing
-            ? await supabase!
-                .from('tasks')
-                .update({ ...fields, ...details })
-                .eq('id', task.id)
-                .eq('workspace_id', space.id)
-                .select('id')
-                .single()
-            : await supabase!.from('tasks').insert({
-                ...fields,
-                ...details,
-                id: task.id,
-                workspace_id: space.id,
-                created_by: user.user.id,
-              });
+          await supabase!.from('tasks').insert({
+            ...fields,
+            ...details,
+            id: task.id,
+            workspace_id: space.id,
+            created_by: user.user.id,
+          });
         let result = await write(
           nativeDetails.current === false
             ? { details: encoded }
@@ -353,59 +496,74 @@ export function usePlanner() {
       optimistic,
     );
   };
-  const toggleTask = async (id: string) => {
-    if (!isOwner) throw new Error('완료 체크는 공간 관리자만 할 수 있어요.');
-    const task = data.tasks.find((task) => task.id === id);
+  const checkTask = async (taskId: string, detailId: string | null) => {
+    const task = data.tasks.find((task) => task.id === taskId);
     if (!task) throw new Error('할 일을 찾지 못했습니다.');
-    if (task.details.length || task.completed !== undefined) {
-      const next = !isTaskComplete(task, new Set(data.completedTaskIds));
-      await saveTask(
-        {
-          ...task,
-          completed: next,
-          detailChecks: task.details.map((_, index) => ({
-            id: task.detailChecks?.[index]?.id || `${task.id}-detail-${index}`,
-            completed: next,
-          })),
-        },
-        true,
-        true,
-      );
-      return;
-    }
-    return mutate(
-      (state) => ({
-        ...state,
-        completedTaskIds: state.completedTaskIds.includes(id)
-          ? state.completedTaskIds.filter((x) => x !== id)
-          : [...state.completedTaskIds, id],
-      }),
-      async (space, user) => {
-        const result = data.completedTaskIds.includes(id)
-          ? await supabase!
-              .from('task_completions')
-              .delete()
-              .eq('task_id', id)
-              .eq('workspace_id', space.id)
-              .select('task_id')
-              .single()
-          : await supabase!
-              .from('task_completions')
-              .insert({ task_id: id, workspace_id: space.id, completed_by: user.user.id });
+    const check = detailId ? task.detailChecks?.find((item) => item.id === detailId) : undefined;
+    if (detailId && !check) throw new Error('세부 항목을 찾지 못했습니다.');
+    const next = !(detailId
+      ? check!.completed
+      : isTaskComplete(task, new Set(data.completedTaskIds)));
+    const optimisticTask = {
+      ...task,
+      completed: detailId ? task.completed : next,
+      detailChecks: task.detailChecks?.map((item) =>
+        !detailId || item.id === detailId ? { ...item, completed: next } : item,
+      ),
+    };
+    await mutate(
+      (state) =>
+        reconcileCompletion({
+          ...state,
+          tasks: state.tasks.map((item) => (item.id === taskId ? optimisticTask : item)),
+        }),
+      async (space) => {
+        const result = await supabase!.rpc('set_task_completion', {
+          p_task_id: taskId,
+          p_workspace_id: space.id,
+          p_completed: next,
+          p_detail_id: detailId,
+          p_request_id: requestId.current,
+        });
         throwIf(result.error);
+        if (activeWorkspace.current?.id === space.id) {
+          const canonical = normalizeTask(result.data as TaskRecord);
+          setRemoteData((state) =>
+            reconcileCompletion({
+              ...state,
+              tasks: state.tasks.map((item) => (item.id === taskId ? canonical : item)),
+            }),
+          );
+        }
       },
       true,
     );
   };
-  const toggleDetail = async (taskId: string, detailId: string) => {
-    if (!isOwner) throw new Error('완료 체크는 공간 관리자만 할 수 있어요.');
-    const task = data.tasks.find((task) => task.id === taskId);
-    const index = task?.detailChecks?.findIndex((check) => check.id === detailId) ?? -1;
-    if (!task || index < 0) throw new Error('세부 항목을 찾지 못했습니다.');
-    const checks = task.detailChecks!.map((check, i) =>
-      i === index ? { ...check, completed: !check.completed } : check,
+  const toggleTask = (id: string) => checkTask(id, null);
+  const toggleDetail = (taskId: string, detailId: string) => checkTask(taskId, detailId);
+  const moveTask = async (taskId: string, targetId: string) => {
+    if (!workspaces.some((space) => space.id === targetId) || targetId === workspace?.id)
+      throw new Error('이동할 다른 공간을 선택해 주세요.');
+    await mutate(
+      (state) =>
+        reconcileCompletion({
+          ...state,
+          tasks: state.tasks.filter((task) => task.id !== taskId),
+          taskNotes: state.taskNotes?.filter((note) => note.task_id !== taskId),
+          attachments: state.attachments?.filter((file) => file.task_id !== taskId),
+        }),
+      async (space) => {
+        const result = await supabase!.rpc('move_task', {
+          p_task_id: taskId,
+          p_workspace_id: space.id,
+          p_target_workspace_id: targetId,
+          p_request_id: requestId.current,
+        });
+        throwIf(result.error);
+      },
     );
-    return saveTask({ ...task, detailChecks: checks }, true, true);
+    // Show the destination immediately, using the same progress/calendar data.
+    if (activeSession.current) await refresh(activeSession.current, targetId);
   };
   const deleteTask = (id: string) =>
     mutate(
@@ -597,6 +755,7 @@ export function usePlanner() {
     saveTask,
     toggleTask,
     toggleDetail,
+    moveTask,
     deleteTask,
     saveNote,
     deleteNote,

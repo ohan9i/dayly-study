@@ -17,7 +17,7 @@
 - `workspaces`: 본인의 공유 공간과 소유자
 - `workspace_members`: 작성자로 승인한 이메일
 - `tasks`: 날짜별 할 일 제목과 순서가 있는 세부 항목 목록
-- `task_completions`: 완료 체크. 관리자만 추가, 삭제할 수 있습니다.
+- `task_completions`: 완료 체크. 최신 migration 적용 후 참여자는 전용 서버 함수로 체크합니다.
 
 이전에 v1 스키마를 설치한 프로젝트라면 전체 스키마를 다시 실행하지 말고 `supabase/migrations/20261005_custom_subjects.sql`을 실행합니다. 기존 할 일과 완료 체크를 유지하면서 과목 직접 입력을 허용합니다. 이전 `study_logs` 테이블은 홈페이지에서 읽거나 표시하지 않습니다.
 
@@ -29,6 +29,8 @@
 - `task_notes`: 각 할 일에 남기는 수행 내용과 작성자, 작성 시각
 - `task_attachments`: 파일 이름, 크기, 작성자와 저장 경로. 파일 원본은 Storage에 저장합니다.
 - `task-files`: 비공개 Storage 버킷. PDF, JPG, PNG, WebP만 허용하며 파일당 10MB 제한을 적용합니다.
+
+**공유 체크와 항목 이동에는 필수 업그레이드가 있습니다.** 위 migration 뒤에 `supabase/migrations/20261006_shared_checks_and_moves.sql` 전체를 실행합니다. 승인된 참여자의 체크/해제, 작성자·관리자의 공간 간 이동, 완료 작성자·시각과 변경 알림을 설치합니다. 새 홈페이지 배포 전에 적용하며 이전 파일을 다시 실행했다면 이 파일을 마지막에 다시 실행합니다. [구현 및 권한 안내](SHARED_CHECKS_AND_MOVES.md)
 
 파일 접근 권한은 현재 공간의 승인 여부를 검사합니다. 사진과 PDF 미리보기에는 2분간 유효한 링크를 사용합니다. 권한 해제 후 새 링크 발급과 내려받기는 거부되지만, 이미 발급한 링크는 만료 시점까지 사용할 수 있습니다. [Supabase Storage 권한 안내](https://supabase.com/docs/guides/storage/security/access-control)
 

@@ -37,7 +37,12 @@ for (const width of [1536, 390]) {
     await page.goto('./');
     await signIn(page);
     const reads = () =>
-      cloud.requests.filter((r) => r.method === 'GET' && r.path.startsWith('/rest/')).length;
+      cloud.requests.filter(
+        (r) =>
+          r.method === 'GET' &&
+          r.path.startsWith('/rest/') &&
+          !r.path.endsWith('/workspace_activity'),
+      ).length;
 
     await page.getByRole('button', { name: '할 일 추가', exact: true }).click();
     await page.getByLabel('할 일', { exact: true }).fill('자동 갱신 없이 공부 계획 작성');

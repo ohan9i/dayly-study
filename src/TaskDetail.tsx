@@ -492,6 +492,7 @@ export default function TaskDetail({
   onDelete,
   onLogin,
   onBusyChange,
+  onMoved,
 }: {
   item?: Task;
   date: string;
@@ -501,6 +502,7 @@ export default function TaskDetail({
   onDelete?: () => void;
   onLogin?: () => void;
   onBusyChange: (busy: boolean) => void;
+  onMoved: (name: string) => void;
 }) {
   const id = useRef(item?.id || crypto.randomUUID()),
     persisted = useRef(Boolean(item));
@@ -509,6 +511,25 @@ export default function TaskDetail({
     [working, setWorking] = useState(false);
   const [progress, setProgress] = useState('');
   const [checking, setChecking] = useState(false);
+  const [moving, setMoving] = useState(false),
+    [dirty, setDirty] = useState(false);
+  const targets = planner.workspaces
+    .filter((space) => space.id !== planner.workspace?.id)
+    .sort(
+      (a, b) =>
+        Number(b.owner_id === planner.session?.user.id) -
+        Number(a.owner_id === planner.session?.user.id),
+    );
+  const [targetId, setTargetId] = useState(targets[0]?.id || '');
+  useEffect(() => {
+    setTargetId((current) =>
+      targets.some((space) => space.id === current) ? current : targets[0]?.id || '',
+    );
+  }, [planner.workspaces, planner.workspace?.id, planner.session?.user.id]);
+  const liveItem = item && planner.data.tasks.find((task) => task.id === item.id);
+  const unavailable = Boolean(
+    item && (!liveItem || liveItem.workspace_id !== planner.workspace?.id),
+  );
   useEffect(() => {
     onBusyChange(working || checking);
   }, [working, checking, onBusyChange]);
@@ -516,7 +537,7 @@ export default function TaskDetail({
   const userId = planner.session?.user.id || 'local',
     taskAuthor = item?.created_by || userId;
   const canContribute = Boolean(planner.session && planner.workspace) && !planner.passwordRecovery;
-  const disabled = working || planner.busy || checking || !planner.canWrite;
+  const disabled = working || planner.busy || checking || !planner.canWrite || unavailable;
   const attached = (planner.data.attachments || []).filter(
     (file) => file.task_id === id.current && !file.note_id,
   );
@@ -577,8 +598,13 @@ export default function TaskDetail({
   }
   return (
     <div className="task-detail">
-      <form onSubmit={submit} className="editor-form">
-        <fieldset disabled={!editable || disabled}>
+      {unavailable && (
+        <p className="form-error" role="alert">
+          이 항목이 이동되거나 삭제되었습니다. 창을 닫고 현재 공간을 확인해 주세요.
+        </p>
+      )}
+      <form onSubmit={submit} className="editor-form" onChange={() => setDirty(true)}>
+        <fieldset disabled={disabled}>
           <label className="field">
             <span>할 일</span>
             <input
@@ -588,22 +614,30 @@ export default function TaskDetail({
               defaultValue={item?.title}
               placeholder="예: 구조 역학 3장 연습문제 풀기"
               autoFocus
+              readOnly={!editable}
             />
           </label>
           <label className="field">
             <span>날짜</span>
-            <input name="date" type="date" required defaultValue={item?.date || date} />
+            <input
+              name="date"
+              type="date"
+              required
+              defaultValue={item?.date || date}
+              readOnly={!editable}
+            />
           </label>
           <DetailItemsEditor
             initialItems={item?.details || []}
             initialChecks={item?.detailChecks}
             editable={editable}
-            canCheck={planner.isOwner && Boolean(planner.session)}
+            canCheck={planner.canWrite && !disabled}
             onCheckError={setError}
             onToggle={async (detailId) => {
               const stored = planner.data.tasks.find((task) => task.id === id.current);
               if (stored?.detailChecks?.some((check) => check.id === detailId))
                 await planner.toggleDetail(id.current, detailId);
+              else if (item) throw new Error('새 세부 항목은 먼저 저장한 뒤 완료 체크해 주세요.');
             }}
           />
         </fieldset>
@@ -650,6 +684,85 @@ export default function TaskDetail({
           </p>
         )}
       </form>
+      {item && editable && targets.length > 0 && (
+        <div className="task-move">
+          {!moving ? (
+            <button
+              type="button"
+              className="text-button"
+              disabled={disabled}
+              onClick={() => setMoving(true)}
+            >
+              다른 플래너로 이동
+            </button>
+          ) : (
+            <div className="task-move-picker" role="group" aria-label="다른 플래너로 이동">
+              <label className="field">
+                <span>이동할 공간</span>
+                <select
+                  aria-label="이동할 공간"
+                  value={targetId}
+                  disabled={disabled}
+                  onChange={(e) => setTargetId(e.target.value)}
+                >
+                  {targets.map((space) => (
+                    <option key={space.id} value={space.id}>
+                      {space.owner_id === planner.session?.user.id
+                        ? `내 플래너 · ${space.name}`
+                        : space.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="card-footnote">
+                날짜와 기록·첨부를 유지하고 선택한 공간으로 이동합니다.
+              </p>
+              {(dirty || files.length > 0) && (
+                <p className="card-footnote">
+                  작성 중인 내용과 첨부를 먼저 저장한 뒤 이동해 주세요.
+                </p>
+              )}
+              <div className="note-edit-actions">
+                <button
+                  type="button"
+                  className="text-button"
+                  disabled={disabled}
+                  onClick={() => setMoving(false)}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  className="soft-button"
+                  disabled={
+                    disabled ||
+                    dirty ||
+                    files.length > 0 ||
+                    !targets.some((space) => space.id === targetId)
+                  }
+                  onClick={async () => {
+                    setWorking(true);
+                    setError('');
+                    try {
+                      const target = targets.find((space) => space.id === targetId)!;
+                      await planner.moveTask(item.id, target.id);
+                      onMoved(
+                        target.owner_id === planner.session?.user.id ? '내 플래너' : target.name,
+                      );
+                    } catch (e) {
+                      setError((e as Error).message);
+                    } finally {
+                      setWorking(false);
+                    }
+                  }}
+                >
+                  이동
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -37,8 +37,8 @@ test('partial checks, parent completion and the weighted day ring update immedia
   await create(page, '책 읽기', []);
   await expect(bar(page)).toHaveAttribute('aria-valuenow', '0');
   await expect(ring(page)).toHaveAttribute('aria-valuenow', '0');
-  await page.route('https://*.supabase.co/rest/v1/tasks*', async (route) => {
-    if (route.request().method() === 'PATCH')
+  await page.route('https://*.supabase.co/rest/v1/rpc/set_task_completion', async (route) => {
+    if (route.request().method() === 'POST')
       await new Promise((resolve) => setTimeout(resolve, 700));
     await route.fallback();
   });
@@ -136,8 +136,8 @@ test('failed progress saves roll back the optimistic checkbox and all aggregate 
   await page.goto('/');
   await signIn(page);
   await create(page, '수학 공부', ['확률', '오답']);
-  await page.route('https://*.supabase.co/rest/v1/tasks*', async (route) => {
-    if (route.request().method() !== 'PATCH') return route.fallback();
+  await page.route('https://*.supabase.co/rest/v1/rpc/set_task_completion', async (route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
     await new Promise((resolve) => setTimeout(resolve, 600));
     return route.fulfill({
       status: 403,

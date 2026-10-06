@@ -133,9 +133,9 @@ test('a newly registered member gets a private space and can add notes in approv
   ).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: '나의 하루', exact: true }).click();
   await expect(page.getByLabel('사용 공간 선택')).toHaveValue(SHARED_SPACE);
-  await expect(page.getByRole('checkbox', { name: '공유한 구조역학 문제 완료' })).toBeDisabled();
+  await expect(page.getByRole('checkbox', { name: '공유한 구조역학 문제 완료' })).toBeEnabled();
   await page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' }).click();
-  await expect(page.getByLabel('할 일', { exact: true })).toBeDisabled();
+  await expect(page.getByLabel('할 일', { exact: true })).toHaveAttribute('readonly', '');
   await expect(page.getByLabel('파일 첨부', { exact: true })).toBeEnabled();
   await page.getByRole('button', { name: '닫기', exact: true }).click();
   await page.getByRole('button', { name: '함께 풀어 주세요. 기록 열기' }).click();

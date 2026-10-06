@@ -299,7 +299,7 @@ export default function App() {
                 role="checkbox"
                 aria-checked={completed.has(task.id)}
                 aria-label={`${task.title} 완료`}
-                disabled={!canWrite || busy || !isOwner}
+                disabled={!canWrite || busy}
                 onClick={() => void act(() => planner.toggleTask(task.id))}
               >
                 {completed.has(task.id) && <Check size={18} strokeWidth={2.4} />}
@@ -352,7 +352,7 @@ export default function App() {
                               role="checkbox"
                               aria-label={`${task.title} 세부 항목 ${index + 1} 완료`}
                               aria-checked={Boolean(task.detailChecks?.[index]?.completed)}
-                              disabled={!canWrite || busy || !isOwner}
+                              disabled={!canWrite || busy}
                               onClick={() =>
                                 void act(() => planner.toggleDetail(task.id, detailId))
                               }
@@ -412,7 +412,9 @@ export default function App() {
           }
         />
       )}
-      {!isOwner && <p className="card-footnote">완료 체크는 이 공간의 본인만 할 수 있어요.</p>}
+      {!isOwner && (
+        <p className="card-footnote">이 공간에 참여한 사람은 함께 완료 체크를 할 수 있어요.</p>
+      )}
       {!planner.session && (
         <div className="editing-notice">
           <LockKeyhole size={14} />
@@ -737,8 +739,8 @@ export default function App() {
                 isOwner ? (
                   <>
                     <p className="setting-description">
-                      승인한 이메일로 로그인한 사람만 할 일을 작성할 수 있어요. 완료 체크는 본인만
-                      할 수 있습니다.
+                      승인한 이메일로 로그인한 사람은 할 일을 작성하고 함께 완료 체크할 수 있어요.
+                      제목·날짜 수정과 이동은 작성자와 공간 관리자만 할 수 있습니다.
                     </p>
                     <MemberForm
                       onSubmit={planner.grantMember}
@@ -864,6 +866,10 @@ export default function App() {
             onDone={() => {
               setModal(null);
               setToast('할 일을 저장했어요.');
+            }}
+            onMoved={(name) => {
+              setModal(null);
+              setToast(`${name}로 이동했습니다.`);
             }}
             onDelete={
               modal.item && canEdit(modal.item)

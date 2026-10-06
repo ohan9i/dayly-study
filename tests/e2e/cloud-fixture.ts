@@ -1,6 +1,9 @@
 import { expect, type Page } from '@playwright/test';
 import {
   todayKey,
+  normalizeTask,
+  encodeTaskProgress,
+  isTaskComplete,
   type TaskRecord,
   type TaskNote,
   type TaskAttachment,
@@ -46,6 +49,7 @@ export async function mockCloud(
     startWithoutOwnSpace?: boolean;
     tasks?: TaskRecord[];
     nativeDetails?: boolean;
+    emptyActivity?: boolean;
   } = {},
 ) {
   const owner = '10000000-0000-0000-0000-000000000001',
@@ -111,6 +115,26 @@ export async function mockCloud(
     authenticated = false,
     failNextUpload = false;
   const objects = new Map<string, { buffer: Buffer; type: string }>();
+  const activity = new Map<
+    string,
+    { workspace_id: string; revision: number; request_id: string | null }
+  >();
+  const bump = (space: string, requestId: string | null = null) =>
+    activity.set(space, {
+      workspace_id: space,
+      revision: (activity.get(space)?.revision || 0) + 1,
+      request_id: requestId,
+    });
+  const writeProgress = (record: TaskRecord, task: ReturnType<typeof normalizeTask>) => {
+    task.completed = isTaskComplete(task, new Set(completed));
+    Object.assign(record, {
+      details: encodeTaskProgress(task, new Set(completed)),
+      detail_items: task.details,
+      revision: (record.revision || 0) + 1,
+    });
+    completed = completed.filter((id) => id !== task.id);
+    if (task.completed) completed.push(task.id);
+  };
   await page.route('https://*.supabase.co/**', async (route) => {
     const request = route.request(),
       url = new URL(request.url()),
@@ -144,6 +168,65 @@ export async function mockCloud(
       if (!spaces.some((s) => s.owner_id === owner))
         spaces.push({ id: OWN_SPACE, name: '나의 공부 공간', owner_id: owner });
       return send(OWN_SPACE);
+    }
+    if (
+      url.pathname.endsWith('/rpc/set_task_completion') ||
+      url.pathname.endsWith('/rpc/update_task_content') ||
+      url.pathname.endsWith('/rpc/move_task')
+    ) {
+      const record = tasks.find(
+        (task) => task.id === body.p_task_id && task.workspace_id === body.p_workspace_id,
+      );
+      if (!record || !spaces.some((space) => space.id === body.p_workspace_id))
+        return send({ message: 'Task was moved or deleted', code: '42501' }, 403);
+      const task = normalizeTask(record, completed.includes(record.id));
+      if (url.pathname.endsWith('/set_task_completion')) {
+        const done = Boolean(body.p_completed),
+          stamp = new Date().toISOString();
+        if (!body.p_detail_id) task.completed = done;
+        task.detailChecks = task.detailChecks?.map((check) =>
+          !body.p_detail_id || check.id === body.p_detail_id
+            ? {
+                ...check,
+                completed: done,
+                completedBy: done ? owner : null,
+                completedAt: done ? stamp : null,
+              }
+            : check,
+        );
+        writeProgress(record, task);
+      } else {
+        const source = spaces.find((space) => space.id === body.p_workspace_id)!;
+        if (record.created_by !== owner && source.owner_id !== owner)
+          return send(
+            { message: 'Only the author or workspace owner can edit or move', code: '42501' },
+            403,
+          );
+        if (url.pathname.endsWith('/update_task_content')) {
+          const items = body.p_items as { id: string; text: string }[];
+          task.title = String(body.p_title);
+          task.date = String(body.p_date);
+          task.details = items.map((item) => item.text);
+          task.detailChecks = items.map(
+            (item) =>
+              task.detailChecks?.find((check) => check.id === item.id) || {
+                id: item.id,
+                completed: false,
+              },
+          );
+          Object.assign(record, { title: task.title, date: task.date });
+          writeProgress(record, task);
+        } else {
+          if (!spaces.some((space) => space.id === body.p_target_workspace_id))
+            return send({ message: 'Workspace access denied' }, 403);
+          record.workspace_id = String(body.p_target_workspace_id);
+          for (const row of [...notes, ...files])
+            if (row.task_id === record.id) row.workspace_id = record.workspace_id;
+          bump(record.workspace_id, String(body.p_request_id));
+        }
+      }
+      bump(String(body.p_workspace_id), String(body.p_request_id));
+      return send(record);
     }
     if (url.pathname.startsWith('/storage/v1/')) {
       const prefix = '/storage/v1/object/';
@@ -194,6 +277,13 @@ export async function mockCloud(
         .get('id')
         ?.replace(/^in\(|\)$/g, '')
         .split(',') || [];
+    if (table === 'workspace_activity') {
+      if (!spaces.some((space) => space.id === workspace)) return send(null);
+      if (options.emptyActivity && !activity.has(workspace!)) return send(null);
+      return send(
+        activity.get(workspace!) || { workspace_id: workspace, revision: 0, request_id: null },
+      );
+    }
     if (table === 'workspaces') {
       if (method === 'PATCH') {
         Object.assign(
@@ -202,7 +292,7 @@ export async function mockCloud(
         );
         return returned({ id });
       }
-      return send(spaces);
+      return send(id ? spaces.filter((space) => space.id === id) : spaces);
     }
     if (table === 'workspace_members') return send([]);
     if (table === 'tasks') {
@@ -224,6 +314,7 @@ export async function mockCloud(
         );
       if (method === 'POST') {
         tasks.push(body as TaskRecord);
+        bump(String(body.workspace_id));
         return send({});
       }
       const task = tasks.find((t) => t.id === id);
@@ -303,6 +394,27 @@ export async function mockCloud(
   return {
     requests,
     objects,
+    tasks: () => tasks,
+    externalCheck: (taskId: string, index: number, done: boolean) => {
+      const record = tasks.find((task) => task.id === taskId)!;
+      const task = normalizeTask(record, completed.includes(taskId));
+      task.detailChecks![index] = {
+        ...task.detailChecks![index],
+        completed: done,
+        completedBy: other,
+        completedAt: new Date().toISOString(),
+      };
+      writeProgress(record, task);
+      bump(record.workspace_id!, 'other-tab');
+    },
+    externalMove: (taskId: string, target: string) => {
+      const record = tasks.find((task) => task.id === taskId)!,
+        source = record.workspace_id!;
+      record.workspace_id = target;
+      for (const row of [...notes, ...files]) if (row.task_id === taskId) row.workspace_id = target;
+      bump(source, 'other-tab');
+      bump(target, 'other-tab');
+    },
     failNextUpload: () => {
       failNextUpload = true;
     },
