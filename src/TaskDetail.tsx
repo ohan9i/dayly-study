@@ -493,6 +493,7 @@ export default function TaskDetail({
   onLogin,
   onBusyChange,
   onMoved,
+  onDuplicated,
 }: {
   item?: Task;
   date: string;
@@ -503,6 +504,7 @@ export default function TaskDetail({
   onLogin?: () => void;
   onBusyChange: (busy: boolean) => void;
   onMoved: (name: string) => void;
+  onDuplicated: (copy: Task) => void;
 }) {
   const id = useRef(item?.id || crypto.randomUUID()),
     persisted = useRef(Boolean(item));
@@ -513,6 +515,12 @@ export default function TaskDetail({
   const [checking, setChecking] = useState(false);
   const [moving, setMoving] = useState(false),
     [dirty, setDirty] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
+  const duplicationLock = useRef(false);
+  const duplicationForm = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (duplicating) duplicationForm.current?.scrollIntoView({ block: 'nearest' });
+  }, [duplicating]);
   const targets = planner.workspaces
     .filter((space) => space.id !== planner.workspace?.id)
     .sort(
@@ -650,7 +658,7 @@ export default function TaskDetail({
             onChecking={setChecking}
           />
         )}
-        {error && (
+        {error && !duplicating && (
           <p className="form-error" role="alert">
             {error}
           </p>
@@ -684,6 +692,87 @@ export default function TaskDetail({
           </p>
         )}
       </form>
+      {item && canContribute && !unavailable && (
+        <div className="task-duplicate">
+          {!duplicating ? (
+            <button
+              type="button"
+              className="text-button"
+              disabled={disabled}
+              onClick={() => {
+                setMoving(false);
+                setDuplicating(true);
+              }}
+            >
+              이 계획 복제
+            </button>
+          ) : (
+            <form
+              ref={duplicationForm}
+              className="task-duplicate-picker"
+              aria-label="계획 복제"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                if (duplicationLock.current || disabled) return;
+                const copyDate = String(new FormData(event.currentTarget).get('copyDate'));
+                duplicationLock.current = true;
+                setWorking(true);
+                setError('');
+                setProgress('계획 복제 중…');
+                try {
+                  const copy = await planner.duplicateTask(item.id, copyDate);
+                  onDuplicated(copy);
+                } catch (error) {
+                  setError((error as Error).message);
+                } finally {
+                  duplicationLock.current = false;
+                  setWorking(false);
+                  setProgress('');
+                }
+              }}
+            >
+              <label className="field">
+                <span>복제할 날짜</span>
+                <input
+                  name="copyDate"
+                  type="date"
+                  required
+                  defaultValue={date}
+                  disabled={disabled}
+                />
+              </label>
+              <p className="card-footnote">
+                생성 공간: <strong>{planner.workspace?.name}</strong>
+                <br />
+                저장된 제목과 세부 항목만 복제해요. 완료 상태·기록·첨부는 가져오지 않아요.
+              </p>
+              {(dirty || files.length > 0) && (
+                <p className="card-footnote">
+                  작성 중인 변경과 첨부는 복제에 포함되지 않아요. 반영하려면 먼저 저장해 주세요.
+                </p>
+              )}
+              {error && (
+                <p className="form-error" role="alert">
+                  {error}
+                </p>
+              )}
+              <div className="note-edit-actions">
+                <button
+                  type="button"
+                  className="text-button"
+                  disabled={disabled}
+                  onClick={() => setDuplicating(false)}
+                >
+                  취소
+                </button>
+                <button type="submit" className="soft-button" disabled={disabled}>
+                  {working ? '복제 중…' : '계획 복제'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
       {item && editable && targets.length > 0 && (
         <div className="task-move">
           {!moving ? (
@@ -691,7 +780,10 @@ export default function TaskDetail({
               type="button"
               className="text-button"
               disabled={disabled}
-              onClick={() => setMoving(true)}
+              onClick={() => {
+                setDuplicating(false);
+                setMoving(true);
+              }}
             >
               다른 플래너로 이동
             </button>

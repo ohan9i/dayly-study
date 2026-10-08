@@ -129,7 +129,7 @@ export async function mockCloud(
     task.completed = isTaskComplete(task, new Set(completed));
     Object.assign(record, {
       details: encodeTaskProgress(task, new Set(completed)),
-      detail_items: task.details,
+      ...(options.nativeDetails === false ? {} : { detail_items: task.details }),
       revision: (record.revision || 0) + 1,
     });
     completed = completed.filter((id) => id !== task.id);
@@ -299,10 +299,14 @@ export async function mockCloud(
       if (method === 'GET')
         return send(
           tasks
-            .filter((t) => !workspace || t.workspace_id === workspace)
-            .map((t) =>
-              options.nativeDetails === false ? t : { ...t, detail_items: t.detail_items ?? null },
-            ),
+            .filter((t) => (!workspace || t.workspace_id === workspace) && (!id || t.id === id))
+            .map((t) => {
+              if (options.nativeDetails === false) {
+                const { detail_items: _items, ...legacy } = t;
+                return legacy;
+              }
+              return { ...t, detail_items: t.detail_items ?? null };
+            }),
         );
       if (options.nativeDetails === false && Object.hasOwn(body, 'detail_items'))
         return send(

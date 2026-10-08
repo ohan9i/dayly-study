@@ -376,6 +376,12 @@ svg {
 .page-heading {
   margin-bottom: 28px;
 }
+.view-home .page-heading {
+  margin-bottom: var(--space-5);
+}
+.view-home h1 {
+  font-size: clamp(24px, 2vw, 28px);
+}
 .page-description,
 .heading-subrow > p {
   font-size: var(--type-support);
@@ -959,8 +965,10 @@ svg {
   align-items: center;
   gap: 6px;
   margin: var(--space-3) var(--space-1) 0;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line);
   font-size: var(--type-meta);
-  color: var(--text-secondary);
+  color: var(--text);
   line-height: 1.7;
 }
 .save-note > span {
@@ -977,8 +985,7 @@ svg {
   max-width: 250px;
   margin-top: 60px;
   text-align: center;
-  color: #f9fcff;
-  text-shadow: 0 2px 16px rgba(38, 82, 116, 0.2);
+  color: var(--text);
 }
 .moment::before {
   content: '';
@@ -997,6 +1004,7 @@ svg {
   line-height: 1.2;
 }
 .moment > p {
+  color: var(--text);
   font-size: var(--type-support);
   font-weight: 450;
   margin-top: 10px;
@@ -1011,11 +1019,13 @@ svg {
   position: relative;
   font-size: 17px;
   font-weight: 350;
-  color: #385f76;
-  text-shadow: 0 1px 12px rgba(255, 255, 255, 0.16);
+  color: var(--text);
   letter-spacing: -0.025em;
   line-height: 1.9;
   margin: 0 var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: rgba(243, 249, 252, 0.7);
 }
 
 /* Calendar */
@@ -1057,6 +1067,7 @@ svg {
   gap: 3px 6px;
 }
 .calendar-day {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -1073,6 +1084,17 @@ svg {
 }
 .calendar-day.has-tasks {
   background: rgba(231, 244, 253, 0.46);
+}
+.calendar-remaining {
+  position: absolute;
+  top: 14px;
+  right: 10px;
+  max-width: calc(100% - 48px);
+  color: var(--text-secondary);
+  font-size: var(--type-meta);
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .calendar-progress-track {
   display: block;
@@ -2374,7 +2396,7 @@ svg {
     margin-top: 70px;
   }
   .live-clock {
-    font-size: 70px;
+    font-size: 64px;
   }
   .wide-page {
     max-width: 1060px;
@@ -2466,6 +2488,36 @@ svg {
     max-width: 660px;
   }
   .moment {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: var(--space-4);
+    max-width: none;
+    margin-top: 0;
+    text-align: right;
+    color: var(--text);
+    text-shadow: none;
+  }
+  .moment::before,
+  .moment .quote-divider {
+    display: none;
+  }
+  .moment .live-clock {
+    grid-row: span 2;
+    font-size: 32px;
+  }
+  .moment > p {
+    margin-top: 0;
+    font-size: var(--type-meta);
+  }
+  .moment blockquote {
+    margin: 0;
+    font-size: var(--type-support);
+    line-height: 1.6;
+    padding: 0;
+    background: transparent;
+  }
+  .moment blockquote br {
     display: none;
   }
   .workspace-bar {
@@ -2479,6 +2531,9 @@ svg {
   }
   .calendar-day {
     padding: 7px;
+  }
+  .calendar-remaining-label {
+    display: none;
   }
   .calendar-task-count {
     gap: 3px;
@@ -2658,21 +2713,21 @@ svg {
     row-gap: 6px;
   }
   .task-details .detail-checkbox {
-    flex-basis: 40px;
-    width: 40px;
-    height: 40px;
+    flex-basis: 44px;
+    width: 44px;
+    height: 44px;
   }
   .detail-record-toggle {
-    min-height: 40px;
+    min-height: 44px;
   }
   .detail-record-add {
-    min-height: 40px;
+    min-height: 44px;
   }
   .detail-row-title {
-    padding-top: 8px;
+    padding-top: 10px;
   }
   .detail-record-panel {
-    margin-left: 40px;
+    margin-left: 0;
   }
   .task-heading {
     align-items: flex-start;
@@ -2747,6 +2802,16 @@ svg {
     min-height: 70px;
     border-radius: var(--radius-sm);
     gap: 6px;
+  }
+  .calendar-remaining {
+    top: auto;
+    bottom: var(--space-3);
+    left: 0;
+    right: 0;
+    max-width: none;
+    text-align: center;
+    white-space: nowrap;
+    line-height: 1.2;
   }
   .day-number {
     font-size: 14px;
@@ -2918,6 +2983,7 @@ svg {
   .field select,
   .field textarea,
   .search-input input,
+  .detail-record-form textarea,
   .note-edit textarea {
     font-size: 16px;
   }
@@ -3001,7 +3067,7 @@ svg {
     display: none;
   }
   .task-row {
-    grid-template-columns: 44px minmax(0, 1fr) 38px;
+    grid-template-columns: 44px minmax(0, 1fr);
     gap: 6px;
   }
   .task-title {
@@ -3113,14 +3179,21 @@ svg {
     transform: translateY(0);
   }
 }
-.task-move {
-  margin-top: 16px;
-  padding-top: 14px;
+.task-move,
+.task-duplicate {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
   border-top: 1px solid var(--line);
 }
-.task-move-picker {
+.task-move-picker,
+.task-duplicate-picker {
   display: grid;
-  gap: 8px;
+  gap: var(--space-2);
+}
+.task-duplicate .card-footnote {
+  display: block;
+  margin-top: 0;
+  padding-top: 0;
 }
 .task-move select {
   width: 100%;

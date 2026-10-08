@@ -1,7 +1,12 @@
 import { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, expect, test } from 'vitest';
-import { normalizeTask, type TaskRecord } from '../src/domain';
+import {
+  normalizeTask,
+  duplicateTaskPlan,
+  encodeTaskProgress,
+  type TaskRecord,
+} from '../src/domain';
 
 const OWNER = '10000000-0000-0000-0000-000000000001',
   MEMBER = '10000000-0000-0000-0000-000000000002',
@@ -113,6 +118,81 @@ test('stale desired-state requests and stale content edits preserve other partic
   expect(task.detailChecks?.map((c) => c.completed)).toEqual([true, true]);
   expect(task.detailChecks?.[1].completedBy).toBe(OWNER);
   expect(task.revision).toBeGreaterThan(first.revision!);
+});
+
+test('existing RLS permits copying another author, restricts target/identity and keeps source editing forbidden', async () => {
+  await asUser(OWNER);
+  const original = (
+    await db.query<TaskRecord>(
+      `insert into public.tasks(workspace_id,created_by,title,date,details)
+     values($1,$2,'Owner plan','2026-10-03',E'First\nSecond') returning *`,
+      [SOURCE, OWNER],
+    )
+  ).rows[0];
+  let copyId: string | null = null;
+  try {
+    await asUser(MEMBER);
+    const visible = (
+      await db.query<TaskRecord>('select * from public.tasks where id=$1', [original.id])
+    ).rows[0];
+    const copy = duplicateTaskPlan(normalizeTask(visible), '2026-10-09', MEMBER, SOURCE);
+    copyId = copy.id;
+    const insert = (space = SOURCE, author = MEMBER) =>
+      db.query<TaskRecord>(
+        'insert into public.tasks(id,workspace_id,created_by,title,date,details,detail_items) values($1,$2,$3,$4,$5,$6,$7) returning *',
+        [
+          copy.id,
+          space,
+          author,
+          copy.title,
+          copy.date,
+          encodeTaskProgress(copy, new Set()),
+          copy.details,
+        ],
+      );
+    await expect(insert(PRIVATE)).rejects.toThrow(/row-level security/);
+    await expect(insert(SOURCE, OWNER)).rejects.toThrow(/row-level security/);
+    const saved = normalizeTask((await insert()).rows[0]);
+    expect(saved.created_by).toBe(MEMBER);
+    expect(saved.detailChecks!.every((check) => !check.completed)).toBe(true);
+    expect(saved.detailChecks!.map((check) => check.id)).not.toEqual(
+      normalizeTask(visible).detailChecks!.map((check) => check.id),
+    );
+    await expect(
+      db.query('select public.update_task_content($1,$2,$3,$4,$5)', [
+        original.id,
+        SOURCE,
+        'tampered',
+        '2026-10-09',
+        '[]',
+      ]),
+    ).rejects.toThrow(/Only the author or workspace owner can edit/);
+    await db.query('select public.update_task_content($1,$2,$3,$4,$5)', [
+      copy.id,
+      SOURCE,
+      'Independent copy',
+      '2026-10-09',
+      JSON.stringify(saved.details.map((text, i) => ({ text, id: saved.detailChecks![i].id }))),
+    ]);
+    expect(
+      (await db.query<TaskRecord>('select * from public.tasks where id=$1', [original.id])).rows[0],
+    ).toEqual(original);
+    for (const user of [OTHER, UNVERIFIED]) {
+      await asUser(user);
+      expect(
+        (await db.query('select * from public.tasks where id=$1', [original.id])).rows,
+      ).toHaveLength(0);
+      await expect(insert(SOURCE, user)).rejects.toThrow(/row-level security/);
+    }
+    await db.exec('reset role; set role anon');
+    await expect(db.query('select * from public.tasks where id=$1', [original.id])).rejects.toThrow(
+      /permission denied/,
+    );
+    await expect(insert()).rejects.toThrow(/permission denied/);
+  } finally {
+    await db.exec('reset role');
+    await db.query('delete from public.tasks where id=$1 or id=$2', [original.id, copyId]);
+  }
 });
 
 test('move is authorized and atomic, preserves IDs, notes, file bytes/path, timestamps and completion', async () => {

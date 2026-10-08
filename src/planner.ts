@@ -6,6 +6,7 @@ import {
   reconcileCompletion,
   isTaskComplete,
   normalizeTask,
+  duplicateTaskPlan,
   readLocal,
   type Snapshot,
   type Task,
@@ -435,6 +436,36 @@ export function usePlanner() {
       setBusy(false);
     }
   }
+  async function insertTask(task: Task, space: Workspace, user: Session, encoded: string) {
+    if (encoded.length > 10000)
+      throw new Error('세부 항목의 전체 내용이 저장 용량을 초과했어요. 내용을 조금 줄여 주세요.');
+    const write = async (details: { details: string; detail_items?: string[] }) =>
+      await supabase!.from('tasks').insert({
+        title: task.title,
+        date: task.date,
+        ...details,
+        id: task.id,
+        workspace_id: space.id,
+        created_by: user.user.id,
+      });
+    let result = await write(
+      nativeDetails.current === false
+        ? { details: encoded }
+        : { details: encoded, detail_items: task.details },
+    );
+    // Unknown-column failures happen before a write. Never retry permission
+    // errors or network failures whose commit status is uncertain.
+    if (
+      nativeDetails.current !== true &&
+      result.error &&
+      ['PGRST204', '42703'].includes(result.error.code) &&
+      result.error.message.includes('detail_items')
+    ) {
+      nativeDetails.current = false;
+      result = await write({ details: encoded });
+    }
+    throwIf(result.error);
+  }
   const saveTask = async (value: Task, editing: boolean, optimistic = false) => {
     const completed = new Set(data.completedTaskIds);
     const normalized = normalizeTask(value, completed.has(value.id));
@@ -463,38 +494,34 @@ export function usePlanner() {
           throwIf(result.error);
           return;
         }
-        const fields = {
-          title: task.title,
-          date: task.date,
-        };
-        const write = async (details: { details: string; detail_items?: string[] }) =>
-          await supabase!.from('tasks').insert({
-            ...fields,
-            ...details,
-            id: task.id,
-            workspace_id: space.id,
-            created_by: user.user.id,
-          });
-        let result = await write(
-          nativeDetails.current === false
-            ? { details: encoded }
-            : { details: encoded, detail_items: task.details },
-        );
-        // Unknown-column failures occur before a write. Retry only this precise
-        // schema mismatch, never permission errors or uncertain network failures.
-        if (
-          nativeDetails.current !== true &&
-          result.error &&
-          ['PGRST204', '42703'].includes(result.error.code) &&
-          result.error.message.includes('detail_items')
-        ) {
-          nativeDetails.current = false;
-          result = await write({ details: encoded });
-        }
-        throwIf(result.error);
+        await insertTask(task, space, user, encoded);
       },
       optimistic,
     );
+  };
+  const duplicateTask = async (taskId: string, date: string) => {
+    let copy: Task | undefined;
+    await mutate(
+      (state) => reconcileCompletion({ ...state, tasks: [...state.tasks, copy!] }),
+      async (space, user) => {
+        // Re-read through tasks_read RLS rather than trusting the cached card.
+        // tasks_add RLS separately enforces destination membership and author.
+        const result = await supabase!
+          .from('tasks')
+          .select('*')
+          .eq('id', taskId)
+          .eq('workspace_id', space.id)
+          .limit(1);
+        throwIf(result.error);
+        const source = result.data?.[0] as TaskRecord | undefined;
+        if (!source)
+          throw new Error('원본 계획을 열람할 수 없어요. 현재 공간을 다시 확인해 주세요.');
+        copy = duplicateTaskPlan(normalizeTask(source), date, user.user.id, space.id);
+        // One insert contains the entire plan, so no partial detail rows remain.
+        await insertTask(copy, space, user, encodeTaskProgress(copy, new Set()));
+      },
+    );
+    return copy!;
   };
   const checkTask = async (taskId: string, detailId: string | null) => {
     const task = data.tasks.find((task) => task.id === taskId);
@@ -756,6 +783,7 @@ export function usePlanner() {
     canWrite,
     lastSaved,
     saveTask,
+    duplicateTask,
     toggleTask,
     toggleDetail,
     moveTask,

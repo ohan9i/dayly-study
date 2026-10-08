@@ -428,6 +428,13 @@ export default function App() {
           </button>
         </div>
       )}
+      {planner.session && (
+        <p className="save-note">
+          <CircleCheck size={13} />
+          {planner.lastSaved ? '공유 공간에 저장되어 있어요' : '공유 기록'}
+          <span>SEOUL (KST)</span>
+        </p>
+      )}
     </section>
   );
 
@@ -560,13 +567,6 @@ export default function App() {
                 </div>
               </div>
               {taskCard}
-              {planner.session && (
-                <p className="save-note">
-                  <CircleCheck size={13} />
-                  {planner.lastSaved ? '공유 공간에 저장되어 있어요' : '공유 기록'}
-                  <span>SEOUL (KST)</span>
-                </p>
-              )}
             </div>
             <aside className="moment">
               <div className="live-clock" aria-label={`현재 시각 ${clock}`}>
@@ -625,15 +625,22 @@ export default function App() {
                 {Array.from({ length: 42 }, (_, i) => {
                   const value = addDays(month, i - dateObject(month).getUTCDay()),
                     dailyTasks = data.tasks.filter((x) => x.date === value),
-                    progress = dayProgress(dailyTasks, completed);
+                    progress = dayProgress(dailyTasks, completed),
+                    remaining = progress.total - progress.done;
                   return (
                     <button
                       key={value}
                       className={`calendar-day ${value.slice(0, 7) !== month.slice(0, 7) ? 'outside-month' : ''} ${value === today ? 'is-today' : ''} ${value === date ? 'selected-day' : ''} ${dailyTasks.length ? 'has-tasks' : ''} ${dailyTasks.length && progress.done === progress.total ? 'is-complete-day' : ''}`}
-                      aria-label={`${formatDate(value)} 세부 항목 ${progress.total}개 중 ${progress.done}개 완료, ${progress.percent}%`}
+                      aria-label={`${formatDate(value)} 세부 항목 ${progress.total}개 중 ${progress.done}개 완료, ${progress.percent}%, 남은 계획 ${remaining}개`}
                       onClick={() => goDate(value)}
                     >
                       <span className="day-number">{Number(value.slice(8))}</span>
+                      {remaining > 0 && (
+                        <span className="calendar-remaining" aria-hidden="true">
+                          <span className="calendar-remaining-label">남은 </span>
+                          {remaining}
+                        </span>
+                      )}
                       {dailyTasks.length > 0 && (
                         <span className="calendar-progress-track" aria-hidden="true">
                           <i style={{ width: `${progress.percent}%` }} />
@@ -646,7 +653,7 @@ export default function App() {
               <p className="card-footnote">
                 <span className="legend-dot" />
                 오늘 <span className="legend-square" />
-                선택한 날
+                선택한 날 · 막대는 진행률, 숫자는 남은 계획
               </p>
             </section>
           </div>
@@ -870,6 +877,10 @@ export default function App() {
             onMoved={(name) => {
               setModal(null);
               setToast(`${name}로 이동했습니다.`);
+            }}
+            onDuplicated={(copy) => {
+              goDate(copy.date);
+              setToast(`${planner.workspace?.name}에 계획을 복제했어요.`);
             }}
             onDelete={
               modal.item && canEdit(modal.item)

@@ -285,6 +285,26 @@ export const validDate = (value: unknown): value is string =>
   /^\d{4}-\d{2}-\d{2}$/.test(value) &&
   !Number.isNaN(dateObject(value).getTime()) &&
   dateObject(value).toISOString().slice(0, 10) === value;
+// Copy only the plan structure. Notes/files live in separate relations and
+// completion audit, revision and server timestamps must never follow a copy.
+export function duplicateTaskPlan(
+  source: Task,
+  date: string,
+  userId: string,
+  workspaceId: string,
+): Task {
+  if (!validDate(date)) throw new Error('복제할 날짜를 확인해 주세요.');
+  return {
+    id: crypto.randomUUID(),
+    title: source.title,
+    date,
+    details: [...source.details],
+    detailChecks: source.details.map(() => ({ id: crypto.randomUUID(), completed: false })),
+    completed: false,
+    created_by: userId,
+    workspace_id: workspaceId,
+  };
+}
 export const sortedTasks = (tasks: Task[]) =>
   [...tasks].sort((a, b) => a.title.localeCompare(b.title, 'ko'));
 export function sampleSnapshot(date = todayKey()): Snapshot {
