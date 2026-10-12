@@ -96,3 +96,30 @@ test('revocation removes access without deleting plans and login cannot restore 
   await asUser(OWNER);
   expect((await db.query('select * from public.tasks')).rows).toHaveLength(1);
 });
+
+test('switching to a separate account cannot read, edit or delete another personal workspace plan', async () => {
+  await asUser(MEMBER);
+  const personal = (
+    await db.query<{ id: string }>('select public.ensure_personal_workspace() as id')
+  ).rows[0].id;
+  const plan = (
+    await db.query<{ id: string }>(
+      'insert into public.tasks(workspace_id,created_by,title,date) values($1,$2,$3,$4) returning id',
+      [personal, MEMBER, 'Private plan', '2026-10-12'],
+    )
+  ).rows[0].id;
+  await asUser(STRANGER);
+  await db.query('select public.ensure_personal_workspace()');
+  expect((await db.query('select * from public.tasks where id=$1', [plan])).rows).toHaveLength(0);
+  expect(
+    (await db.query('delete from public.tasks where id=$1 returning id', [plan])).rows,
+  ).toHaveLength(0);
+  expect(
+    (await db.query('update public.tasks set title=$1 where id=$2 returning id', ['Changed', plan]))
+      .rows,
+  ).toHaveLength(0);
+  await asUser(MEMBER);
+  expect((await db.query('select title from public.tasks where id=$1', [plan])).rows).toEqual([
+    { title: 'Private plan' },
+  ]);
+});
