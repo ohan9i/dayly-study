@@ -750,18 +750,34 @@ export function usePlanner() {
       }),
       async (space) => {
         requireRecords();
-        const files = await readAllRows<TaskAttachment>('task_attachments', space.id, '*', {
-          column: 'task_id',
-          value: id,
+        const preparation = await supabase!.rpc('prepare_task_deletion', {
+          p_task_id: id,
+          p_workspace_id: space.id,
         });
+        if (preparation.error)
+          throw new Error(
+            '삭제 이력을 확인하지 못해 삭제를 중단했어요. 관리자에게 보호 기능 설정을 확인해 주세요.',
+          );
+        const operation = preparation.data as {
+          operation_id: string;
+          attachments: TaskAttachment[];
+        };
+        if (
+          !operation?.operation_id ||
+          !Array.isArray(operation.attachments) ||
+          operation.attachments.some(
+            (file) => file.task_id !== id || file.workspace_id !== space.id,
+          )
+        )
+          throw new Error(
+            '삭제할 계획과 첨부를 확인하지 못했어요. 새로고침한 뒤 다시 시도해 주세요.',
+          );
+        const files = operation.attachments;
         await removeFileRecords(supabase!, files, space.id);
-        const result = await supabase!
-          .from('tasks')
-          .delete()
-          .eq('id', id)
-          .eq('workspace_id', space.id)
-          .select('id')
-          .single();
+        const result = await supabase!.rpc('delete_task_with_history', {
+          p_operation_id: operation.operation_id,
+          p_request_id: requestId.current,
+        });
         throwIf(result.error);
       },
     );
@@ -793,6 +809,7 @@ export function usePlanner() {
       (state) => state,
       async (space) => {
         requireRecords();
+        await requireDeletionAudit(space.id);
         const files = await readAllRows<TaskAttachment>('task_attachments', space.id, '*', {
           column: 'note_id',
           value: id,
@@ -813,9 +830,17 @@ export function usePlanner() {
       (state) => state,
       async (space) => {
         requireRecords();
+        await requireDeletionAudit(space.id);
         await removeFileRecords(supabase!, [file], space.id);
       },
     );
+  async function requireDeletionAudit(space: string) {
+    const result = await supabase!.rpc('assert_deletion_audit', { p_workspace_id: space });
+    if (result.error)
+      throw new Error(
+        '삭제 이력을 확인하지 못해 삭제를 중단했어요. 관리자에게 보호 기능 설정을 확인해 주세요.',
+      );
+  }
   const attachFile = async (taskId: string, noteId: string | null, file: File) => {
     const mime = await validateFile(file);
     await mutate(

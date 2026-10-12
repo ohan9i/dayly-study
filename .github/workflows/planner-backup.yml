@@ -1,0 +1,42 @@
+name: Encrypted daily planner backup
+on:
+  schedule:
+    - cron: '0 18 * * *' # 03:00 Asia/Seoul; hosted schedules may be delayed.
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: planner-backup
+  cancel-in-progress: false
+jobs:
+  backup:
+    if: github.event_name == 'workflow_dispatch' || vars.DAYLY_BACKUPS_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      SUPABASE_BACKUP_SECRET_KEY: ${{ secrets.SUPABASE_BACKUP_SECRET_KEY }}
+      DAYLY_BACKUP_PUBLIC_KEY: ${{ vars.DAYLY_BACKUP_PUBLIC_KEY }}
+      BACKUP_OUTPUT_DIRECTORY: backup-output
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --omit=dev
+      - name: Create and encrypt server snapshot and ready attachments
+        run: node scripts/planner-backup.mjs
+      - name: Store encrypted backup for 30 days
+        id: upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: planner-backup-${{ github.run_id }}-${{ github.run_attempt }}
+          path: backup-output/planner.dayly.enc
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+      - name: Confirm successful backup upload on the server
+        run: node scripts/planner-backup.mjs acknowledge
+        env:
+          BACKUP_ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}

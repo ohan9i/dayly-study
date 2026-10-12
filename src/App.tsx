@@ -45,6 +45,7 @@ import TaskDetail from './TaskDetail';
 import { TaskProgress, DayProgressRing } from './TaskProgress';
 import WorkspacePanel from './WorkspacePanel';
 import DetailRecord from './DetailRecord';
+import DataProtection from './DataProtection';
 
 type View = 'home' | 'calendar' | 'stats' | 'settings';
 type ModalState = { kind: 'task'; item?: Task } | { kind: 'search' } | { kind: 'account' } | null;
@@ -207,7 +208,7 @@ export default function App() {
   const requestDelete = (item: Task) =>
     setConfirmation({
       title: '할 일을 삭제할까요?',
-      message: `“${item.title}”을 삭제합니다. 삭제한 내용은 되돌릴 수 없어요.`,
+      message: `“${item.title}”과 연결된 기록·첨부를 삭제합니다. 삭제 내용은 이력에 남으며, 파일 원본 복구에는 삭제 전 백업이 필요해요.`,
       action: () => planner.deleteTask(item.id),
     });
   function exportData() {
@@ -853,6 +854,12 @@ export default function App() {
                 </button>
               </div>
             </section>
+            {planner.session && planner.workspace && (
+              <DataProtection
+                key={`${planner.session.user.id}:${planner.workspace.id}`}
+                planner={planner}
+              />
+            )}
           </div>
         )}
       </main>

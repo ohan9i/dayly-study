@@ -115,6 +115,11 @@ export async function mockCloud(
     authenticated = false,
     failNextUpload = false;
   const objects = new Map<string, { buffer: Buffer; type: string }>();
+  const deletionHistory: Record<string, unknown>[] = [];
+  const preparations = new Map<
+    string,
+    { task: TaskRecord; files: TaskAttachment[]; notes: TaskNote[] }
+  >();
   const activity = new Map<
     string,
     { workspace_id: string; revision: number; request_id: string | null }
@@ -168,6 +173,43 @@ export async function mockCloud(
       if (!spaces.some((s) => s.owner_id === owner))
         spaces.push({ id: OWN_SPACE, name: '나의 공부 공간', owner_id: owner });
       return send(OWN_SPACE);
+    }
+    if (url.pathname.endsWith('/rpc/assert_deletion_audit')) return send(null);
+    if (url.pathname.endsWith('/rpc/get_workspace_backup_status'))
+      return send({ last_completed_at: null });
+    if (url.pathname.endsWith('/rpc/prepare_task_deletion')) {
+      const task = tasks.find(
+        (task) => task.id === body.p_task_id && task.workspace_id === body.p_workspace_id,
+      );
+      if (!task || !(task.created_by === owner || task.workspace_id === OWN_SPACE))
+        return send({ code: '42501', message: 'Access denied' }, 403);
+      const operation_id = crypto.randomUUID();
+      const prepared = {
+        task: structuredClone(task),
+        files: structuredClone(files.filter((file) => file.task_id === task.id)),
+        notes: structuredClone(notes.filter((note) => note.task_id === task.id)),
+      };
+      preparations.set(operation_id, prepared);
+      return send({ operation_id, attachments: prepared.files });
+    }
+    if (url.pathname.endsWith('/rpc/delete_task_with_history')) {
+      const prepared = preparations.get(String(body.p_operation_id));
+      if (!prepared) return send({ code: '42501', message: 'Unknown operation' }, 403);
+      deletionHistory.push({
+        id: crypto.randomUUID(),
+        entity_type: 'task',
+        task_title: prepared.task.title,
+        workspace_id: prepared.task.workspace_id,
+        deleted_by: owner,
+        actor_role: 'authenticated',
+        deleted_at: new Date().toISOString(),
+        snapshot: { task: prepared.task, attachments: prepared.files, notes: prepared.notes },
+      });
+      tasks = tasks.filter((task) => task.id !== prepared.task.id);
+      completed = completed.filter((id) => id !== prepared.task.id);
+      notes = notes.filter((note) => note.task_id !== prepared.task.id);
+      preparations.delete(String(body.p_operation_id));
+      return send(prepared.task.id);
     }
     if (
       url.pathname.endsWith('/rpc/set_task_completion') ||
@@ -295,6 +337,12 @@ export async function mockCloud(
       return send(id ? spaces.filter((space) => space.id === id) : spaces);
     }
     if (table === 'workspace_members') return send([]);
+    if (table === 'task_deletion_history') {
+      const matches = deletionHistory.filter(
+        (event) => event.workspace_id === workspace && (!id || event.id === id),
+      );
+      return id ? returned(matches[0]) : send(matches);
+    }
     if (table === 'tasks') {
       if (method === 'GET')
         return send(

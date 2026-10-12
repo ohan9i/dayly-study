@@ -60,9 +60,15 @@ test('task files and compact performance notes survive reload, preview, download
   await expect(page.getByText('여백이 있는 하루', { exact: true })).toBeVisible();
   expect(cloud.objects.size).toBe(0);
   const lastDelete = cloud.requests.filter((r) => r.method === 'DELETE');
-  expect(lastDelete.at(-3)?.path).toBe('/storage/v1/object/task-files');
-  expect(lastDelete.at(-2)?.path).toBe('/rest/v1/task_attachments');
-  expect(lastDelete.at(-1)?.path).toBe('/rest/v1/tasks');
+  expect(lastDelete.at(-2)?.path).toBe('/storage/v1/object/task-files');
+  expect(lastDelete.at(-1)?.path).toBe('/rest/v1/task_attachments');
+  const finalization = cloud.requests
+    .map((r) => r.path === '/rest/v1/rpc/delete_task_with_history')
+    .lastIndexOf(true);
+  const fileCleanup = cloud.requests
+    .map((r) => r.path === '/rest/v1/task_attachments' && r.method === 'DELETE')
+    .lastIndexOf(true);
+  expect(finalization).toBeGreaterThan(fileCleanup);
   expect(errors).toEqual([]);
 });
 
