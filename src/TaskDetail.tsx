@@ -166,7 +166,7 @@ function FileCard({
     [working, setWorking] = useState(false);
   const image = file.mime_type.startsWith('image/');
   const canDelete =
-    planner.canWrite &&
+    planner.canManageRecords &&
     (planner.isOwner ||
       file.created_by === planner.session?.user.id ||
       taskAuthor === planner.session?.user.id);
@@ -340,7 +340,7 @@ export function NoteCard({
   const [expanded, setExpanded] = useState(false),
     [confirmDelete, setConfirmDelete] = useState(false);
   const canEdit =
-    planner.canWrite && (planner.isOwner || note.created_by === planner.session?.user.id);
+    planner.canManageRecords && (planner.isOwner || note.created_by === planner.session?.user.id);
   const files = (planner.data.attachments || []).filter((file) => file.note_id === note.id);
   const author =
     note.created_by === planner.session?.user.id
@@ -650,7 +650,7 @@ export default function TaskDetail({
           />
         </fieldset>
         <FileList files={attached} planner={planner} taskAuthor={taskAuthor} disabled={disabled} />
-        {canContribute && (
+        {canContribute && planner.canManageRecords && (
           <FilePicker
             files={files}
             setFiles={setFiles}
@@ -671,7 +671,7 @@ export default function TaskDetail({
                 type="button"
                 aria-label="이 할 일 삭제"
                 onClick={onDelete}
-                disabled={disabled}
+                disabled={disabled || !planner.canManageRecords}
               >
                 <Trash2 size={19} />
               </button>

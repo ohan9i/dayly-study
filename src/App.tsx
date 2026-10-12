@@ -510,6 +510,18 @@ export default function App() {
         </button>
       </header>
       <main className={`main-content view-${view}`}>
+        {planner.notice && (
+          <div className="error-banner" role="status">
+            <span>{planner.notice}</span>
+            <button
+              className="icon-button"
+              aria-label="접근 안내 닫기"
+              onClick={() => planner.setNotice('')}
+            >
+              <X size={17} />
+            </button>
+          </div>
+        )}
         {planner.error && (
           <div className="error-banner" role="alert">
             <span>{planner.error}</span>
@@ -750,6 +762,7 @@ export default function App() {
                       제목·날짜 수정과 이동은 작성자와 공간 관리자만 할 수 있습니다.
                     </p>
                     <MemberForm
+                      disabled={!planner.canManageMembers || busy}
                       onSubmit={planner.grantMember}
                       onSuccess={() =>
                         setToast('작성자를 승인했어요. 아래 주소를 직접 전달해 주세요.')
@@ -765,6 +778,7 @@ export default function App() {
                             <button
                               className="icon-button"
                               aria-label={`${member.email} 작성 권한 해제`}
+                              disabled={!planner.canManageMembers || busy}
                               onClick={() =>
                                 setConfirmation({
                                   title: '작성 권한을 해제할까요?',
@@ -829,7 +843,11 @@ export default function App() {
                 있어요.
               </p>
               <div className="backup-actions">
-                <button className="soft-button" onClick={exportData}>
+                <button
+                  className="soft-button"
+                  onClick={exportData}
+                  disabled={Boolean(planner.session) && !planner.canManageRecords}
+                >
                   <Download size={16} />
                   백업 내려받기
                 </button>
@@ -1008,9 +1026,11 @@ export default function App() {
 function MemberForm({
   onSubmit,
   onSuccess,
+  disabled = false,
 }: {
   onSubmit: (email: string) => Promise<void>;
   onSuccess: () => void;
+  disabled?: boolean;
 }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState('');
@@ -1039,11 +1059,12 @@ function MemberForm({
           type="email"
           name="email"
           required
+          disabled={disabled || busy}
           maxLength={254}
           aria-label="승인할 작성자의 이메일"
           placeholder="함께 쓸 사람의 이메일"
         />
-        <button className="soft-button" disabled={busy} type="submit">
+        <button className="soft-button" disabled={busy || disabled} type="submit">
           <Plus size={16} />
           {busy ? '승인 중…' : '작성자 승인'}
         </button>

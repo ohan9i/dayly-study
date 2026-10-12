@@ -30,7 +30,7 @@ export default function DetailRecord({
     const timer = window.setTimeout(() => setMessage(''), 3000);
     return () => window.clearTimeout(timer);
   }, [message]);
-  const canContribute = planner.canWrite && !planner.passwordRecovery;
+  const canContribute = planner.canManageRecords && !planner.passwordRecovery;
   const disabled = checking || working || planner.busy;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -71,6 +71,11 @@ export default function DetailRecord({
 
   return (
     <div className="detail-record-panel">
+      {!planner.canManageRecords && planner.session && (
+        <p className="card-footnote">
+          기록과 첨부를 불러오지 못했어요. 공유 기록을 새로고침해 주세요.
+        </p>
+      )}
       {notes.length > 0 && (
         <div className="detail-record-notes">
           {notes.map((note) => (

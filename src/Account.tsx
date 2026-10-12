@@ -87,7 +87,7 @@ export default function Account({
     setBusy(true);
     setError('');
     try {
-      const result = await supabase.auth.signOut();
+      const result = await supabase.auth.signOut({ scope: 'local' });
       if (result.error) throw result.error;
       onRecoveryDone();
       onDone();

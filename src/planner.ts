@@ -40,9 +40,19 @@ export const supabase = (() => {
   }
 })();
 const localInitial = readLocal();
-const throwIf = (error: { message: string } | null) => {
-  if (error) throw new Error(error.message);
+const throwIf = (error: { message: string; code?: string } | null) => {
+  if (error) throw Object.assign(new Error(error.message), error);
 };
+function readError(cause: unknown) {
+  const { code, message = '' } = cause as { code?: string; message?: string };
+  if (code === '42501')
+    return '접근 권한을 확인하지 못했어요. 공유 승인과 서버 권한 설정을 확인해 주세요.';
+  if (['PGRST202', 'PGRST204', '42P01', '42703'].includes(code || ''))
+    return '서버 업데이트가 필요해요. 관리자에게 데이터베이스 설정 확인을 요청해 주세요.';
+  if (code === 'PGRST301' || /jwt|refresh.token|session.*expired/i.test(message))
+    return '로그인 확인이 만료됐어요. 계정 화면에서 다시 로그인해 주세요.';
+  return '연결을 확인하고 공유 기록 새로고침을 눌러 주세요.';
+}
 async function readAllRows<T>(
   table: string,
   space: string,
@@ -75,6 +85,13 @@ export function usePlanner() {
   const [loading, setLoading] = useState(Boolean(supabase));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(configurationError || localInitial.warning);
+  const [notice, setNotice] = useState('');
+  const [readiness, setReadiness] = useState({
+    core: false,
+    records: false,
+    members: false,
+    complete: false,
+  });
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [passwordRecovery, setPasswordRecovery] = useState(() => {
     try {
@@ -101,10 +118,14 @@ export function usePlanner() {
   const syncPending = useRef(false);
   const syncReading = useRef(false);
   const foregroundLoading = useRef(false);
+  const foregroundToken = useRef(0);
+  const ready = useRef(readiness);
   const activitySeen = useRef<{ space: string; revision: number } | null>(null);
   const data = session ? remoteData : localData;
   const isOwner = !session || workspace?.owner_id === session.user.id;
-  const canWrite = !loading && Boolean(session && workspace) && !passwordRecovery;
+  const canWrite = !loading && readiness.core && Boolean(session && workspace) && !passwordRecovery;
+  const canManageRecords = canWrite && readiness.records;
+  const canManageMembers = canWrite && readiness.members;
 
   const refresh = useCallback(async (user: Session, preferredId?: string, background = false) => {
     if (!supabase) return;
@@ -115,6 +136,7 @@ export function usePlanner() {
     const token = ++generation.current;
     if (!background) {
       foregroundLoading.current = true;
+      foregroundToken.current = token;
       setLoading(true);
     }
     try {
@@ -135,23 +157,52 @@ export function usePlanner() {
       } catch {
         /* Optional preference. */
       }
+      const wanted = preferredId || activeWorkspace.current?.id || remembered;
+      const lostAccess = Boolean(wanted && !list.some((space) => space.id === wanted));
       const selected =
-        list.find((x) => x.id === (preferredId || activeWorkspace.current?.id || remembered)) ||
+        list.find((x) => x.id === wanted) ||
         list.find((x) => x.owner_id === user.user.id) ||
         list[0] ||
         null;
       let next = emptySnapshot(),
         nextMembers: Member[] = [];
       let revision = -1;
+      const warnings: string[] = [];
+      let notesLoaded = true,
+        filesLoaded = true;
+      const previousSpace = activeWorkspace.current?.id;
+      const nextReady = { core: false, records: false, members: false, complete: false };
+      if (
+        lostAccess &&
+        token === generation.current &&
+        activeSession.current?.user.id === user.user.id
+      ) {
+        const name = activeWorkspace.current?.name || '이전에 선택한 공간';
+        const hadActiveSpace = Boolean(activeWorkspace.current);
+        setNotice((previous) =>
+          previous && !hadActiveSpace
+            ? previous
+            : `“${name}”에 접근할 수 없어요. 로그인 계정과 공유 승인을 확인해 주세요.`,
+        );
+        // Clear inaccessible cached data even if reading the fallback later fails.
+        activeWorkspace.current = null;
+        setWorkspace(null);
+        setRemoteData(emptySnapshot());
+        setMembers([]);
+        setWorkspaces(list);
+        ready.current = nextReady;
+        setReadiness(nextReady);
+      }
       if (selected) {
         const activity = await supabase
           .from('workspace_activity')
           .select('revision')
           .eq('workspace_id', selected.id)
           .maybeSingle();
-        throwIf(activity.error);
+        if (activity.error)
+          warnings.push(`변경 알림을 불러오지 못했어요. ${readError(activity.error)}`);
         revision = activity.data?.revision ?? 0;
-        const [tasks, checks, granted, taskNotes, attachments] = await Promise.all([
+        const results = await Promise.allSettled([
           readAllRows<TaskRecord>('tasks', selected.id),
           readAllRows<{ task_id: string }>('task_completions', selected.id, 'task_id'),
           selected.owner_id === user.user.id
@@ -160,6 +211,27 @@ export function usePlanner() {
           readAllRows<TaskNote>('task_notes', selected.id),
           readAllRows<TaskAttachment>('task_attachments', selected.id),
         ]);
+        const [taskResult, checkResult, granted, noteResult, fileResult] = results;
+        if (taskResult.status === 'rejected') throw taskResult.reason;
+        if (checkResult.status === 'rejected') throw checkResult.reason;
+        const tasks = taskResult.value;
+        const checks = checkResult.value;
+        notesLoaded = noteResult.status === 'fulfilled';
+        filesLoaded = fileResult.status === 'fulfilled';
+        const taskNotes = noteResult.status === 'fulfilled' ? noteResult.value : [];
+        const attachments = fileResult.status === 'fulfilled' ? fileResult.value : [];
+        for (const [label, result] of [
+          ['공유 참여자', granted],
+          ['수행 기록', noteResult],
+          ['첨부 목록', fileResult],
+        ] as const) {
+          if (result.status === 'rejected')
+            warnings.push(`${label}을 불러오지 못했어요. ${readError(result.reason)}`);
+        }
+        nextReady.core = true;
+        nextReady.records = noteResult.status === 'fulfilled' && fileResult.status === 'fulfilled';
+        nextReady.members = granted.status === 'fulfilled';
+        nextReady.complete = warnings.length === 0;
         next = reconcileCompletion({
           version: 2,
           tasks: tasks.map((task) =>
@@ -175,7 +247,7 @@ export function usePlanner() {
           attachments,
         });
         if (tasks.length) nativeDetails.current = Object.hasOwn(tasks[0], 'detail_items');
-        nextMembers = granted;
+        nextMembers = granted.status === 'fulfilled' ? granted.value : [];
       }
       if (token !== generation.current || activeSession.current?.user.id !== user.user.id) return;
       setWorkspaces(list);
@@ -188,16 +260,35 @@ export function usePlanner() {
       } catch {
         /* Optional preference. */
       }
-      setRemoteData(next);
+      setRemoteData((previous) => ({
+        ...next,
+        taskNotes:
+          !notesLoaded && previousSpace === selected?.id && !lostAccess
+            ? previous.taskNotes?.filter((note) =>
+                next.tasks.some((task) => task.id === note.task_id),
+              )
+            : next.taskNotes,
+        attachments:
+          !filesLoaded && previousSpace === selected?.id && !lostAccess
+            ? previous.attachments?.filter((file) =>
+                next.tasks.some((task) => task.id === file.task_id),
+              )
+            : next.attachments,
+      }));
       setMembers(nextMembers);
-      setError('');
+      ready.current = nextReady;
+      setReadiness(nextReady);
+      setError(warnings.join(' '));
       setLastSaved(new Date());
     } catch (e) {
-      if (token === generation.current)
-        setError(`공유 기록을 불러오지 못했습니다. ${(e as Error).message}`);
+      if (token === generation.current) {
+        ready.current = { core: false, records: false, members: false, complete: false };
+        setReadiness(ready.current);
+        setError(`공유 기록을 불러오지 못했어요. ${readError(e)}`);
+      }
       throw e;
     } finally {
-      if (token === generation.current && !background) {
+      if (foregroundToken.current === token && !background) {
         foregroundLoading.current = false;
         setLoading(false);
       }
@@ -210,12 +301,19 @@ export function usePlanner() {
     const update = (next: Session | null) => {
       if (!alive) return;
       const accountChanged = next?.user.id !== activeSession.current?.user.id;
+      const ended = Boolean(activeSession.current && !next);
       if (accountChanged) {
+        generation.current++;
+        foregroundLoading.current = false;
+        ready.current = { core: false, records: false, members: false, complete: false };
+        setReadiness(ready.current);
         provisionedUser.current = null;
         setRemoteData(emptySnapshot());
         setWorkspace(null);
         activeWorkspace.current = null;
         setMembers([]);
+        setWorkspaces([]);
+        if (next) setNotice('');
       }
       activeSession.current = next;
       setSession(next);
@@ -224,6 +322,8 @@ export function usePlanner() {
         // Renew the session without disabling editors or reloading their data.
         if (accountChanged) void refresh(next).catch(() => {});
       } else {
+        if (ended)
+          setNotice('로그인 세션이 종료됐어요. 기록을 다시 보려면 같은 계정으로 로그인해 주세요.');
         completePasswordRecovery();
         generation.current++;
         setWorkspace(null);
@@ -267,6 +367,45 @@ export function usePlanner() {
       generation.current++;
     };
   }, [refresh]);
+
+  useEffect(() => {
+    if (!supabase || !session || readiness.complete || passwordRecovery) return;
+    let alive = true,
+      attempts = 0,
+      retrying = false;
+    const retry = () => {
+      if (
+        !alive ||
+        retrying ||
+        lock.current ||
+        foregroundLoading.current ||
+        activeSession.current?.user.id !== session.user.id
+      )
+        return;
+      retrying = true;
+      void refresh(activeSession.current, activeWorkspace.current?.id, true)
+        .catch(() => {})
+        .finally(() => {
+          retrying = false;
+        });
+    };
+    const timer = window.setInterval(() => {
+      if (lock.current || foregroundLoading.current) return;
+      if (++attempts <= 3) retry();
+      else clearInterval(timer);
+    }, 10000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') retry();
+    };
+    window.addEventListener('online', retry);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+      window.removeEventListener('online', retry);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [session?.user.id, readiness.complete, passwordRecovery, refresh]);
 
   useEffect(() => {
     if (!supabase || !session || !workspace || passwordRecovery) return;
@@ -388,6 +527,7 @@ export function usePlanner() {
     if (
       lock.current ||
       !canWrite ||
+      !ready.current.core ||
       activeSession.current?.user.id !== session?.user.id ||
       activeWorkspace.current?.id !== workspace?.id
     )
@@ -410,7 +550,7 @@ export function usePlanner() {
       if (optimistic) {
         // Completion already has its canonical local state. A full reload here
         // adds a loading banner above the page and moves the cards on every check.
-        setError('');
+        if (ready.current.complete) setError('');
         setLastSaved(new Date());
       } else {
         // A failed reload must not tell the user that an already committed write failed.
@@ -465,6 +605,12 @@ export function usePlanner() {
       result = await write({ details: encoded });
     }
     throwIf(result.error);
+  }
+  function requireRecords() {
+    if (!ready.current.records)
+      throw new Error(
+        '기록과 첨부 목록을 아직 확인하지 못했어요. 공유 기록을 새로고침한 뒤 다시 시도해 주세요.',
+      );
   }
   const saveTask = async (value: Task, editing: boolean, optimistic = false) => {
     const completed = new Set(data.completedTaskIds);
@@ -603,6 +749,7 @@ export function usePlanner() {
         completedTaskIds: state.completedTaskIds.filter((x) => x !== id),
       }),
       async (space) => {
+        requireRecords();
         const files = await readAllRows<TaskAttachment>('task_attachments', space.id, '*', {
           column: 'task_id',
           value: id,
@@ -622,6 +769,7 @@ export function usePlanner() {
     mutate(
       (state) => state,
       async (space, user) => {
+        requireRecords();
         const result = editing
           ? await supabase!
               .from('task_notes')
@@ -644,6 +792,7 @@ export function usePlanner() {
     mutate(
       (state) => state,
       async (space) => {
+        requireRecords();
         const files = await readAllRows<TaskAttachment>('task_attachments', space.id, '*', {
           column: 'note_id',
           value: id,
@@ -663,6 +812,7 @@ export function usePlanner() {
     mutate(
       (state) => state,
       async (space) => {
+        requireRecords();
         await removeFileRecords(supabase!, [file], space.id);
       },
     );
@@ -671,6 +821,7 @@ export function usePlanner() {
     await mutate(
       (state) => state,
       async (space, user) => {
+        requireRecords();
         const id = crypto.randomUUID(),
           path = `${space.id}/${taskId}/${id}`;
         const inserted = await supabase!.from('task_attachments').insert({
@@ -731,7 +882,7 @@ export function usePlanner() {
     }
   }
   async function grantMember(email: string) {
-    if (!workspace || !supabase || !session || !canWrite || !isOwner)
+    if (!workspace || !supabase || !session || !canManageMembers || !isOwner)
       throw new Error('관리자로 로그인해 주세요.');
     if (email.trim().toLowerCase() === session.user.email?.toLowerCase())
       throw new Error('본인은 이미 이 공간의 관리자입니다.');
@@ -757,7 +908,7 @@ export function usePlanner() {
       },
     );
   async function revokeMember(id: string) {
-    if (!supabase || !session || !workspace || !canWrite || !isOwner)
+    if (!supabase || !session || !workspace || !canManageMembers || !isOwner)
       throw new Error('관리자로 로그인해 주세요.');
     const result = await supabase
       .from('workspace_members')
@@ -779,8 +930,12 @@ export function usePlanner() {
     busy,
     error,
     setError,
+    notice,
+    setNotice,
     isOwner,
     canWrite,
+    canManageRecords,
+    canManageMembers,
     lastSaved,
     saveTask,
     duplicateTask,

@@ -1019,7 +1019,7 @@ svg {
   position: relative;
   font-size: 17px;
   font-weight: 350;
-  color: var(--text);
+  color: #061522;
   letter-spacing: -0.025em;
   line-height: 1.9;
   margin: 0 var(--space-4);

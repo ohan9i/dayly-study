@@ -32,6 +32,8 @@
 
 **공유 체크와 항목 이동에는 필수 업그레이드가 있습니다.** 위 migration 뒤에 `supabase/migrations/20261006_shared_checks_and_moves.sql` 전체를 실행합니다. 승인된 참여자의 체크/해제, 작성자·관리자의 공간 간 이동, 완료 작성자·시각과 변경 알림을 설치합니다. 새 홈페이지 배포 전에 적용하며 이전 파일을 다시 실행했다면 이 파일을 마지막에 다시 실행합니다. [구현 및 권한 안내](SHARED_CHECKS_AND_MOVES.md)
 
+마지막으로 **`supabase/migrations/20261012_stable_workspace_members.sql`**을 실행합니다. 이미 승인된 이메일 중 확인된 계정을 `user_id`에 연결하고, 이후 공유 권한을 계정 UUID로 유지합니다. 아직 이메일을 확인하지 않은 초대는 확인 후 첫 로그인에서 연결됩니다. 계획·기록·첨부를 삭제하거나 해제된 승인을 다시 만들지 않으며, 반복 실행할 수 있습니다. 이후 이전 파일을 다시 실행했다면 이 파일도 마지막에 다시 실행해야 합니다.
+
 파일 접근 권한은 현재 공간의 승인 여부를 검사합니다. 사진과 PDF 미리보기에는 2분간 유효한 링크를 사용합니다. 권한 해제 후 새 링크 발급과 내려받기는 거부되지만, 이미 발급한 링크는 만료 시점까지 사용할 수 있습니다. [Supabase Storage 권한 안내](https://supabase.com/docs/guides/storage/security/access-control)
 
 테이블의 Row Level Security(RLS)는 누가 어떤 기록을 볼 수 있고 바꿀 수 있는지를 데이터베이스에서 검사합니다. 승인된 이메일이어도 인증되지 않은 계정은 공유 기록에 접근할 수 없습니다. [Supabase RLS 공식 문서](https://supabase.com/docs/guides/database/postgres/row-level-security)
