@@ -19,6 +19,7 @@ const format = (value: string) =>
 
 export default function DataProtection({ planner }: { planner: Planner }) {
   const [events, setEvents] = useState<Deletion[]>([]);
+  const [retained, setRetained] = useState(false);
   const [completedAt, setCompletedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -30,8 +31,9 @@ export default function DataProtection({ planner }: { planner: Planner }) {
     if (!supabase || !space || !user) return;
     const token = ++generation.current;
     setLoading(true);
+    setRetained(false);
     try {
-      const [history, status] = await Promise.all([
+      const [history, status, retention] = await Promise.all([
         supabase
           .from('task_deletion_history')
           .select('id,entity_type,task_title,deleted_at,deleted_by,actor_role')
@@ -39,8 +41,12 @@ export default function DataProtection({ planner }: { planner: Planner }) {
           .order('deleted_at', { ascending: false })
           .limit(50),
         supabase.rpc('get_workspace_backup_status', { p_workspace_id: space }),
+        supabase.rpc('get_planner_retention_status', { p_workspace_id: space }),
       ]);
       if (token !== generation.current) return;
+      setRetained(
+        !retention.error && retention.data?.version === 1 && retention.data?.enabled === true,
+      );
       if (history.error || status.error) {
         setError('보호 기능 정보를 불러오지 못했어요. 관리자에게 서버 설정을 확인해 주세요.');
       } else {
@@ -93,6 +99,20 @@ export default function DataProtection({ planner }: { planner: Planner }) {
         <ShieldCheck size={19} />
         기록 보호
       </h2>
+      <p
+        className={
+          loading || retained
+            ? 'retention-status setting-description'
+            : 'retention-status form-error'
+        }
+        role="status"
+      >
+        {loading
+          ? '서버 보존 보호 확인 중…'
+          : retained
+            ? '서버 보존 보호 적용됨: 저장된 계획·수행 기록·첨부파일의 삭제와 계획의 공간 이동을 차단합니다.'
+            : '서버 보존 보호를 확인하지 못했어요. 서버 설정 적용 또는 연결 확인이 필요합니다.'}
+      </p>
       <p className="setting-description">
         정기 백업은 매일 새벽 3시경 실행하며, 암호화된 파일을 30일 보관합니다.
       </p>

@@ -100,11 +100,11 @@ test('title-only, one item and multiple items support ordered editing, empty fil
   await page.reload();
   await expect(page.locator('.task-details')).toHaveCount(0);
   await edit(page);
-  await page.getByRole('button', { name: '이 할 일 삭제', exact: true }).click();
-  await page.getByRole('button', { name: '확인', exact: true }).click();
-  await expect(page.getByRole('button', { name: '수학 공부 상세 보기', exact: true })).toHaveCount(
-    0,
-  );
+  await expect(page.getByRole('button', { name: '이 할 일 삭제', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: '닫기', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: '수학 공부 상세 보기', exact: true }),
+  ).toBeVisible();
   const writes = cloud.requests.filter(
     (r) => r.path === '/rest/v1/tasks' && ['POST', 'PATCH'].includes(r.method),
   );
@@ -140,7 +140,10 @@ test('Korean composition Enter does not insert a row or submit; normal Enter res
   await expect(field(page, 2)).toBeFocused();
   await field(page, 2).fill('오답 정리');
   await save(page);
-  await expect(page.locator('.task-details .detail-row-title')).toHaveText(['조건부확률 복습', '오답 정리']);
+  await expect(page.locator('.task-details .detail-row-title')).toHaveText([
+    '조건부확률 복습',
+    '오답 정리',
+  ]);
 });
 
 test('legacy local memo and cloud string notes survive migration, editing and reload', async ({
@@ -190,7 +193,10 @@ test('legacy local memo and cloud string notes survive migration, editing and re
   await field(page, 2).fill('오답노트 정리');
   await save(page);
   await page.reload();
-  await expect(page.locator('.task-details .detail-row-title')).toHaveText(['순열 복습', '오답노트 정리']);
+  await expect(page.locator('.task-details .detail-row-title')).toHaveText([
+    '순열 복습',
+    '오답노트 정리',
+  ]);
   const data = await backup(page);
   expect(data.version).toBe(2);
   expect(data.tasks[0].subject).toBe('수학');
@@ -217,7 +223,10 @@ test('the existing text-only database stores a structured array and preserves it
     '오답 정리',
   ]);
   await page.reload();
-  await expect(page.locator('.task-details .detail-row-title')).toHaveText(['순열 문제 10개', '오답 정리']);
+  await expect(page.locator('.task-details .detail-row-title')).toHaveText([
+    '순열 문제 10개',
+    '오답 정리',
+  ]);
   await edit(page);
   await page.getByRole('button', { name: '세부 항목 2 삭제', exact: true }).click();
   await page.getByRole('button', { name: '세부 항목 1 삭제', exact: true }).click();

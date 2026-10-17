@@ -113,7 +113,8 @@ export async function mockCloud(
     files: TaskAttachment[] = [],
     completed: string[] = [],
     authenticated = false,
-    failNextUpload = false;
+    failNextUpload = false,
+    failNextReadyResponse = false;
   const objects = new Map<string, { buffer: Buffer; type: string }>();
   const deletionHistory: Record<string, unknown>[] = [];
   const preparations = new Map<
@@ -174,6 +175,8 @@ export async function mockCloud(
         spaces.push({ id: OWN_SPACE, name: '나의 공부 공간', owner_id: owner });
       return send(OWN_SPACE);
     }
+    if (url.pathname.endsWith('/rpc/get_planner_retention_status'))
+      return send({ version: 1, enabled: true });
     if (url.pathname.endsWith('/rpc/assert_deletion_audit')) return send(null);
     if (url.pathname.endsWith('/rpc/get_workspace_backup_status'))
       return send({ last_completed_at: null });
@@ -403,6 +406,12 @@ export async function mockCloud(
       return returned({ id });
     }
     if (table === 'task_attachments') {
+      if (method === 'GET' && id) {
+        const file = files.find(
+          (file) => file.id === id && (!workspace || file.workspace_id === workspace),
+        );
+        return file ? returned({ ...file }) : send({ code: 'PGRST116' }, 406);
+      }
       if (method === 'GET')
         return send(
           files.filter(
@@ -418,11 +427,16 @@ export async function mockCloud(
         files.push({ ...body, created_at: new Date().toISOString() } as TaskAttachment);
         return send({});
       }
-      if (method === 'PATCH')
+      if (method === 'PATCH') {
         Object.assign(
           files.find((f) => f.id === id)!,
           body,
         );
+        if (body.state === 'ready' && failNextReadyResponse) {
+          failNextReadyResponse = false;
+          return send({ message: 'Response lost after commit' }, 500);
+        }
+      }
       if (method === 'DELETE') files = files.filter((f) => f.id !== id && !ids.includes(f.id));
       return returned({ id });
     }
@@ -446,6 +460,9 @@ export async function mockCloud(
   return {
     requests,
     objects,
+    failNextReadyResponse: () => {
+      failNextReadyResponse = true;
+    },
     tasks: () => tasks,
     externalCheck: (taskId: string, index: number, done: boolean) => {
       const record = tasks.find((task) => task.id === taskId)!;

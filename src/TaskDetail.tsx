@@ -166,6 +166,7 @@ function FileCard({
     [working, setWorking] = useState(false);
   const image = file.mime_type.startsWith('image/');
   const canDelete =
+    file.state === 'pending' &&
     planner.canManageRecords &&
     (planner.isOwner ||
       file.created_by === planner.session?.user.id ||
@@ -337,8 +338,7 @@ export function NoteCard({
   const [editing, setEditing] = useState(false),
     [body, setBody] = useState(content.body),
     [error, setError] = useState('');
-  const [expanded, setExpanded] = useState(false),
-    [confirmDelete, setConfirmDelete] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const canEdit =
     planner.canManageRecords && (planner.isOwner || note.created_by === planner.session?.user.id);
   const files = (planner.data.attachments || []).filter((file) => file.note_id === note.id);
@@ -383,15 +383,6 @@ export function NoteCard({
               }}
             >
               <Pencil size={15} />
-            </button>
-            <button
-              type="button"
-              className="icon-button"
-              aria-label="수행 내용 삭제"
-              disabled={disabled}
-              onClick={() => setConfirmDelete(true)}
-            >
-              <Trash2 size={15} />
             </button>
           </div>
         )}
@@ -456,21 +447,6 @@ export function NoteCard({
       {!content.body && !files.length && (
         <p className="card-footnote">첨부가 완료되지 않은 수행 내용이에요.</p>
       )}
-      {confirmDelete && (
-        <div className="inline-confirm">
-          <span>수행 내용과 첨부 파일을 삭제할까요?</span>
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => void action(() => planner.deleteNote(note.id))}
-          >
-            삭제
-          </button>
-          <button type="button" disabled={disabled} onClick={() => setConfirmDelete(false)}>
-            취소
-          </button>
-        </div>
-      )}
       {error && (
         <p className="form-error" role="alert">
           {error}
@@ -489,10 +465,8 @@ export default function TaskDetail({
   planner,
   editable,
   onDone,
-  onDelete,
   onLogin,
   onBusyChange,
-  onMoved,
   onDuplicated,
 }: {
   item?: Task;
@@ -500,10 +474,8 @@ export default function TaskDetail({
   planner: Planner;
   editable: boolean;
   onDone: () => void;
-  onDelete?: () => void;
   onLogin?: () => void;
   onBusyChange: (busy: boolean) => void;
-  onMoved: (name: string) => void;
   onDuplicated: (copy: Task) => void;
 }) {
   const id = useRef(item?.id || crypto.randomUUID()),
@@ -513,27 +485,13 @@ export default function TaskDetail({
     [working, setWorking] = useState(false);
   const [progress, setProgress] = useState('');
   const [checking, setChecking] = useState(false);
-  const [moving, setMoving] = useState(false),
-    [dirty, setDirty] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
   const duplicationLock = useRef(false);
   const duplicationForm = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (duplicating) duplicationForm.current?.scrollIntoView({ block: 'nearest' });
   }, [duplicating]);
-  const targets = planner.workspaces
-    .filter((space) => space.id !== planner.workspace?.id)
-    .sort(
-      (a, b) =>
-        Number(b.owner_id === planner.session?.user.id) -
-        Number(a.owner_id === planner.session?.user.id),
-    );
-  const [targetId, setTargetId] = useState(targets[0]?.id || '');
-  useEffect(() => {
-    setTargetId((current) =>
-      targets.some((space) => space.id === current) ? current : targets[0]?.id || '',
-    );
-  }, [planner.workspaces, planner.workspace?.id, planner.session?.user.id]);
   const liveItem = item && planner.data.tasks.find((task) => task.id === item.id);
   const unavailable = Boolean(
     item && (!liveItem || liveItem.workspace_id !== planner.workspace?.id),
@@ -665,17 +623,6 @@ export default function TaskDetail({
         )}
         {editable || (canContribute && files.length > 0) ? (
           <div className="form-actions">
-            {onDelete && (
-              <button
-                className="icon-button delete-button"
-                type="button"
-                aria-label="이 할 일 삭제"
-                onClick={onDelete}
-                disabled={disabled || !planner.canManageRecords}
-              >
-                <Trash2 size={19} />
-              </button>
-            )}
             <button className="primary-button" disabled={disabled} type="submit">
               <Check size={17} />
               {disabled ? progress || '저장 중…' : editable ? '할 일 저장' : '파일 올리기'}
@@ -700,7 +647,6 @@ export default function TaskDetail({
               className="text-button"
               disabled={disabled}
               onClick={() => {
-                setMoving(false);
                 setDuplicating(true);
               }}
             >
@@ -773,87 +719,10 @@ export default function TaskDetail({
           )}
         </div>
       )}
-      {item && editable && targets.length > 0 && (
-        <div className="task-move">
-          {!moving ? (
-            <button
-              type="button"
-              className="text-button"
-              disabled={disabled}
-              onClick={() => {
-                setDuplicating(false);
-                setMoving(true);
-              }}
-            >
-              다른 플래너로 이동
-            </button>
-          ) : (
-            <div className="task-move-picker" role="group" aria-label="다른 플래너로 이동">
-              <label className="field">
-                <span>이동할 공간</span>
-                <select
-                  aria-label="이동할 공간"
-                  value={targetId}
-                  disabled={disabled}
-                  onChange={(e) => setTargetId(e.target.value)}
-                >
-                  {targets.map((space) => (
-                    <option key={space.id} value={space.id}>
-                      {space.owner_id === planner.session?.user.id
-                        ? `내 플래너 · ${space.name}`
-                        : space.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <p className="card-footnote">
-                날짜와 기록·첨부를 유지하고 선택한 공간으로 이동합니다.
-              </p>
-              {(dirty || files.length > 0) && (
-                <p className="card-footnote">
-                  작성 중인 내용과 첨부를 먼저 저장한 뒤 이동해 주세요.
-                </p>
-              )}
-              <div className="note-edit-actions">
-                <button
-                  type="button"
-                  className="text-button"
-                  disabled={disabled}
-                  onClick={() => setMoving(false)}
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  className="soft-button"
-                  disabled={
-                    disabled ||
-                    dirty ||
-                    files.length > 0 ||
-                    !targets.some((space) => space.id === targetId)
-                  }
-                  onClick={async () => {
-                    setWorking(true);
-                    setError('');
-                    try {
-                      const target = targets.find((space) => space.id === targetId)!;
-                      await planner.moveTask(item.id, target.id);
-                      onMoved(
-                        target.owner_id === planner.session?.user.id ? '내 플래너' : target.name,
-                      );
-                    } catch (e) {
-                      setError((e as Error).message);
-                    } finally {
-                      setWorking(false);
-                    }
-                  }}
-                >
-                  이동
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+      {item && canContribute && (
+        <p className="card-footnote">
+          저장된 계획·수행 기록·첨부파일은 삭제되지 않도록 보존해요. 계획은 원래 공간에 유지됩니다.
+        </p>
       )}
     </div>
   );

@@ -717,70 +717,13 @@ export function usePlanner() {
   };
   const toggleTask = (id: string) => checkTask(id, null);
   const toggleDetail = (taskId: string, detailId: string) => checkTask(taskId, detailId);
-  const moveTask = async (taskId: string, targetId: string) => {
-    if (!workspaces.some((space) => space.id === targetId) || targetId === workspace?.id)
-      throw new Error('이동할 다른 공간을 선택해 주세요.');
-    await mutate(
-      (state) =>
-        reconcileCompletion({
-          ...state,
-          tasks: state.tasks.filter((task) => task.id !== taskId),
-          taskNotes: state.taskNotes?.filter((note) => note.task_id !== taskId),
-          attachments: state.attachments?.filter((file) => file.task_id !== taskId),
-        }),
-      async (space) => {
-        const result = await supabase!.rpc('move_task', {
-          p_task_id: taskId,
-          p_workspace_id: space.id,
-          p_target_workspace_id: targetId,
-          p_request_id: requestId.current,
-        });
-        throwIf(result.error);
-      },
-    );
-    // Show the destination immediately, using the same progress/calendar data.
-    if (activeSession.current) await refresh(activeSession.current, targetId);
+  // Guard old callers as well as the removed controls.
+  const moveTask = async (_taskId: string, _targetId: string): Promise<void> => {
+    throw new Error('저장된 계획은 원래 공간에 보존되므로 다른 공간으로 이동할 수 없어요.');
   };
-  const deleteTask = (id: string) =>
-    mutate(
-      (state) => ({
-        ...state,
-        tasks: state.tasks.filter((x) => x.id !== id),
-        completedTaskIds: state.completedTaskIds.filter((x) => x !== id),
-      }),
-      async (space) => {
-        requireRecords();
-        const preparation = await supabase!.rpc('prepare_task_deletion', {
-          p_task_id: id,
-          p_workspace_id: space.id,
-        });
-        if (preparation.error)
-          throw new Error(
-            '삭제 이력을 확인하지 못해 삭제를 중단했어요. 관리자에게 보호 기능 설정을 확인해 주세요.',
-          );
-        const operation = preparation.data as {
-          operation_id: string;
-          attachments: TaskAttachment[];
-        };
-        if (
-          !operation?.operation_id ||
-          !Array.isArray(operation.attachments) ||
-          operation.attachments.some(
-            (file) => file.task_id !== id || file.workspace_id !== space.id,
-          )
-        )
-          throw new Error(
-            '삭제할 계획과 첨부를 확인하지 못했어요. 새로고침한 뒤 다시 시도해 주세요.',
-          );
-        const files = operation.attachments;
-        await removeFileRecords(supabase!, files, space.id);
-        const result = await supabase!.rpc('delete_task_with_history', {
-          p_operation_id: operation.operation_id,
-          p_request_id: requestId.current,
-        });
-        throwIf(result.error);
-      },
-    );
+  const deleteTask = async (_id: string): Promise<void> => {
+    throw new Error('저장된 계획은 삭제할 수 없어요.');
+  };
   const saveNote = (taskId: string, id: string, body: string, editing: boolean) =>
     mutate(
       (state) => state,
@@ -804,34 +747,26 @@ export function usePlanner() {
         throwIf(result.error);
       },
     );
-  const deleteNote = (id: string) =>
-    mutate(
-      (state) => state,
-      async (space) => {
-        requireRecords();
-        await requireDeletionAudit(space.id);
-        const files = await readAllRows<TaskAttachment>('task_attachments', space.id, '*', {
-          column: 'note_id',
-          value: id,
-        });
-        await removeFileRecords(supabase!, files, space.id);
-        const result = await supabase!
-          .from('task_notes')
-          .delete()
-          .eq('id', id)
-          .eq('workspace_id', space.id)
-          .select('id')
-          .single();
-        throwIf(result.error);
-      },
-    );
+  const deleteNote = async (_id: string): Promise<void> => {
+    throw new Error('저장된 수행 기록은 삭제할 수 없어요.');
+  };
   const deleteAttachment = (file: TaskAttachment) =>
     mutate(
       (state) => state,
       async (space) => {
         requireRecords();
         await requireDeletionAudit(space.id);
-        await removeFileRecords(supabase!, [file], space.id);
+        // A stale pending card must never delete an already completed upload.
+        const current = await supabase!
+          .from('task_attachments')
+          .select('*')
+          .eq('id', file.id)
+          .eq('workspace_id', space.id)
+          .single();
+        throwIf(current.error);
+        if (current.data?.state !== 'pending')
+          throw new Error('저장된 첨부파일은 삭제할 수 없어요.');
+        await removeFileRecords(supabase!, [current.data as TaskAttachment], space.id);
       },
     );
   async function requireDeletionAudit(space: string) {
@@ -875,9 +810,20 @@ export function usePlanner() {
             .single();
           throwIf(ready.error);
         } catch (e) {
-          // Keep pending metadata if cleanup fails, so the file remains manageable.
-          const cleanup = await supabase!.storage.from(FILE_BUCKET).remove([path]);
-          if (!cleanup.error) await supabase!.from('task_attachments').delete().eq('id', id);
+          // A timed-out response may follow a committed ready update. Never
+          // remove the original until the server confirms it is still pending.
+          const current = await supabase!
+            .from('task_attachments')
+            .select('state')
+            .eq('id', id)
+            .eq('workspace_id', space.id)
+            .single();
+          if (!current.error && current.data?.state === 'ready') return;
+          if (!current.error && current.data?.state === 'pending') {
+            const cleanup = await supabase!.storage.from(FILE_BUCKET).remove([path]);
+            if (!cleanup.error)
+              await supabase!.from('task_attachments').delete().eq('id', id).eq('state', 'pending');
+          }
           await refresh(user, space.id).catch(() => {});
           throw new Error(
             `“${file.name}”을 올리지 못했어요. 다시 시도해 주세요. ${(e as Error).message}`,

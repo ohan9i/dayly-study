@@ -186,8 +186,6 @@ export default function App() {
     minute: '2-digit',
     hourCycle: 'h23',
   }).format(now);
-  const canEdit = (item: Task) =>
-    canWrite && (isOwner || item.created_by === planner.session?.user.id);
   const canManageTask = (item?: Task) =>
     Boolean(planner.session && planner.workspace) &&
     !planner.passwordRecovery &&
@@ -205,12 +203,6 @@ export default function App() {
     setView('home');
     setModal(null);
   };
-  const requestDelete = (item: Task) =>
-    setConfirmation({
-      title: '할 일을 삭제할까요?',
-      message: `“${item.title}”과 연결된 기록·첨부를 삭제합니다. 삭제 내용은 이력에 남으며, 파일 원본 복구에는 삭제 전 백업이 필요해요.`,
-      action: () => planner.deleteTask(item.id),
-    });
   function exportData() {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob),
@@ -760,7 +752,8 @@ export default function App() {
                   <>
                     <p className="setting-description">
                       승인한 이메일로 로그인한 사람은 할 일을 작성하고 함께 완료 체크할 수 있어요.
-                      제목·날짜 수정과 이동은 작성자와 공간 관리자만 할 수 있습니다.
+                      제목·날짜는 작성자와 공간 관리자만 수정할 수 있어요. 저장된 계획은 원래 공간에
+                      보존됩니다.
                     </p>
                     <MemberForm
                       disabled={!planner.canManageMembers || busy}
@@ -899,23 +892,10 @@ export default function App() {
               setModal(null);
               setToast('할 일을 저장했어요.');
             }}
-            onMoved={(name) => {
-              setModal(null);
-              setToast(`${name}로 이동했습니다.`);
-            }}
             onDuplicated={(copy) => {
               goDate(copy.date);
               setToast(`${planner.workspace?.name}에 계획을 복제했어요.`);
             }}
-            onDelete={
-              modal.item && canEdit(modal.item)
-                ? () => {
-                    const item = modal.item!;
-                    setModal(null);
-                    requestDelete(item);
-                  }
-                : undefined
-            }
           />
         </Modal>
       )}

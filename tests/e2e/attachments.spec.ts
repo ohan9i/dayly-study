@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { mockCloud, signIn, OWN_SPACE, SHARED_SPACE, PNG, PDF } from './cloud-fixture';
 
-test('task files and compact performance notes survive reload, preview, download and delete', async ({
+test('task files and compact performance notes survive reload, preview, download and permanent retention', async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -55,20 +55,10 @@ test('task files and compact performance notes survive reload, preview, download
   await page.getByRole('button', { name: '수정 저장', exact: true }).click();
   await expect(page.locator('.task-note')).toContainText('강도 검토까지 완료했습니다.');
   await page.getByRole('button', { name: '보의 휨 설계 수행 상세 보기' }).click();
-  await page.getByRole('button', { name: '이 할 일 삭제' }).click();
-  await page.getByRole('button', { name: '확인', exact: true }).click();
-  await expect(page.getByText('여백이 있는 하루', { exact: true })).toBeVisible();
-  expect(cloud.objects.size).toBe(0);
-  const lastDelete = cloud.requests.filter((r) => r.method === 'DELETE');
-  expect(lastDelete.at(-2)?.path).toBe('/storage/v1/object/task-files');
-  expect(lastDelete.at(-1)?.path).toBe('/rest/v1/task_attachments');
-  const finalization = cloud.requests
-    .map((r) => r.path === '/rest/v1/rpc/delete_task_with_history')
-    .lastIndexOf(true);
-  const fileCleanup = cloud.requests
-    .map((r) => r.path === '/rest/v1/task_attachments' && r.method === 'DELETE')
-    .lastIndexOf(true);
-  expect(finalization).toBeGreaterThan(fileCleanup);
+  await expect(page.getByRole('button', { name: '이 할 일 삭제' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '설계 문제.pdf 삭제' })).toHaveCount(0);
+  expect(cloud.objects.size).toBe(3);
+  expect(cloud.requests.filter((r) => r.method === 'DELETE')).toHaveLength(0);
   expect(errors).toEqual([]);
 });
 
@@ -216,4 +206,22 @@ test('mobile detail stays compact and rejects oversized, unsupported and too man
   expect(await date.evaluate((el) => getComputedStyle(el).fontSize)).toBe('17px');
   await expect(page.getByRole('button', { name: '이전 날짜' })).toHaveCSS('height', '44px');
   expect(await page.locator('body').textContent()).not.toContain('·');
+});
+
+test('a lost ready response never removes an already saved original', async ({ page }) => {
+  const cloud = await mockCloud(page);
+  await page.goto('/');
+  await signIn(page);
+  await page.getByRole('button', { name: '할 일 추가', exact: true }).click();
+  await page.getByLabel('할 일', { exact: true }).fill('응답 유실에도 보존');
+  await page
+    .getByLabel('파일 첨부', { exact: true })
+    .setInputFiles({ name: '보존.pdf', mimeType: 'application/pdf', buffer: PDF });
+  cloud.failNextReadyResponse();
+  await page.getByRole('button', { name: '할 일 저장', exact: true }).click();
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+  expect(cloud.objects.size).toBe(1);
+  expect(cloud.requests.filter((r) => r.method === 'DELETE')).toHaveLength(0);
+  await page.reload();
+  await expect(page.getByLabel('첨부 파일 1개')).toBeVisible();
 });

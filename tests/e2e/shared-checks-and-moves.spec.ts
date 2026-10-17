@@ -36,7 +36,7 @@ test('approved participant checks parent and subtask in home/detail while conten
 });
 
 for (const width of [1440, 390])
-  test(`moves an authored task with subtask records and files into own space at ${width}px`, async ({
+  test(`retains an authored task with records and files in its saved space at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
@@ -74,37 +74,18 @@ for (const width of [1440, 390])
     );
     const paths = [...cloud.objects.keys()];
     await page.getByRole('button', { name: '잘못 쓴 플래너 항목 상세 보기', exact: true }).click();
-    await page.getByRole('button', { name: '다른 플래너로 이동', exact: true }).click();
-    await expect(page.getByLabel('이동할 공간')).toHaveValue(OWN_SPACE);
-    await expect(page.getByLabel('이동할 공간').locator('option')).toHaveCount(1);
-    await page.screenshot({ path: `.local/shared-move-${width}-picker.png`, fullPage: true });
-    await page.getByRole('button', { name: '이동', exact: true }).click();
-    await expect(page.getByRole('dialog')).not.toBeVisible();
-    await expect(page.getByRole('status')).toContainText('내 플래너로 이동했습니다.');
-    await expect(page.getByLabel('사용 공간 선택')).toHaveValue(OWN_SPACE);
-    await expect(
-      page.getByRole('progressbar', { name: '잘못 쓴 플래너 항목 진행률', exact: true }),
-    ).toHaveAttribute('aria-valuenow', '50');
-    await expect(
-      page.getByRole('progressbar', { name: '오늘 진행률', exact: true }),
-    ).toHaveAttribute('aria-valuenow', '50');
-    const moved = cloud.tasks().find((task) => task.id === before.id)!;
-    expect({ ...moved, workspace_id: before.workspace_id }).toEqual(before);
+    await expect(page.getByRole('button', { name: '다른 플래너로 이동', exact: true })).toHaveCount(
+      0,
+    );
+    await expect(page.getByRole('button', { name: '이 할 일 삭제', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: '닫기', exact: true }).click();
+    await page.reload();
+    await expect(page.getByLabel('사용 공간 선택')).toHaveValue(SHARED_SPACE);
+    expect(cloud.tasks().find((task) => task.id === before.id)).toEqual(before);
     expect([...cloud.objects.keys()]).toEqual(paths);
+    await page.getByRole('button', { name: '풀이 기록 열기', exact: true }).click();
     await expect(page.locator('.task-note')).toContainText('이동 후에도 남아야 하는 풀이');
     await expect(page.locator('.task-note .attachment-card')).toHaveCount(1);
-    await select(page, SHARED_SPACE);
-    await expect(
-      page.getByRole('button', { name: '잘못 쓴 플래너 항목 상세 보기', exact: true }),
-    ).toHaveCount(0);
-    await select(page, OWN_SPACE);
-    await page.reload();
-    await expect(
-      page.getByRole('progressbar', { name: '오늘 진행률', exact: true }),
-    ).toHaveAttribute('aria-valuenow', '50');
-    await page.getByRole('button', { name: '학습 흐름', exact: true }).click();
-    await expect(page.locator('.stat-tile').first()).toContainText('1 / 2개');
-    await page.screenshot({ path: `.local/shared-move-${width}.png`, fullPage: true });
   });
 
 test('remote checks synchronize without resetting draft focus; stale form save retains the remote check', async ({
