@@ -203,6 +203,15 @@ export default function App() {
     setView('home');
     setModal(null);
   };
+  const requestDelete = (item: Task) =>
+    setConfirmation({
+      title: '할 일을 휴지통으로 보낼까요?',
+      message:
+        '“' +
+        item.title +
+        '”을 현재 목록에서 삭제합니다. 내용·기록·첨부 원본은 보관되며 설정의 휴지통에서 복원할 수 있어요.',
+      action: () => planner.deleteTask(item.id),
+    });
   function exportData() {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob),
@@ -752,8 +761,8 @@ export default function App() {
                   <>
                     <p className="setting-description">
                       승인한 이메일로 로그인한 사람은 할 일을 작성하고 함께 완료 체크할 수 있어요.
-                      제목·날짜는 작성자와 공간 관리자만 수정할 수 있어요. 저장된 계획은 원래 공간에
-                      보존됩니다.
+                      제목·날짜는 작성자와 공간 관리자만 수정할 수 있어요. 승인된 참여자는 계획을
+                      삭제하거나 접근 가능한 다른 공간으로 이동할 수 있습니다.
                     </p>
                     <MemberForm
                       disabled={!planner.canManageMembers || busy}
@@ -891,6 +900,19 @@ export default function App() {
             onDone={() => {
               setModal(null);
               setToast('할 일을 저장했어요.');
+            }}
+            onDelete={
+              modal.item && planner.canWrite
+                ? () => {
+                    const item = modal.item!;
+                    setModal(null);
+                    requestDelete(item);
+                  }
+                : undefined
+            }
+            onMoved={(name) => {
+              setModal(null);
+              setToast(name + '로 이동했습니다.');
             }}
             onDuplicated={(copy) => {
               goDate(copy.date);

@@ -87,7 +87,7 @@ test('copy resets progress, leaves records/files and original untouched, and can
   await expect(page.locator('.task-note .attachment-card')).toHaveCount(1);
 });
 
-test('approved participant copies another author without gaining edit or move rights', async ({
+test('approved participant copies another author while content stays read-only', async ({
   page,
 }) => {
   const cloud = await mockCloud(page, { approved: true });
@@ -96,9 +96,7 @@ test('approved participant copies another author without gaining edit or move ri
   await page.getByLabel('사용 공간 선택').selectOption(SHARED_SPACE);
   await page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' }).click();
   await expect(page.getByLabel('할 일', { exact: true })).toHaveAttribute('readonly', '');
-  await expect(page.getByRole('button', { name: '다른 플래너로 이동', exact: true })).toHaveCount(
-    0,
-  );
+  await expect(page.getByRole('button', { name: '다른 플래너로 이동', exact: true })).toBeEnabled();
   const source = structuredClone(cloud.tasks()[0]);
   await page.getByRole('button', { name: '이 계획 복제', exact: true }).click();
   await page.getByRole('button', { name: '계획 복제', exact: true }).click();

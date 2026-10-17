@@ -49,7 +49,7 @@ test('failed auxiliary read preserves plans, blocks record operations, and recov
   await page.getByRole('button', { name: '보존된 구조역학 계획 상세 보기' }).click();
   const title = page.getByLabel('할 일', { exact: true });
   await title.fill('입력 중인 초안');
-  await expect(page.getByRole('button', { name: '이 할 일 삭제', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '이 할 일 삭제', exact: true })).toBeEnabled();
   await expect(page.getByLabel('파일 첨부', { exact: true })).toHaveCount(0);
   expect(cloud.tasks()).toHaveLength(1);
   denied = false;
@@ -57,7 +57,7 @@ test('failed auxiliary read preserves plans, blocks record operations, and recov
   await expect(page.getByRole('alert')).toHaveCount(0);
   await expect(title).toHaveValue('입력 중인 초안');
   await expect(title).toBeFocused();
-  await expect(page.getByRole('button', { name: '이 할 일 삭제', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '이 할 일 삭제', exact: true })).toBeEnabled();
 });
 
 test('failed initial core read recovers through the bounded retry timer', async ({ page }) => {

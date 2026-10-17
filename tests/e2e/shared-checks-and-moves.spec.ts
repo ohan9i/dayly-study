@@ -6,7 +6,7 @@ async function select(page: Page, id: string) {
   await page.getByLabel('사용 공간 선택').selectOption(id);
   await expect(page.getByRole('button', { name: '공유 기록 새로고침', exact: true })).toBeEnabled();
 }
-test('approved participant checks parent and subtask in home/detail while content and move stay restricted', async ({
+test('approved participant checks parent and subtask while content stays read-only', async ({
   page,
 }) => {
   await mockCloud(page, { approved: true });
@@ -20,10 +20,8 @@ test('approved participant checks parent and subtask in home/detail while conten
   await page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' }).click();
   await expect(page.getByLabel('할 일', { exact: true })).toHaveAttribute('readonly', '');
   await expect(page.getByLabel('세부 항목 1', { exact: true })).toHaveAttribute('readonly', '');
-  await expect(page.getByRole('button', { name: '다른 플래너로 이동', exact: true })).toHaveCount(
-    0,
-  );
-  await expect(page.getByRole('button', { name: '이 할 일 삭제', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '다른 플래너로 이동', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: '이 할 일 삭제', exact: true })).toBeEnabled();
   const sub = page
     .getByRole('dialog')
     .getByRole('checkbox', { name: '세부 항목 1 완료', exact: true });
@@ -33,6 +31,41 @@ test('approved participant checks parent and subtask in home/detail while conten
   await page.getByRole('button', { name: '닫기', exact: true }).click();
   await page.reload();
   await expect(parent).toHaveAttribute('aria-checked', 'false');
+});
+
+test('approved participant moves another author’s plan between spaces', async ({ page }) => {
+  const cloud = await mockCloud(page, { approved: true });
+  await page.goto('/');
+  await signIn(page);
+  await select(page, SHARED_SPACE);
+  await page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' }).click();
+  await expect(page.getByLabel('할 일', { exact: true })).toHaveAttribute('readonly', '');
+  await page.getByRole('button', { name: '다른 플래너로 이동', exact: true }).click();
+  await page.getByLabel('이동할 공간').selectOption(OWN_SPACE);
+  await page.getByRole('button', { name: '이동', exact: true }).click();
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+  await expect(page.getByLabel('사용 공간 선택')).toHaveValue(OWN_SPACE);
+  await expect(page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' })).toBeVisible();
+  await select(page, SHARED_SPACE);
+  await expect(page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' })).toHaveCount(0);
+  expect(cloud.tasks()[0].workspace_id).toBe(OWN_SPACE);
+});
+
+test('approved participant can send another author’s plan to trash and restore it', async ({
+  page,
+}) => {
+  await mockCloud(page, { approved: true });
+  await page.goto('/');
+  await signIn(page);
+  await select(page, SHARED_SPACE);
+  await page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' }).click();
+  await page.getByRole('button', { name: '이 할 일 삭제', exact: true }).click();
+  await page.getByRole('button', { name: '확인', exact: true }).click();
+  await expect(page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' })).toHaveCount(0);
+  await page.getByRole('button', { name: '설정', exact: true }).click();
+  await page.getByRole('button', { name: '공유한 구조역학 문제 복원', exact: true }).click();
+  await page.getByRole('button', { name: '나의 하루', exact: true }).click();
+  await expect(page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' })).toBeVisible();
 });
 
 for (const width of [1440, 390])
@@ -74,10 +107,10 @@ for (const width of [1440, 390])
     );
     const paths = [...cloud.objects.keys()];
     await page.getByRole('button', { name: '잘못 쓴 플래너 항목 상세 보기', exact: true }).click();
-    await expect(page.getByRole('button', { name: '다른 플래너로 이동', exact: true })).toHaveCount(
-      0,
-    );
-    await expect(page.getByRole('button', { name: '이 할 일 삭제', exact: true })).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: '다른 플래너로 이동', exact: true }),
+    ).toBeEnabled();
+    await expect(page.getByRole('button', { name: '이 할 일 삭제', exact: true })).toBeEnabled();
     await page.getByRole('button', { name: '닫기', exact: true }).click();
     await page.reload();
     await expect(page.getByLabel('사용 공간 선택')).toHaveValue(SHARED_SPACE);

@@ -465,6 +465,8 @@ export default function TaskDetail({
   planner,
   editable,
   onDone,
+  onDelete,
+  onMoved,
   onLogin,
   onBusyChange,
   onDuplicated,
@@ -474,6 +476,8 @@ export default function TaskDetail({
   planner: Planner;
   editable: boolean;
   onDone: () => void;
+  onDelete?: () => void;
+  onMoved: (name: string) => void;
   onLogin?: () => void;
   onBusyChange: (busy: boolean) => void;
   onDuplicated: (copy: Task) => void;
@@ -486,12 +490,26 @@ export default function TaskDetail({
   const [progress, setProgress] = useState('');
   const [checking, setChecking] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [moving, setMoving] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
   const duplicationLock = useRef(false);
   const duplicationForm = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (duplicating) duplicationForm.current?.scrollIntoView({ block: 'nearest' });
   }, [duplicating]);
+  const targets = planner.workspaces
+    .filter((space) => space.id !== planner.workspace?.id)
+    .sort(
+      (a, b) =>
+        Number(b.owner_id === planner.session?.user.id) -
+        Number(a.owner_id === planner.session?.user.id),
+    );
+  const [targetId, setTargetId] = useState(targets[0]?.id || '');
+  useEffect(() => {
+    setTargetId((current) =>
+      targets.some((space) => space.id === current) ? current : targets[0]?.id || '',
+    );
+  }, [planner.workspaces, planner.workspace?.id, planner.session?.user.id]);
   const liveItem = item && planner.data.tasks.find((task) => task.id === item.id);
   const unavailable = Boolean(
     item && (!liveItem || liveItem.workspace_id !== planner.workspace?.id),
@@ -647,6 +665,7 @@ export default function TaskDetail({
               className="text-button"
               disabled={disabled}
               onClick={() => {
+                setMoving(false);
                 setDuplicating(true);
               }}
             >
@@ -719,10 +738,98 @@ export default function TaskDetail({
           )}
         </div>
       )}
-      {item && canContribute && (
-        <p className="card-footnote">
-          저장된 계획·수행 기록·첨부파일은 삭제되지 않도록 보존해요. 계획은 원래 공간에 유지됩니다.
-        </p>
+      {item && onDelete && (
+        <button
+          type="button"
+          className="text-button delete-button"
+          aria-label="이 할 일 삭제"
+          onClick={onDelete}
+          disabled={disabled}
+        >
+          <Trash2 size={17} /> 계획 삭제 · 휴지통으로
+        </button>
+      )}
+      {item && canContribute && !unavailable && targets.length > 0 && (
+        <div className="task-move">
+          {!moving ? (
+            <button
+              type="button"
+              className="text-button"
+              disabled={disabled}
+              onClick={() => {
+                setDuplicating(false);
+                setMoving(true);
+              }}
+            >
+              다른 플래너로 이동
+            </button>
+          ) : (
+            <div className="task-move-picker" role="group" aria-label="다른 플래너로 이동">
+              <label className="field">
+                <span>이동할 공간</span>
+                <select
+                  aria-label="이동할 공간"
+                  value={targetId}
+                  disabled={disabled}
+                  onChange={(e) => setTargetId(e.target.value)}
+                >
+                  {targets.map((space) => (
+                    <option key={space.id} value={space.id}>
+                      {space.owner_id === planner.session?.user.id
+                        ? `내 플래너 · ${space.name}`
+                        : space.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="card-footnote">
+                날짜와 기록·첨부를 유지하고 선택한 공간으로 이동합니다.
+              </p>
+              {(dirty || files.length > 0) && (
+                <p className="card-footnote">
+                  작성 중인 내용과 첨부를 먼저 저장한 뒤 이동해 주세요.
+                </p>
+              )}
+              <div className="note-edit-actions">
+                <button
+                  type="button"
+                  className="text-button"
+                  disabled={disabled}
+                  onClick={() => setMoving(false)}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  className="soft-button"
+                  disabled={
+                    disabled ||
+                    dirty ||
+                    files.length > 0 ||
+                    !targets.some((space) => space.id === targetId)
+                  }
+                  onClick={async () => {
+                    setWorking(true);
+                    setError('');
+                    try {
+                      const target = targets.find((space) => space.id === targetId)!;
+                      await planner.moveTask(item.id, target.id);
+                      onMoved(
+                        target.owner_id === planner.session?.user.id ? '내 플래너' : target.name,
+                      );
+                    } catch (e) {
+                      setError((e as Error).message);
+                    } finally {
+                      setWorking(false);
+                    }
+                  }}
+                >
+                  이동
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

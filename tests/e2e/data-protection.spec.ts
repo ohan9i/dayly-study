@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { mockCloud, signIn, PNG } from './cloud-fixture';
 
-test('saved plans and files have no destructive controls and survive reload', async ({ page }) => {
+test('approved member can recover a deleted plan with its original file', async ({ page }) => {
   const cloud = await mockCloud(page, { approved: true });
   await page.goto('/');
   await signIn(page);
@@ -13,20 +13,26 @@ test('saved plans and files have no destructive controls and survive reload', as
   await page.getByRole('button', { name: '할 일 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
   await page.getByRole('button', { name: '영구 보존 계획 상세 보기', exact: true }).click();
-  await expect(page.getByRole('button', { name: '이 할 일 삭제', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '이 할 일 삭제', exact: true })).toBeEnabled();
   await expect(page.getByRole('button', { name: '보존.png 삭제', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '다른 플래너로 이동', exact: true })).toHaveCount(
-    0,
-  );
-  await page.getByRole('button', { name: '닫기', exact: true }).click();
+  await expect(page.getByRole('button', { name: '다른 플래너로 이동', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: '이 할 일 삭제', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('휴지통으로 보낼까요?');
+  await page.getByRole('button', { name: '확인', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: '영구 보존 계획 상세 보기', exact: true }),
+  ).toHaveCount(0);
   await page.reload();
+  expect(cloud.objects.size).toBe(1);
+  expect(cloud.requests.some((r) => r.method === 'DELETE')).toBe(false);
+  await page.getByRole('button', { name: '설정', exact: true }).click();
+  await expect(page.locator('.retention-status')).toContainText('복구 보호 적용됨');
+  await page.getByRole('button', { name: '영구 보존 계획 복원', exact: true }).click();
+  await page.getByRole('button', { name: '나의 하루', exact: true }).click();
   await expect(
     page.getByRole('button', { name: '영구 보존 계획 상세 보기', exact: true }),
   ).toBeVisible();
   expect(cloud.objects.size).toBe(1);
-  expect(cloud.requests.some((r) => r.method === 'DELETE')).toBe(false);
-  await page.getByRole('button', { name: '설정', exact: true }).click();
-  await expect(page.locator('.retention-status')).toContainText('서버 보존 보호 적용됨');
 });
 test('missing or disabled server protection is clearly reported', async ({ page }) => {
   await mockCloud(page);

@@ -55,7 +55,7 @@ test('task files and compact performance notes survive reload, preview, download
   await page.getByRole('button', { name: '수정 저장', exact: true }).click();
   await expect(page.locator('.task-note')).toContainText('강도 검토까지 완료했습니다.');
   await page.getByRole('button', { name: '보의 휨 설계 수행 상세 보기' }).click();
-  await expect(page.getByRole('button', { name: '이 할 일 삭제' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '이 할 일 삭제' })).toBeEnabled();
   await expect(page.getByRole('button', { name: '설계 문제.pdf 삭제' })).toHaveCount(0);
   expect(cloud.objects.size).toBe(3);
   expect(cloud.requests.filter((r) => r.method === 'DELETE')).toHaveLength(0);

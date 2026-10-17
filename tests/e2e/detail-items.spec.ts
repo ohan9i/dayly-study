@@ -100,7 +100,7 @@ test('title-only, one item and multiple items support ordered editing, empty fil
   await page.reload();
   await expect(page.locator('.task-details')).toHaveCount(0);
   await edit(page);
-  await expect(page.getByRole('button', { name: '이 할 일 삭제', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '이 할 일 삭제', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: '닫기', exact: true }).click();
   await expect(
     page.getByRole('button', { name: '수학 공부 상세 보기', exact: true }),

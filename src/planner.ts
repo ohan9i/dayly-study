@@ -717,13 +717,55 @@ export function usePlanner() {
   };
   const toggleTask = (id: string) => checkTask(id, null);
   const toggleDetail = (taskId: string, detailId: string) => checkTask(taskId, detailId);
-  // Guard old callers as well as the removed controls.
-  const moveTask = async (_taskId: string, _targetId: string): Promise<void> => {
-    throw new Error('저장된 계획은 원래 공간에 보존되므로 다른 공간으로 이동할 수 없어요.');
+  const moveTask = async (taskId: string, targetId: string) => {
+    if (!workspaces.some((space) => space.id === targetId) || targetId === workspace?.id)
+      throw new Error('이동할 다른 공간을 선택해 주세요.');
+    await mutate(
+      (state) =>
+        reconcileCompletion({
+          ...state,
+          tasks: state.tasks.filter((task) => task.id !== taskId),
+          taskNotes: state.taskNotes?.filter((note) => note.task_id !== taskId),
+          attachments: state.attachments?.filter((file) => file.task_id !== taskId),
+        }),
+      async (space) => {
+        const result = await supabase!.rpc('move_task', {
+          p_task_id: taskId,
+          p_workspace_id: space.id,
+          p_target_workspace_id: targetId,
+          p_request_id: requestId.current,
+        });
+        throwIf(result.error);
+      },
+    );
+    // Show the destination immediately, using the same progress/calendar data.
+    if (activeSession.current) await refresh(activeSession.current, targetId);
   };
-  const deleteTask = async (_id: string): Promise<void> => {
-    throw new Error('저장된 계획은 삭제할 수 없어요.');
-  };
+  const deleteTask = (id: string) =>
+    mutate(
+      (state) =>
+        reconcileCompletion({ ...state, tasks: state.tasks.filter((task) => task.id !== id) }),
+      async (space) => {
+        const result = await supabase!.rpc('archive_task', {
+          p_task_id: id,
+          p_workspace_id: space.id,
+          p_request_id: requestId.current,
+        });
+        throwIf(result.error);
+      },
+    );
+  const restoreTask = (id: string) =>
+    mutate(
+      (state) => state,
+      async (space) => {
+        const result = await supabase!.rpc('restore_task', {
+          p_task_id: id,
+          p_workspace_id: space.id,
+          p_request_id: requestId.current,
+        });
+        throwIf(result.error);
+      },
+    );
   const saveNote = (taskId: string, id: string, body: string, editing: boolean) =>
     mutate(
       (state) => state,
@@ -914,6 +956,7 @@ export function usePlanner() {
     toggleDetail,
     moveTask,
     deleteTask,
+    restoreTask,
     saveNote,
     deleteNote,
     attachFile,

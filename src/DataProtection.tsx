@@ -2,6 +2,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Download, History, RefreshCw, ShieldCheck } from 'lucide-react';
 import { supabase, type Planner } from './planner';
 
+type DeletedPlan = { id: string; title: string; date: string; deleted_at: string };
+type Change = {
+  id: string;
+  operation: string;
+  changed_at: string;
+  changed_by: string | null;
+  target_workspace_id: string | null;
+  before_record: { date?: string } | null;
+  after_record: { title: string; date: string };
+};
 type Deletion = {
   id: string;
   entity_type: 'task' | 'note' | 'attachment';
@@ -18,6 +28,9 @@ const format = (value: string) =>
   }).format(new Date(value));
 
 export default function DataProtection({ planner }: { planner: Planner }) {
+  const [trash, setTrash] = useState<DeletedPlan[]>([]);
+  const [changes, setChanges] = useState<Change[]>([]);
+  const [restoring, setRestoring] = useState('');
   const [events, setEvents] = useState<Deletion[]>([]);
   const [retained, setRetained] = useState(false);
   const [completedAt, setCompletedAt] = useState<string | null>(null);
@@ -32,8 +45,10 @@ export default function DataProtection({ planner }: { planner: Planner }) {
     const token = ++generation.current;
     setLoading(true);
     setRetained(false);
+    setTrash([]);
+    setChanges([]);
     try {
-      const [history, status, retention] = await Promise.all([
+      const [history, status, retention, deleted, journal] = await Promise.all([
         supabase
           .from('task_deletion_history')
           .select('id,entity_type,task_title,deleted_at,deleted_by,actor_role')
@@ -42,15 +57,26 @@ export default function DataProtection({ planner }: { planner: Planner }) {
           .limit(50),
         supabase.rpc('get_workspace_backup_status', { p_workspace_id: space }),
         supabase.rpc('get_planner_retention_status', { p_workspace_id: space }),
+        supabase.rpc('get_deleted_tasks', { p_workspace_id: space }),
+        supabase
+          .from('task_change_history')
+          .select(
+            'id,operation,changed_at,changed_by,target_workspace_id,before_record,after_record',
+          )
+          .or(`workspace_id.eq.${space},target_workspace_id.eq.${space}`)
+          .order('changed_at', { ascending: false })
+          .limit(50),
       ]);
       if (token !== generation.current) return;
       setRetained(
-        !retention.error && retention.data?.version === 1 && retention.data?.enabled === true,
+        !retention.error && retention.data?.version === 2 && retention.data?.enabled === true,
       );
-      if (history.error || status.error) {
+      if (history.error || status.error || deleted.error || journal.error) {
         setError('보호 기능 정보를 불러오지 못했어요. 관리자에게 서버 설정을 확인해 주세요.');
       } else {
         setEvents(history.data as Deletion[]);
+        setTrash((deleted.data || []) as DeletedPlan[]);
+        setChanges((journal.data || []) as Change[]);
         setCompletedAt(status.data?.last_completed_at || null);
         setError('');
       }
@@ -110,7 +136,7 @@ export default function DataProtection({ planner }: { planner: Planner }) {
         {loading
           ? '서버 보존 보호 확인 중…'
           : retained
-            ? '서버 보존 보호 적용됨: 저장된 계획·수행 기록·첨부파일의 삭제와 계획의 공간 이동을 차단합니다.'
+            ? '복구 보호 적용됨: 승인된 참여자는 계획을 삭제·이동할 수 있고, 삭제한 계획은 휴지통에서 복원할 수 있습니다.'
             : '서버 보존 보호를 확인하지 못했어요. 서버 설정 적용 또는 연결 확인이 필요합니다.'}
       </p>
       <p className="setting-description">
@@ -135,13 +161,98 @@ export default function DataProtection({ planner }: { planner: Planner }) {
           {error}
         </p>
       )}
+      <h3 className="deletion-heading">휴지통 · 삭제한 계획 복원</h3>
+      <p className="card-footnote">
+        계획을 삭제해도 기록과 첨부 원본을 보관합니다. 원래 공간과 날짜로 복원할 수 있어요.
+      </p>
+      {!loading && !error && trash.length === 0 && (
+        <p className="setting-description">휴지통이 비어 있어요.</p>
+      )}
+      <ul className="deletion-list trash-list">
+        {trash.map((plan) => (
+          <li key={plan.id}>
+            <div>
+              <strong>{plan.title}</strong>
+              <small>
+                계획 날짜: {plan.date} · 삭제: {format(plan.deleted_at)}
+              </small>
+            </div>
+            <button
+              className="soft-button"
+              disabled={Boolean(restoring) || planner.busy}
+              aria-label={`${plan.title} 복원`}
+              onClick={async () => {
+                setRestoring(plan.id);
+                setError('');
+                try {
+                  await planner.restoreTask(plan.id);
+                  await refresh();
+                } catch (e) {
+                  setError((e as Error).message);
+                } finally {
+                  setRestoring('');
+                }
+              }}
+            >
+              {restoring === plan.id ? '복원 중…' : '복원'}
+            </button>
+          </li>
+        ))}
+      </ul>
+      <h3 className="deletion-heading">계획 변경 이력</h3>
+      <p className="card-footnote">
+        이 기능 적용 이후의 생성·삭제·복원·공간 이동·날짜 변경을 기록합니다. 과거에 기록되지 않은
+        이동은 소급해서 알 수 없습니다.
+      </p>
+      <ul className="deletion-list change-list">
+        {changes.map((change) => (
+          <li key={change.id}>
+            <div>
+              <strong>{change.after_record.title}</strong>
+              <small>
+                {(
+                  {
+                    create: '생성',
+                    archive: '휴지통으로 삭제',
+                    restore: '복원',
+                    move: '공간 이동',
+                    date_change: '날짜 변경',
+                    update: '수정',
+                  } as Record<string, string>
+                )[change.operation] || change.operation}{' '}
+                · {format(change.changed_at)}
+              </small>
+              <small>
+                처리 계정:{' '}
+                {change.changed_by === user
+                  ? '나'
+                  : change.changed_by
+                    ? '다른 참여자'
+                    : '서버 관리 작업'}
+              </small>
+              {change.operation === 'date_change' && (
+                <small>
+                  {change.before_record?.date} → {change.after_record.date}
+                </small>
+              )}
+              {change.operation === 'move' && (
+                <small>
+                  이동 대상:{' '}
+                  {planner.workspaces.find((w) => w.id === change.target_workspace_id)?.name ||
+                    '현재 접근할 수 없는 공간'}
+                </small>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
       <h3 className="deletion-heading">
         <History size={16} />
         삭제 이력
       </h3>
       <p className="card-footnote">
-        현재 공간에서 열람할 수 있는 최근 삭제 50건입니다. 이력 내려받기는 내용과 파일 목록을
-        보관하며, 파일 원본 복구에는 삭제 전 정기 백업이 필요합니다.
+        현재 공간에서 열람할 수 있는 최근 삭제 50건입니다. 새 삭제는 휴지통에 보관합니다. 이전
+        버전에서 이미 삭제된 파일 원본은 삭제 전 백업이 필요합니다.
       </p>
       {!loading && !error && events.length === 0 && (
         <p className="setting-description">보호 기능 적용 후 기록된 삭제 이력이 없어요.</p>

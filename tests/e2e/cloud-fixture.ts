@@ -117,6 +117,19 @@ export async function mockCloud(
     failNextReadyResponse = false;
   const objects = new Map<string, { buffer: Buffer; type: string }>();
   const deletionHistory: Record<string, unknown>[] = [];
+  const archived = new Set<string>();
+  const taskChanges: Record<string, unknown>[] = [];
+  const change = (operation: string, task: TaskRecord, before: TaskRecord | null = null) =>
+    taskChanges.unshift({
+      id: crypto.randomUUID(),
+      operation,
+      workspace_id: before?.workspace_id || task.workspace_id,
+      target_workspace_id: task.workspace_id,
+      changed_by: owner,
+      changed_at: new Date().toISOString(),
+      before_record: before,
+      after_record: structuredClone(task),
+    });
   const preparations = new Map<
     string,
     { task: TaskRecord; files: TaskAttachment[]; notes: TaskNote[] }
@@ -176,7 +189,49 @@ export async function mockCloud(
       return send(OWN_SPACE);
     }
     if (url.pathname.endsWith('/rpc/get_planner_retention_status'))
-      return send({ version: 1, enabled: true });
+      return send({ version: 2, enabled: true });
+    if (url.pathname.endsWith('/rpc/get_deleted_tasks'))
+      return send(
+        tasks
+          .filter((task) => task.workspace_id === body.p_workspace_id && archived.has(task.id))
+          .map((task) => ({
+            id: task.id,
+            title: task.title,
+            date: task.date,
+            deleted_at: new Date().toISOString(),
+          })),
+      );
+    if (url.pathname.endsWith('/rpc/archive_task')) {
+      const task = tasks.find(
+        (item) => item.id === body.p_task_id && item.workspace_id === body.p_workspace_id,
+      );
+      if (!task) return send({ code: '42501', message: 'Plan is unavailable' }, 403);
+      archived.add(task.id);
+      change('archive', task, structuredClone(task));
+      deletionHistory.unshift({
+        id: crypto.randomUUID(),
+        entity_type: 'task',
+        task_title: task.title,
+        workspace_id: task.workspace_id,
+        deleted_by: owner,
+        actor_role: 'authenticated',
+        deleted_at: new Date().toISOString(),
+        snapshot: { task: structuredClone(task) },
+      });
+      bump(task.workspace_id!, String(body.p_request_id || ''));
+      return send(task.id);
+    }
+    if (url.pathname.endsWith('/rpc/restore_task')) {
+      const task = tasks.find(
+        (item) => item.id === body.p_task_id && item.workspace_id === body.p_workspace_id,
+      );
+      if (!task || !archived.has(task.id))
+        return send({ code: '42501', message: 'Plan is unavailable' }, 403);
+      archived.delete(task.id);
+      change('restore', task, structuredClone(task));
+      bump(task.workspace_id!, String(body.p_request_id || ''));
+      return send(task.id);
+    }
     if (url.pathname.endsWith('/rpc/assert_deletion_audit')) return send(null);
     if (url.pathname.endsWith('/rpc/get_workspace_backup_status'))
       return send({ last_completed_at: null });
@@ -184,7 +239,7 @@ export async function mockCloud(
       const task = tasks.find(
         (task) => task.id === body.p_task_id && task.workspace_id === body.p_workspace_id,
       );
-      if (!task || !(task.created_by === owner || task.workspace_id === OWN_SPACE))
+      if (!task || archived.has(task.id))
         return send({ code: '42501', message: 'Access denied' }, 403);
       const operation_id = crypto.randomUUID();
       const prepared = {
@@ -193,7 +248,7 @@ export async function mockCloud(
         notes: structuredClone(notes.filter((note) => note.task_id === task.id)),
       };
       preparations.set(operation_id, prepared);
-      return send({ operation_id, attachments: prepared.files });
+      return send({ operation_id, attachments: [] });
     }
     if (url.pathname.endsWith('/rpc/delete_task_with_history')) {
       const prepared = preparations.get(String(body.p_operation_id));
@@ -208,9 +263,8 @@ export async function mockCloud(
         deleted_at: new Date().toISOString(),
         snapshot: { task: prepared.task, attachments: prepared.files, notes: prepared.notes },
       });
-      tasks = tasks.filter((task) => task.id !== prepared.task.id);
-      completed = completed.filter((id) => id !== prepared.task.id);
-      notes = notes.filter((note) => note.task_id !== prepared.task.id);
+      archived.add(prepared.task.id);
+      change('archive', prepared.task, structuredClone(prepared.task));
       preparations.delete(String(body.p_operation_id));
       return send(prepared.task.id);
     }
@@ -222,7 +276,11 @@ export async function mockCloud(
       const record = tasks.find(
         (task) => task.id === body.p_task_id && task.workspace_id === body.p_workspace_id,
       );
-      if (!record || !spaces.some((space) => space.id === body.p_workspace_id))
+      if (
+        !record ||
+        archived.has(record.id) ||
+        !spaces.some((space) => space.id === body.p_workspace_id)
+      )
         return send({ message: 'Task was moved or deleted', code: '42501' }, 403);
       const task = normalizeTask(record, completed.includes(record.id));
       if (url.pathname.endsWith('/set_task_completion')) {
@@ -242,9 +300,13 @@ export async function mockCloud(
         writeProgress(record, task);
       } else {
         const source = spaces.find((space) => space.id === body.p_workspace_id)!;
-        if (record.created_by !== owner && source.owner_id !== owner)
+        if (
+          url.pathname.endsWith('/update_task_content') &&
+          record.created_by !== owner &&
+          source.owner_id !== owner
+        )
           return send(
-            { message: 'Only the author or workspace owner can edit or move', code: '42501' },
+            { message: 'Only the author or workspace owner can edit', code: '42501' },
             403,
           );
         if (url.pathname.endsWith('/update_task_content')) {
@@ -264,7 +326,9 @@ export async function mockCloud(
         } else {
           if (!spaces.some((space) => space.id === body.p_target_workspace_id))
             return send({ message: 'Workspace access denied' }, 403);
+          const before = structuredClone(record);
           record.workspace_id = String(body.p_target_workspace_id);
+          change('move', record, before);
           for (const row of [...notes, ...files])
             if (row.task_id === record.id) row.workspace_id = record.workspace_id;
           bump(record.workspace_id, String(body.p_request_id));
@@ -346,11 +410,25 @@ export async function mockCloud(
       );
       return id ? returned(matches[0]) : send(matches);
     }
+    if (table === 'task_change_history')
+      return send(
+        taskChanges.filter(
+          (event) =>
+            event.workspace_id === workspace ||
+            event.target_workspace_id === workspace ||
+            !workspace,
+        ),
+      );
     if (table === 'tasks') {
       if (method === 'GET')
         return send(
           tasks
-            .filter((t) => (!workspace || t.workspace_id === workspace) && (!id || t.id === id))
+            .filter(
+              (t) =>
+                !archived.has(t.id) &&
+                (!workspace || t.workspace_id === workspace) &&
+                (!id || t.id === id),
+            )
             .map((t) => {
               if (options.nativeDetails === false) {
                 const { detail_items: _items, ...legacy } = t;
@@ -369,6 +447,7 @@ export async function mockCloud(
         );
       if (method === 'POST') {
         tasks.push(body as TaskRecord);
+        change('create', body as TaskRecord);
         bump(String(body.workspace_id));
         return send({});
       }
