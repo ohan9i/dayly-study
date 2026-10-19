@@ -76,6 +76,8 @@ beforeAll(async () => {
     '20261017_recoverable_member_actions.sql',
     '20261019_member_task_duplication.sql',
     '20261019_member_task_duplication.sql',
+    '20261019_compact_task_duplication.sql',
+    '20261019_compact_task_duplication.sql',
   ])
     await db.exec(readFileSync(new URL('../supabase/migrations/' + file, import.meta.url), 'utf8'));
   await db.query('insert into public.workspaces(id,owner_id,name) values($1,$2,$3)', [
@@ -120,6 +122,64 @@ test('approved nonauthor duplicates an owner plan under all current database pro
     (await db.query<any>('select created_by from public.tasks where id=$1', [copy.id])).rows[0]
       .created_by,
   ).toBe(EDITOR);
+});
+
+test('server copy preserves a maximum-length plan including spaces and JSON escapes', async () => {
+  await asUser(OWNER);
+  const id = randomUUID();
+  const task = normalizeTask({
+    id,
+    workspace_id: SPACE,
+    created_by: OWNER,
+    title: '저장 한도 원본',
+    date: '2026-10-19',
+    details: ['공백 , : "따옴표" \\ 경로\t안쪽\n줄바꿈 끝', '마지막'],
+    detailChecks: [
+      { id: randomUUID(), completed: false },
+      { id: randomUUID(), completed: false },
+    ],
+  });
+  task.details[0] += '가'.repeat(10000 - encodeTaskProgress(task, new Set()).length);
+  const encoded = encodeTaskProgress(task, new Set());
+  expect(encoded).toHaveLength(10000);
+  await db.query(
+    'insert into public.tasks(id,workspace_id,created_by,title,date,details,detail_items) values($1,$2,$3,$4,$5,$6,$7)',
+    [id, SPACE, OWNER, task.title, task.date, encoded, task.details],
+  );
+  await asUser(EDITOR);
+  const copy = (
+    await db.query<TaskRecord>('select t.* from public.duplicate_task($1,$2,$3) t', [
+      id,
+      SPACE,
+      '2026-10-20',
+    ])
+  ).rows[0];
+  expect(normalizeTask(copy).details).toEqual(task.details);
+  expect(copy.details).toHaveLength(10000);
+  expect(
+    (await db.query<{ details: string }>('select details from public.tasks where id=$1', [id]))
+      .rows[0].details,
+  ).toBe(encoded);
+});
+
+test('server copy of a completed title-only plan has no details and starts incomplete', async () => {
+  await asUser(OWNER);
+  const id = randomUUID();
+  await db.query(
+    'insert into public.tasks(id,workspace_id,created_by,title,date) values($1,$2,$3,$4,$5)',
+    [id, SPACE, OWNER, '제목만 있는 원본', '2026-10-19'],
+  );
+  await db.query('select public.set_task_completion($1,$2,true)', [id, SPACE]);
+  await asUser(EDITOR);
+  const record = (
+    await db.query<TaskRecord>('select t.* from public.duplicate_task($1,$2,$3) t', [
+      id,
+      SPACE,
+      '2026-10-20',
+    ])
+  ).rows[0];
+  expect(normalizeTask(record)).toMatchObject({ details: [], detailChecks: [], completed: false });
+  expect(record.detail_items).toEqual([]);
 });
 
 test('server copy revalidates membership, resets progress and preserves the source and its records', async () => {
