@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 import {
   todayKey,
+  duplicateTaskPlan,
   normalizeTask,
   encodeTaskProgress,
   isTaskComplete,
@@ -267,6 +268,28 @@ export async function mockCloud(
       change('archive', prepared.task, structuredClone(prepared.task));
       preparations.delete(String(body.p_operation_id));
       return send(prepared.task.id);
+    }
+    if (url.pathname.endsWith('/rpc/duplicate_task')) {
+      const source = tasks.find(
+        (task) => task.id === body.p_task_id && task.workspace_id === body.p_workspace_id,
+      );
+      if (!source || archived.has(source.id) || !spaces.some((s) => s.id === source.workspace_id))
+        return send({ code: '42501', message: 'Source plan is unavailable' }, 403);
+      const copy = duplicateTaskPlan(
+        normalizeTask(source, completed.includes(source.id)),
+        String(body.p_date),
+        owner,
+        source.workspace_id!,
+      );
+      const record = {
+        ...copy,
+        details: encodeTaskProgress(copy, new Set()),
+        ...(options.nativeDetails === false ? {} : { detail_items: copy.details }),
+      };
+      tasks.push(record);
+      change('create', record);
+      bump(source.workspace_id!, String(body.p_request_id));
+      return send([record]);
     }
     if (
       url.pathname.endsWith('/rpc/set_task_completion') ||

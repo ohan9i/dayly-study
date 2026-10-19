@@ -522,6 +522,8 @@ export default function TaskDetail({
     taskAuthor = item?.created_by || userId;
   const canContribute = Boolean(planner.session && planner.workspace) && !planner.passwordRecovery;
   const disabled = working || planner.busy || checking || !planner.canWrite || unavailable;
+  const duplicateDisabled =
+    working || planner.busy || checking || !planner.canDuplicate || unavailable;
   const attached = (planner.data.attachments || []).filter(
     (file) => file.task_id === id.current && !file.note_id,
   );
@@ -663,7 +665,7 @@ export default function TaskDetail({
             <button
               type="button"
               className="text-button"
-              disabled={disabled}
+              disabled={duplicateDisabled}
               onClick={() => {
                 setMoving(false);
                 setDuplicating(true);
@@ -678,7 +680,7 @@ export default function TaskDetail({
               aria-label="계획 복제"
               onSubmit={async (event) => {
                 event.preventDefault();
-                if (duplicationLock.current || disabled) return;
+                if (duplicationLock.current || duplicateDisabled) return;
                 const copyDate = String(new FormData(event.currentTarget).get('copyDate'));
                 duplicationLock.current = true;
                 setWorking(true);
@@ -703,7 +705,7 @@ export default function TaskDetail({
                   type="date"
                   required
                   defaultValue={date}
-                  disabled={disabled}
+                  disabled={duplicateDisabled}
                 />
               </label>
               <p className="card-footnote">
@@ -725,12 +727,12 @@ export default function TaskDetail({
                 <button
                   type="button"
                   className="text-button"
-                  disabled={disabled}
+                  disabled={duplicateDisabled}
                   onClick={() => setDuplicating(false)}
                 >
                   취소
                 </button>
-                <button type="submit" className="soft-button" disabled={disabled}>
+                <button type="submit" className="soft-button" disabled={duplicateDisabled}>
                   {working ? '복제 중…' : '계획 복제'}
                 </button>
               </div>

@@ -6,7 +6,7 @@ import {
   reconcileCompletion,
   isTaskComplete,
   normalizeTask,
-  duplicateTaskPlan,
+  validDate,
   readLocal,
   type Snapshot,
   type Task,
@@ -123,7 +123,10 @@ export function usePlanner() {
   const activitySeen = useRef<{ space: string; revision: number } | null>(null);
   const data = session ? remoteData : localData;
   const isOwner = !session || workspace?.owner_id === session.user.id;
-  const canWrite = !loading && readiness.core && Boolean(session && workspace) && !passwordRecovery;
+  // Copy revalidates membership and source access on the server. An unrelated
+  // completion-list read failure must not also lock this independent action.
+  const canDuplicate = !loading && Boolean(session && workspace) && !passwordRecovery;
+  const canWrite = canDuplicate && readiness.core;
   const canManageRecords = canWrite && readiness.records;
   const canManageMembers = canWrite && readiness.members;
 
@@ -523,11 +526,12 @@ export function usePlanner() {
     local: (state: Snapshot) => Snapshot,
     remote: (space: Workspace, user: Session) => Promise<void>,
     optimistic = false,
+    requireCore = true,
   ) {
     if (
       lock.current ||
-      !canWrite ||
-      !ready.current.core ||
+      !(requireCore ? canWrite : canDuplicate) ||
+      (requireCore && !ready.current.core) ||
       activeSession.current?.user.id !== session?.user.id ||
       activeWorkspace.current?.id !== workspace?.id
     )
@@ -646,26 +650,33 @@ export function usePlanner() {
     );
   };
   const duplicateTask = async (taskId: string, date: string) => {
+    if (!validDate(date)) throw new Error('복제할 날짜를 확인해 주세요.');
     let copy: Task | undefined;
     await mutate(
       (state) => reconcileCompletion({ ...state, tasks: [...state.tasks, copy!] }),
       async (space, user) => {
-        // Re-read through tasks_read RLS rather than trusting the cached card.
-        // tasks_add RLS separately enforces destination membership and author.
-        const result = await supabase!
-          .from('tasks')
-          .select('*')
-          .eq('id', taskId)
-          .eq('workspace_id', space.id)
-          .limit(1);
+        // The RPC checks confirmed membership, reads the latest active source,
+        // resets progress and inserts atomically. It never needs source edit rights.
+        const result = await supabase!.rpc('duplicate_task', {
+          p_task_id: taskId,
+          p_workspace_id: space.id,
+          p_date: date,
+          p_request_id: requestId.current,
+        });
+        if (result.error?.code === '42501')
+          throw new Error(
+            '이 공간의 복제 권한을 확인하지 못했어요. 공유 승인과 원본 계획을 확인하고 공유 기록을 새로고침해 주세요.',
+          );
+        if (result.error?.code === 'PGRST202')
+          throw new Error('복제 기능의 서버 업데이트가 필요해요. 관리자에게 확인해 주세요.');
         throwIf(result.error);
-        const source = result.data?.[0] as TaskRecord | undefined;
-        if (!source)
-          throw new Error('원본 계획을 열람할 수 없어요. 현재 공간을 다시 확인해 주세요.');
-        copy = duplicateTaskPlan(normalizeTask(source), date, user.user.id, space.id);
-        // One insert contains the entire plan, so no partial detail rows remain.
-        await insertTask(copy, space, user, encodeTaskProgress(copy, new Set()));
+        const record = Array.isArray(result.data) ? result.data[0] : result.data;
+        if (!record || record.workspace_id !== space.id || record.created_by !== user.user.id)
+          throw new Error('복제 결과를 확인하지 못했어요. 공유 기록을 새로고침해 주세요.');
+        copy = normalizeTask(record as TaskRecord);
       },
+      false,
+      false, // The RPC revalidates access even if a previous core read failed.
     );
     return copy!;
   };
@@ -947,6 +958,7 @@ export function usePlanner() {
     setNotice,
     isOwner,
     canWrite,
+    canDuplicate,
     canManageRecords,
     canManageMembers,
     lastSaved,

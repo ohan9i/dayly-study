@@ -2,6 +2,12 @@ import { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, expect, test } from 'vitest';
+import {
+  duplicateTaskPlan,
+  encodeTaskProgress,
+  normalizeTask,
+  type TaskRecord,
+} from '../src/domain';
 const OWNER = '10000000-0000-0000-0000-000000000001',
   EDITOR = '10000000-0000-0000-0000-000000000002',
   STRANGER = '10000000-0000-0000-0000-000000000003';
@@ -68,6 +74,8 @@ beforeAll(async () => {
     '20261017_permanent_planner_retention.sql',
     '20261017_recoverable_member_actions.sql',
     '20261017_recoverable_member_actions.sql',
+    '20261019_member_task_duplication.sql',
+    '20261019_member_task_duplication.sql',
   ])
     await db.exec(readFileSync(new URL('../supabase/migrations/' + file, import.meta.url), 'utf8'));
   await db.query('insert into public.workspaces(id,owner_id,name) values($1,$2,$3)', [
@@ -82,6 +90,120 @@ beforeAll(async () => {
 }, 30000);
 afterAll(async () => {
   await db?.close();
+});
+
+test('approved nonauthor duplicates an owner plan under all current database protections', async () => {
+  await asUser(OWNER);
+  const id = randomUUID();
+  await db.query(
+    'insert into public.tasks(id,workspace_id,created_by,title,date,details) values($1,$2,$3,$4,$5,$6)',
+    [id, SPACE, OWNER, '복제할 원본', '2026-10-19', '첫 항목\n두 번째'],
+  );
+  await asUser(EDITOR);
+  const source = (await db.query<TaskRecord>('select * from public.tasks where id=$1', [id]))
+    .rows[0];
+  const copy = duplicateTaskPlan(normalizeTask(source), '2026-10-20', EDITOR, SPACE);
+  await db.query(
+    'insert into public.tasks(id,workspace_id,created_by,title,date,details,detail_items) values($1,$2,$3,$4,$5,$6,$7)',
+    [
+      copy.id,
+      SPACE,
+      EDITOR,
+      copy.title,
+      copy.date,
+      encodeTaskProgress(copy, new Set()),
+      copy.details,
+    ],
+  );
+  expect((await db.query('select * from public.tasks where id=$1', [id])).rows[0]).toEqual(source);
+  expect(
+    (await db.query<any>('select created_by from public.tasks where id=$1', [copy.id])).rows[0]
+      .created_by,
+  ).toBe(EDITOR);
+});
+
+test('server copy revalidates membership, resets progress and preserves the source and its records', async () => {
+  await asUser(OWNER);
+  const id = randomUUID();
+  await db.query(
+    'insert into public.tasks(id,workspace_id,created_by,title,date,details) values($1,$2,$3,$4,$5,$6)',
+    [id, SPACE, OWNER, '공유 원본', '2026-10-19', '순열\n같은 내용\n같은 내용'],
+  );
+  await db.query('select public.set_task_completion($1,$2,true)', [id, SPACE]);
+  await db.query(
+    'insert into public.task_notes(workspace_id,task_id,created_by,body) values($1,$2,$3,$4)',
+    [SPACE, id, OWNER, '보존할 기록'],
+  );
+  const source = (await db.query<TaskRecord>('select * from public.tasks where id=$1', [id]))
+    .rows[0];
+  const request = randomUUID();
+  await asUser(EDITOR);
+  const record = (
+    await db.query<TaskRecord>(
+      'select t.*,t.date::text as date from public.duplicate_task($1,$2,$3,$4) t',
+      [id, SPACE, '2026-10-20', request],
+    )
+  ).rows[0];
+  const copy = normalizeTask(record);
+  expect(copy.created_by).toBe(EDITOR);
+  expect(copy.workspace_id).toBe(SPACE);
+  expect(copy.date).toBe('2026-10-20');
+  expect(copy.details).toEqual(['순열', '같은 내용', '같은 내용']);
+  expect(copy.detailChecks!.every((c) => !c.completed && !c.completedBy && !c.completedAt)).toBe(
+    true,
+  );
+  expect(new Set(copy.detailChecks!.map((c) => c.id)).size).toBe(3);
+  expect(
+    copy.detailChecks!.every(
+      (c) => !normalizeTask(source).detailChecks!.some((s) => s.id === c.id),
+    ),
+  ).toBe(true);
+  for (const table of ['task_notes', 'task_attachments', 'task_completions'])
+    expect(
+      (await db.query(`select * from public.${table} where task_id=$1`, [copy.id])).rows,
+    ).toHaveLength(0);
+  expect((await db.query('select * from public.tasks where id=$1', [id])).rows[0]).toEqual(source);
+  expect(
+    (
+      await db.query<any>(
+        'select changed_by,request_id from public.task_change_history where task_id=$1',
+        [copy.id],
+      )
+    ).rows[0],
+  ).toMatchObject({ changed_by: EDITOR, request_id: request });
+  await expect(
+    db.query('select public.update_task_content($1,$2,$3,$4,$5)', [
+      id,
+      SPACE,
+      '원본 수정 시도',
+      '2026-10-19',
+      '[]',
+    ]),
+  ).rejects.toThrow(/Only the author/);
+  await db.query('select public.archive_task($1,$2)', [id, SPACE]);
+  await expect(
+    db.query('select public.duplicate_task($1,$2,$3)', [id, SPACE, '2026-10-20']),
+  ).rejects.toThrow(/unavailable/);
+  await asUser(STRANGER);
+  await expect(
+    db.query('select public.duplicate_task($1,$2,$3)', [copy.id, SPACE, '2026-10-20']),
+  ).rejects.toThrow(/access denied/);
+  await asUser(EDITOR, 'anon');
+  await expect(
+    db.query('select public.duplicate_task($1,$2,$3)', [copy.id, SPACE, '2026-10-20']),
+  ).rejects.toThrow(/permission denied/);
+});
+
+test('invalid copy dates and mismatched source workspace cannot create a plan', async () => {
+  const id = await plan();
+  const before = (await db.query('select id from public.tasks')).rows;
+  await expect(db.query('select public.duplicate_task($1,$2,null)', [id, SPACE])).rejects.toThrow(
+    /valid copy date/,
+  );
+  await expect(
+    db.query('select public.duplicate_task($1,$2,$3)', [id, TARGET, '2026-10-20']),
+  ).rejects.toThrow(/unavailable/);
+  expect((await db.query('select id from public.tasks')).rows).toEqual(before);
 });
 
 test('an approved nonauthor can delete and restore without losing notes, checks or original bytes', async () => {
