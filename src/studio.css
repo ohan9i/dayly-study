@@ -51,11 +51,6 @@
 .atmosphere-switch .squish-switch[data-on] .squish-switch__thumb {
   color: #f5f5f5;
 }
-.topbar .atmosphere-switch svg {
-  width: 15px;
-  height: 15px;
-  color: inherit;
-}
 .atmosphere-picker:has(.atmosphere-switch) {
   grid-template-columns: minmax(0, 1fr) 76px minmax(0, 1fr);
   align-items: center;
@@ -114,6 +109,90 @@ html[data-interaction='keyboard'] .squish-switch__thumb {
     text-align: center;
     font-size: 12px;
   }
+}
+.home-layout {
+  --planner-heading: 28px;
+  --planner-section: 18px;
+  --planner-task: 17px;
+  --planner-detail: 15px;
+  --planner-meta: 13px;
+}
+.home-layout .page-heading h1 {
+  font-size: var(--planner-heading);
+  line-height: 1.35;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+.home-layout .date-display {
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 450;
+}
+.home-layout .tasks-card .card-header h2 {
+  font-size: var(--planner-section);
+  line-height: 1.4;
+  font-weight: 600;
+}
+.home-layout .task-title,
+.home-layout .task-title .spring-check__label {
+  font-size: var(--planner-task);
+  line-height: 1.6;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.home-layout .task-details,
+.home-layout .detail-row-title,
+.home-layout .detail-row-title .spring-check__label {
+  font-size: var(--planner-detail);
+  line-height: 1.6;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+}
+.home-layout .task-progress,
+.home-layout .detail-progress,
+.home-layout .detail-progress > span,
+.home-layout .task-file-count,
+.home-layout .planner-moment .moment-label,
+.home-layout .detail-record-toggle,
+.home-layout .save-note,
+.home-layout .save-note > span,
+.home-layout .editing-notice {
+  font-size: var(--planner-meta);
+  line-height: 1.5;
+}
+.home-layout .planner-moment .live-clock {
+  font-size: 48px;
+  line-height: 1.1;
+}
+.home-layout .planner-moment > p {
+  font-size: var(--planner-meta);
+  line-height: 1.5;
+}
+.home-layout .compact .atmosphere-caption {
+  font-size: 12px;
+}
+@media (max-width: 1000px) {
+  .home-layout .planner-moment .live-clock {
+    font-size: 36px;
+  }
+}
+@media (max-width: 700px) {
+  .home-layout {
+    --planner-heading: 24px;
+    --planner-section: 17px;
+    --planner-task: 16px;
+    --planner-detail: 14px;
+    --planner-meta: 12px;
+  }
+  .home-layout .date-display {
+    font-size: 13px;
+  }
+}
+.task-history > .soft-button {
+  margin-top: 14px;
+}
+.task-history .change-list {
+  margin-top: 18px;
 }
 .home-layout[hidden] {
   display: none;

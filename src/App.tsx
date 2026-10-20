@@ -24,7 +24,6 @@ import {
   X,
   ChartNoAxesColumnIncreasing,
   Copy,
-  Sun,
 } from 'lucide-react';
 import {
   addDays,
@@ -47,12 +46,8 @@ import { TaskProgress, DayProgressRing } from './TaskProgress';
 import WorkspacePanel from './WorkspacePanel';
 import DetailRecord from './DetailRecord';
 import DataProtection from './DataProtection';
-import {
-  AtmospherePicker,
-  AtmosphereSwitch,
-  CompletionSparkles,
-  useAtmosphere,
-} from './Atmosphere';
+import TaskHistory from './TaskHistory';
+import { AtmospherePicker, CompletionSparkles, useAtmosphere } from './Atmosphere';
 import WelcomeScreen from './WelcomeScreen';
 import { readEntryNavigation, saveEntryNavigation } from './entryNavigation';
 import SwipeRow from './SwipeRow';
@@ -64,6 +59,7 @@ type ModalState =
   | { kind: 'task'; item?: Task; addDetailAfter?: string }
   | { kind: 'search' }
   | { kind: 'account' }
+  | { kind: 'history' }
   | null;
 const navigation = [
   { id: 'home', label: '나의 하루', icon: Home },
@@ -89,9 +85,12 @@ function Modal({
   const titleId = useId();
   useEffect(() => {
     const el = ref.current!;
+    const previousFocus = document.activeElement;
     el.showModal();
     return () => {
       if (el.open) el.close();
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected)
+        previousFocus.focus({ preventScroll: true });
     };
   }, []);
   return (
@@ -168,7 +167,9 @@ export default function App() {
   const [taskDetailBusy, setTaskDetailBusy] = useState(false);
   useEffect(() => {
     setModal((current) =>
-      current?.kind === 'task' || current?.kind === 'search' ? null : current,
+      current?.kind === 'task' || current?.kind === 'search' || current?.kind === 'history'
+        ? null
+        : current,
     );
   }, [planner.workspace?.id, planner.session?.user.id]);
   const [toast, setToast] = useState('');
@@ -596,7 +597,6 @@ export default function App() {
         </div>
       </aside>
       <header className="topbar">
-        <AtmosphereSwitch value={atmosphere} onChange={setAtmosphere} toolbar />
         <button className="mode-chip" onClick={() => goView('settings')}>
           <span className={`status-dot ${planner.session ? 'online' : ''}`} />
           {planner.session ? (isOwner ? '내 공간' : '승인받은 공간') : '로그인 전'}
@@ -807,15 +807,6 @@ export default function App() {
               </h1>
               <p className="page-description">기록을 보관하고, 함께 공부할 사람을 관리해요.</p>
             </div>
-            <section className="glass-card settings-card atmosphere-settings">
-              <h2>
-                <Sun size={19} />
-                공부 공간의 분위기
-              </h2>
-              <p className="setting-description">오늘의 공부에 어울리는 빛을 골라 보세요.</p>
-              <AtmospherePicker value={atmosphere} onChange={setAtmosphere} />
-              <p className="atmosphere-note">이 브라우저에 선택한 분위기를 기억해요.</p>
-            </section>
             <section className="glass-card settings-card">
               <h2>
                 <UserRound size={19} />
@@ -980,6 +971,7 @@ export default function App() {
             </section>
             {planner.session && planner.workspace && (
               <DataProtection
+                onOpenHistory={() => setModal({ kind: 'history' })}
                 key={`${planner.session.user.id}:${planner.workspace.id}`}
                 planner={planner}
               />
@@ -995,6 +987,15 @@ export default function App() {
           </>
         )}
       </div>
+      {modal?.kind === 'history' && (
+        <Modal
+          title="계획 변경 이력"
+          subtitle="현재 공간에서 확인할 수 있는 최근 변경 50건입니다."
+          onClose={() => setModal(null)}
+        >
+          <TaskHistory planner={planner} />
+        </Modal>
+      )}
       {modal?.kind === 'task' && (
         <Modal
           title={modal.item ? '할 일 살펴보기' : '하나씩, 오늘 할 일'}

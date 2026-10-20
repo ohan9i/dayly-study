@@ -1,14 +1,16 @@
 import { expect, test } from '@playwright/test';
 import { mockCloud } from './cloud-fixture';
 
-test('one click stretches the thumb and synchronizes all three theme switches', async ({
+test('the single clock switch stretches, saves the theme and has no duplicate controls', async ({
   page,
 }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await mockCloud(page);
   await page.goto('/#planner');
-  const toggle = page.locator('.topbar').getByRole('switch', { name: '밤 공부', exact: true });
+  const toggle = page
+    .locator('.planner-moment')
+    .getByRole('switch', { name: '밤 공부', exact: true });
   await toggle.evaluate((el) => {
     const samples = new Set<string>();
     (window as unknown as { squishSamples: Set<string> }).squishSamples = samples;
@@ -34,9 +36,11 @@ test('one click stretches the thumb and synchronizes all three theme switches', 
     ),
   ).toBeGreaterThan(3);
   await page.getByRole('button', { name: '설정', exact: true }).click();
-  const settings = page.locator('.atmosphere-settings').getByRole('switch');
-  await expect(settings).toBeChecked();
-  await settings.click();
+  await expect(page.getByRole('switch')).toHaveCount(0);
+  await expect(page.locator('.atmosphere-settings')).toHaveCount(0);
+  await page.getByRole('button', { name: '나의 하루', exact: true }).click();
+  await expect(page.getByRole('switch')).toHaveCount(1);
+  await toggle.click();
   await expect(toggle).not.toBeChecked();
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-atmosphere', 'morning');
@@ -50,7 +54,7 @@ test('mobile touch toggles once; drag cancellation and keyboard use preserve the
   await page.setViewportSize({ width: 320, height: 800 });
   await mockCloud(page);
   await page.goto('/#planner');
-  const toggle = page.locator('.topbar').getByRole('switch');
+  const toggle = page.locator('.planner-moment').getByRole('switch');
   const cdp = await context.newCDPSession(page);
   await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true });
   const box = (await toggle.boundingBox())!;
@@ -78,8 +82,7 @@ test('mobile touch toggles once; drag cancellation and keyboard use preserve the
     'transform',
     'matrix(1, 0, 0, 1, 4, 0)',
   );
-  const brand = (await page.locator('.mobile-brand').boundingBox())!;
-  expect(brand.x + brand.width).toBeLessThanOrEqual(box.x);
+  await expect(page.locator('.topbar').getByRole('switch')).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: '.local/squish-mobile.png', fullPage: true });
 });

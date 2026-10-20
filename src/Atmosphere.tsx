@@ -54,18 +54,16 @@ export function useAtmosphere() {
 export function AtmosphereSwitch({
   value,
   onChange,
-  toolbar = false,
 }: {
   value: Atmosphere;
   onChange: (value: Atmosphere) => void;
-  toolbar?: boolean;
 }) {
   return (
     <SquishSwitch
       checked={value === 'night'}
       onChange={(night) => onChange(night ? 'night' : 'morning')}
       ariaLabel="밤 공부"
-      className={toolbar ? 'atmosphere-switch atmosphere-switch--toolbar' : 'atmosphere-switch'}
+      className="atmosphere-switch"
       trackColor="#27272a"
       trackOnColor="#f5f5f5"
       thumbColor="#f5f5f5"

@@ -100,7 +100,10 @@ test('theme persists, synchronizes across tabs and preserves a draft in an open 
   context,
 }) => {
   await setup(page);
-  await page.locator('.topbar').getByRole('switch', { name: '밤 공부', exact: true }).click();
+  await page
+    .locator('.planner-moment')
+    .getByRole('switch', { name: '밤 공부', exact: true })
+    .click();
   await expect(page.locator('html')).toHaveAttribute('data-atmosphere', 'night');
   const date = await page.getByLabel('조회 날짜').inputValue();
   await page.reload();
@@ -112,7 +115,10 @@ test('theme persists, synchronizes across tabs and preserves a draft in an open 
   const other = await context.newPage();
   await mockCloud(other);
   await other.goto('/#planner');
-  await other.locator('.topbar').getByRole('switch', { name: '밤 공부', exact: true }).click();
+  await other
+    .locator('.planner-moment')
+    .getByRole('switch', { name: '밤 공부', exact: true })
+    .click();
   await expect(page.locator('html')).toHaveAttribute('data-atmosphere', 'morning');
   await expect(page.getByLabel('할 일', { exact: true })).toHaveValue(
     '아직 저장하지 않은 구조역학 계획',
@@ -171,10 +177,9 @@ for (const [width, height] of [
       await page.getByRole('button', { name: label, exact: true }).click();
       await capture(label);
     }
-    await page
-      .locator('.atmosphere-settings')
-      .getByRole('switch', { name: '밤 공부', exact: true })
-      .click();
+    await expect(page.locator('.atmosphere-settings')).toHaveCount(0);
+    await page.getByRole('button', { name: '나의 하루', exact: true }).click();
+    await page.locator('.planner-moment').getByRole('switch').click();
     await expect(page.locator('html')).toHaveAttribute('data-atmosphere', 'morning');
     await page.getByRole('button', { name: '나의 하루', exact: true }).click();
     await page.screenshot({
@@ -190,10 +195,9 @@ for (const [width, height] of [
       );
     }
     await page.getByRole('button', { name: '설정', exact: true }).click();
-    await page
-      .locator('.atmosphere-settings')
-      .getByRole('switch', { name: '밤 공부', exact: true })
-      .click();
+    await expect(page.locator('.atmosphere-settings')).toHaveCount(0);
+    await page.getByRole('button', { name: '나의 하루', exact: true }).click();
+    await page.locator('.planner-moment').getByRole('switch').click();
     await page.getByRole('button', { name: '내 계정', exact: true }).click();
     await capture('account');
     await contrast(
@@ -230,7 +234,10 @@ test('reduced motion and keyboard changes are immediate; blocked storage still a
     };
   });
   await page.goto('/#planner');
-  await page.locator('.topbar').getByRole('switch', { name: '밤 공부', exact: true }).click();
+  await page
+    .locator('.planner-moment')
+    .getByRole('switch', { name: '밤 공부', exact: true })
+    .click();
   await expect(page.locator('html')).toHaveAttribute('data-atmosphere', 'night');
   expect(
     await page
@@ -238,7 +245,10 @@ test('reduced motion and keyboard changes are immediate; blocked storage still a
       .evaluate((el) => getComputedStyle(el, '::after').transitionDuration),
   ).toBe('0s');
   await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await page.locator('.topbar').getByRole('switch', { name: '밤 공부', exact: true }).focus();
+  await page
+    .locator('.planner-moment')
+    .getByRole('switch', { name: '밤 공부', exact: true })
+    .focus();
   await page.keyboard.down('Enter');
   await expect(page.locator('html')).toHaveAttribute('data-atmosphere', 'morning');
   await page.keyboard.up('Enter');
