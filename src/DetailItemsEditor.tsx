@@ -14,6 +14,7 @@ export default function DetailItemsEditor({
   canCheck,
   onToggle,
   onCheckError,
+  addAfterId,
 }: {
   initialItems: string[];
   initialChecks?: DetailCheck[];
@@ -21,6 +22,7 @@ export default function DetailItemsEditor({
   canCheck: boolean;
   onToggle?: (id: string) => Promise<void>;
   onCheckError: (message: string) => void;
+  addAfterId?: string;
 }) {
   const [rows, setRows] = useState<Row[]>(() =>
     initialItems.length
@@ -57,6 +59,14 @@ export default function DetailItemsEditor({
     pendingFocus.current = row.id;
     setRows((current) => [...current.slice(0, index + 1), row, ...current.slice(index + 1)]);
   }
+  const didInsert = useRef(false);
+  useEffect(() => {
+    if (!editable || !addAfterId || didInsert.current) return;
+    const index = rows.findIndex((row) => row.id === addAfterId);
+    if (index < 0) return;
+    didInsert.current = true;
+    addAfter(index);
+  }, [addAfterId, editable]);
 
   function remove(index: number) {
     pendingFocus.current = rows[index - 1]?.id || rows[index + 1]?.id || 'add';

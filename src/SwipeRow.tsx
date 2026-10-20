@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, type ReactNode, type PointerEvent } from 'react';
 import { animate, motion, useMotionValue } from 'motion/react';
-import { Plus, Trash2, X } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import HoldButton from './HoldButton';
 import './SwipeRow.css';
 
@@ -16,6 +16,8 @@ export default function SwipeRow({
   onDelete,
   disabled,
   contentClassName = '',
+  addLabel,
+  deleteLabel,
 }: {
   children: ReactNode;
   title: string;
@@ -25,6 +27,8 @@ export default function SwipeRow({
   onDelete: () => void;
   disabled: boolean;
   contentClassName?: string;
+  addLabel?: string;
+  deleteLabel?: string;
 }) {
   const x = useMotionValue(0);
   const id = useId();
@@ -83,9 +87,8 @@ export default function SwipeRow({
       disabled ||
       !event.isPrimary ||
       event.button !== 0 ||
-      (event.target as HTMLElement).closest(
-        'input, textarea, select, [contenteditable], .swipe-row__menus',
-      )
+      (event.target as Element).closest('.swipe-row') !== root.current ||
+      (event.target as HTMLElement).closest('input, textarea, select, [contenteditable]')
     )
       return;
     grip.current = {
@@ -136,16 +139,26 @@ export default function SwipeRow({
       ref={root}
       className="swipe-row"
       data-open={open || 'closed'}
+      role="group"
+      aria-label={`${title} 작업 메뉴`}
+      aria-description="왼쪽으로 밀면 삭제, 오른쪽으로 밀면 추가. 키보드에서는 왼쪽·오른쪽 화살표로 열고 Escape로 닫습니다."
+      tabIndex={disabled ? undefined : 0}
       onKeyDown={(event) => {
+        if (
+          !disabled &&
+          event.target === event.currentTarget &&
+          (event.key === 'ArrowLeft' || event.key === 'ArrowRight')
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+          onOpenChange(event.key === 'ArrowLeft' ? 'delete' : 'add');
+        }
         if (event.key === 'Escape' && open) {
+          event.preventDefault();
           event.stopPropagation();
           onOpenChange(null);
           settle(0);
-          surface.current
-            ?.querySelector<HTMLButtonElement>(
-              `.swipe-row__menus button[aria-controls="${id}-${open}"]`,
-            )
-            ?.focus();
+          root.current?.focus({ preventScroll: true });
         }
       }}
     >
@@ -157,7 +170,7 @@ export default function SwipeRow({
       >
         <button
           type="button"
-          aria-label={`${title} 옆에 계획 추가`}
+          aria-label={addLabel || `${title} 옆에 계획 추가`}
           onClick={onAdd}
           disabled={disabled}
         >
@@ -172,7 +185,7 @@ export default function SwipeRow({
         aria-hidden={disabled || open !== 'delete'}
       >
         <HoldButton
-          aria-label={`${title} 휴지통으로`}
+          aria-label={deleteLabel || `${title} 휴지통으로`}
           title="2초 눌러 삭제 확인"
           disabled={disabled || open !== 'delete'}
           backgroundColor="#a63339"
@@ -214,37 +227,6 @@ export default function SwipeRow({
         }}
       >
         {children}
-        {!disabled && (
-          <div className="swipe-row__menus">
-            <button
-              type="button"
-              aria-label={`${title} 추가 메뉴`}
-              aria-expanded={open === 'add'}
-              aria-controls={`${id}-add`}
-              onClick={() => onOpenChange(open === 'add' ? null : 'add')}
-            >
-              <Plus size={15} />
-            </button>
-            <button
-              type="button"
-              aria-label={`${title} 삭제 메뉴`}
-              aria-expanded={open === 'delete'}
-              aria-controls={`${id}-delete`}
-              onClick={() => onOpenChange(open === 'delete' ? null : 'delete')}
-            >
-              <Trash2 size={15} />
-            </button>
-            {open && (
-              <button
-                type="button"
-                aria-label="계획 행 메뉴 닫기"
-                onClick={() => onOpenChange(null)}
-              >
-                <X size={15} />
-              </button>
-            )}
-          </div>
-        )}
       </motion.div>
     </div>
   );

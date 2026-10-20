@@ -6,7 +6,9 @@
 - 낮·밤 전환은 React Bits의 SquishSwitch로 표시한다. 상단·시계 옆·설정의 스위치는 같은 상태를 공유하며, 클릭 또는 키보드 한 번으로 전환한다. 원본 출처는 https://www.reactbits.dev/micro/squish-switch 이고 라이선스는 `docs/licenses/ReactBits-LICENSE.md`를 따른다.
 - 종이가 구겨져 날아가는 화면 전환과 관련 Three.js/이미지 캡처 의존성은 제거했다. 첫 화면의 책 펼치기는 유지한다.
 - 행 높이는 내용과 기록 입력창에 맞춰 늘어난다. 세로 스크롤, 입력 요소, 완료 체크는 독립적으로 동작하며 포인터 취소와 창 포커스 이탈 시 밀기를 종료한다.
-- 밀기를 사용할 수 없는 사용자를 위해 추가·삭제 메뉴 버튼을 제공한다. 키보드로 열면 해당 실행 버튼에 초점이 가고 Escape로 닫는다. 로그인하지 않은 방문자는 계획 읽기만 가능하다.
+- 계획 옆의 상시 추가·휴지통 아이콘은 표시하지 않는다. 키보드에서는 행에 초점을 맞추고 왼쪽·오른쪽 화살표로 삭제·추가를 열며 Escape로 닫는다. 로그인하지 않은 방문자는 계획 읽기만 가능하다.
+- 세부 항목도 같은 방향으로 밀 수 있다. 추가는 선택한 항목 다음에 새 입력 줄을 만들고 초점을 옮긴다. 삭제는 2초 누른 뒤 확인하며 다른 항목의 ID와 완료 상태를 유지한다. 내용 편집은 작성자와 공간 관리자에게만 허용한다. 세부 행의 밀기는 바깥 계획 행을 움직이지 않는다.
+- 공유 기록 로딩 안내는 500ms 이상 걸릴 때만 하단 고정 위치에 표시한다. 본문 공간을 차지하거나 회전하지 않으며, 짧은 로딩에는 표시하지 않고 표시 후 최소 600ms 유지해 깜박임을 줄인다. 새로고침 아이콘도 회전하지 않는다.
 - 드래그 중 위치는 MotionValue로 갱신하고, 애니메이션 줄이기 설정에서는 즉시 위치를 바꾼다.
 
-검증: `npm test`, `npm run build`, Playwright의 swipe-row, hold-button, task-duplication, shared-checks-and-moves, atmosphere, welcome 시나리오.
+검증: `npm test`, `npm run build`, Playwright의 detail-swipe-and-loading, swipe-row, check-stability, detail-items, detail-records, spring-check 시나리오.

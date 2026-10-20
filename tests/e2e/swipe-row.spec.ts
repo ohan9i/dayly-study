@@ -64,9 +64,8 @@ test('vertical movement does not reveal actions; completion, records and keyboar
   ).toBeChecked();
   await page.getByRole('button', { name: '풀이 기록 기록 열기', exact: true }).click();
   await page.locator('.detail-record-form textarea').fill('보존할 초안');
-  const menu = page.getByRole('button', { name: '밀기 검증 계획 삭제 메뉴', exact: true });
-  await menu.focus();
-  await page.keyboard.press('Enter');
+  await row(page).focus();
+  await page.keyboard.press('ArrowLeft');
   await expect(row(page)).toHaveAttribute('data-open', 'delete');
   await page.keyboard.press('Escape');
   await expect(row(page)).toHaveAttribute('data-open', 'closed');
@@ -102,7 +101,7 @@ test('mobile touch swipe and cancellation preserve the row at 320px', async ({ p
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await expect(row(page)).toHaveAttribute('data-open', 'delete');
   await page.screenshot({ path: '.local/swipe-mobile-delete.png', fullPage: true });
-  await page.getByRole('button', { name: '계획 행 메뉴 닫기' }).click();
+  await page.keyboard.press('Escape');
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
   await cdp.send('Input.dispatchTouchEvent', {
     type: 'touchMove',

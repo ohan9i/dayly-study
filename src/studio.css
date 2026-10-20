@@ -1,4 +1,25 @@
 /* Shared studio and reading surfaces. Keep text and input boundaries crisp. */
+.loading-note {
+  position: fixed;
+  right: 20px;
+  bottom: 24px;
+  z-index: 25;
+  max-width: calc(100vw - 40px);
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-soft);
+  pointer-events: none;
+  animation: none;
+  transition: none;
+}
+@media (max-width: 700px) {
+  .loading-note {
+    bottom: 88px;
+  }
+}
 .atmosphere-switch {
   flex-shrink: 0;
 }

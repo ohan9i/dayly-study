@@ -473,8 +473,10 @@ export default function TaskDetail({
   onLogin,
   onBusyChange,
   onDuplicated,
+  addDetailAfter,
 }: {
   item?: Task;
+  addDetailAfter?: string;
   date: string;
   planner: Planner;
   editable: boolean;
@@ -492,7 +494,7 @@ export default function TaskDetail({
     [working, setWorking] = useState(false);
   const [progress, setProgress] = useState('');
   const [checking, setChecking] = useState(false);
-  const [dirty, setDirty] = useState(false);
+  const [dirty, setDirty] = useState(Boolean(addDetailAfter));
   const [moving, setMoving] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
   const duplicationLock = useRef(false);
@@ -618,6 +620,7 @@ export default function TaskDetail({
             />
           </label>
           <DetailItemsEditor
+            addAfterId={addDetailAfter}
             initialItems={item?.details || []}
             initialChecks={item?.detailChecks}
             editable={editable}

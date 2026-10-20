@@ -56,10 +56,15 @@ import {
 import WelcomeScreen from './WelcomeScreen';
 import { readEntryNavigation, saveEntryNavigation } from './entryNavigation';
 import SwipeRow from './SwipeRow';
+import LoadingStatus from './LoadingStatus';
 import SpringCheck, { SpringCheckLabel } from './SpringCheck';
 
 type View = 'home' | 'calendar' | 'stats' | 'settings';
-type ModalState = { kind: 'task'; item?: Task } | { kind: 'search' } | { kind: 'account' } | null;
+type ModalState =
+  | { kind: 'task'; item?: Task; addDetailAfter?: string }
+  | { kind: 'search' }
+  | { kind: 'account' }
+  | null;
 const navigation = [
   { id: 'home', label: '나의 하루', icon: Home },
   { id: 'calendar', label: '달력', icon: CalendarDays },
@@ -145,6 +150,8 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 export default function App() {
   const [atmosphere, setAtmosphere] = useAtmosphere();
   const planner = usePlanner();
+  const livePlanner = useRef(planner);
+  livePlanner.current = planner;
   const { data, isOwner, canWrite, busy, loading } = planner;
   const [view, setView] = useState<View>(() => readEntryNavigation().view || 'home');
   const [date, setDate] = useState(() => readEntryNavigation().date || todayKey());
@@ -236,6 +243,35 @@ export default function App() {
         '”을 현재 목록에서 삭제합니다. 내용·기록·첨부 원본은 보관되며 설정의 휴지통에서 복원할 수 있어요.',
       action: () => planner.deleteTask(item.id),
     });
+  const requestDeleteDetail = (task: Task, detailId: string, text: string) => {
+    setSwipeMenu(null);
+    const spaceId = planner.workspace?.id;
+    setConfirmation({
+      title: '세부 항목을 삭제할까요?',
+      message: `“${text}”만 계획에서 제외합니다. 다른 세부 항목과 완료 상태는 유지됩니다.`,
+      action: async () => {
+        const currentPlanner = livePlanner.current;
+        const current = currentPlanner.data.tasks.find((item) => item.id === task.id);
+        if (!current || currentPlanner.workspace?.id !== spaceId)
+          throw new Error('계획이 이동되었거나 현재 공간이 바뀌었어요. 다시 확인해 주세요.');
+        const index = current.detailChecks?.findIndex((detail) => detail.id === detailId) ?? -1;
+        if (index < 0) throw new Error('이미 삭제되었거나 변경된 세부 항목이에요.');
+        await currentPlanner.saveTask(
+          {
+            ...current,
+            details: current.details.filter((_, i) => i !== index),
+            detailChecks: current.detailChecks?.filter((_, i) => i !== index),
+          },
+          true,
+        );
+        setOpenRecords((previous) => {
+          const next = new Set(previous);
+          next.delete(`${task.id}:${detailId}`);
+          return next;
+        });
+      },
+    });
+  };
   function exportData() {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob),
@@ -403,7 +439,26 @@ export default function App() {
                             key={detailId}
                             className={`${task.detailChecks?.[index]?.completed ? 'detail-is-complete' : ''} ${expanded ? 'detail-is-expanded' : ''}`}
                           >
-                            <div className="detail-row-main">
+                            <SwipeRow
+                              title={`${task.title} 세부 항목 ${index + 1}`}
+                              contentClassName="detail-row-main"
+                              addLabel={`${detail} 다음에 세부 항목 추가`}
+                              deleteLabel={`${detail} 세부 항목 삭제`}
+                              open={swipeMenu?.id === recordKey ? swipeMenu.side : null}
+                              disabled={!canWrite || !canManageTask(task) || busy || loading}
+                              onOpenChange={(side) =>
+                                setSwipeMenu(
+                                  side
+                                    ? { id: recordKey, side }
+                                    : (current) => (current?.id === recordKey ? null : current),
+                                )
+                              }
+                              onAdd={() => {
+                                setSwipeMenu(null);
+                                setModal({ kind: 'task', item: task, addDetailAfter: detailId });
+                              }}
+                              onDelete={() => requestDeleteDetail(task, detailId, detail)}
+                            >
                               <SpringCheck
                                 className="detail-checkbox"
                                 ariaLabel={`${task.title} 세부 항목 ${index + 1} 완료`}
@@ -444,7 +499,7 @@ export default function App() {
                                 )}
                                 <ChevronRight size={14} />
                               </button>
-                            </div>
+                            </SwipeRow>
                             {expanded && (
                               <DetailRecord task={task} detailId={detailId} planner={planner} />
                             )}
@@ -554,7 +609,7 @@ export default function App() {
             disabled={loading || busy}
             onClick={() => void act(planner.refresh, '공유 기록을 새로 불러왔어요.')}
           >
-            <RefreshCw size={19} className={loading ? 'spin' : ''} />
+            <RefreshCw size={19} />
           </button>
         )}
         <button
@@ -600,12 +655,7 @@ export default function App() {
             </button>
           </div>
         )}
-        {loading && (
-          <div className="loading-note" role="status">
-            <RefreshCw size={15} className="spin" />
-            공유 기록을 불러오는 중이에요.
-          </div>
-        )}
+        <LoadingStatus loading={loading} />
         {planner.session && !planner.workspace && !loading && (
           <div className="onboarding-banner">
             <ShieldCheck size={21} />
@@ -961,6 +1011,7 @@ export default function App() {
                 : undefined
             }
             date={date}
+            addDetailAfter={modal.addDetailAfter}
             planner={planner}
             onBusyChange={setTaskDetailBusy}
             editable={canManageTask(modal.item)}
