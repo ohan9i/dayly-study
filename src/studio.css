@@ -1,4 +1,99 @@
 /* Shared studio and reading surfaces. Keep text and input boundaries crisp. */
+.atmosphere-switch {
+  flex-shrink: 0;
+}
+.atmosphere-switch .squish-switch {
+  width: var(--ss-w);
+  height: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  flex-shrink: 0;
+}
+.atmosphere-switch .squish-switch::after {
+  inset: 0;
+}
+.atmosphere-switch .squish-switch:focus-visible {
+  outline: 2px solid var(--accent-solid);
+  outline-offset: 3px;
+  border-radius: 22px;
+}
+.atmosphere-switch .squish-switch__track {
+  box-shadow: 0 0 0 1px var(--control-border);
+}
+.atmosphere-switch .squish-switch__thumb {
+  display: grid;
+  place-items: center;
+  color: #27272a;
+}
+.atmosphere-switch .squish-switch[data-on] .squish-switch__thumb {
+  color: #f5f5f5;
+}
+.topbar .atmosphere-switch svg {
+  width: 15px;
+  height: 15px;
+  color: inherit;
+}
+.atmosphere-picker:has(.atmosphere-switch) {
+  grid-template-columns: minmax(0, 1fr) 76px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+.atmosphere-picker.compact:has(.atmosphere-switch) {
+  margin-left: 0;
+  margin-right: 0;
+  padding: 8px;
+  border-radius: 18px;
+}
+.atmosphere-caption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.atmosphere-caption[data-active='true'] {
+  color: var(--text);
+  font-weight: 600;
+}
+.atmosphere-caption svg {
+  flex-shrink: 0;
+}
+.atmosphere-caption small {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+.compact .atmosphere-caption {
+  gap: 5px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.compact .atmosphere-caption > svg {
+  display: none;
+}
+html[data-interaction='keyboard'] .squish-switch__track,
+html[data-interaction='keyboard'] .squish-switch__thumb {
+  transition: none;
+}
+@media (max-width: 380px) {
+  .atmosphere-picker:has(.atmosphere-switch) {
+    gap: 5px;
+  }
+  .compact .atmosphere-caption {
+    gap: 4px;
+    font-size: 11px;
+  }
+  .atmosphere-settings .atmosphere-caption {
+    flex-direction: column;
+    text-align: center;
+    font-size: 12px;
+  }
+}
 .home-layout[hidden] {
   display: none;
 }

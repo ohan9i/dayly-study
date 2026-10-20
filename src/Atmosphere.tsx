@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, Moon, Sun } from 'lucide-react';
-import { flushSync } from 'react-dom';
+import { Moon, Sun } from 'lucide-react';
+import SquishSwitch from './SquishSwitch';
 
 export type Atmosphere = 'morning' | 'night';
 const storageKey = 'dayly.atmosphere';
@@ -46,17 +46,40 @@ export function useAtmosphere() {
   }, []);
   const changeAtmosphere = (next: Atmosphere) => {
     if (next === atmosphere) return;
-    if (
-      document.startViewTransition &&
-      !window.matchMedia('(prefers-reduced-motion: reduce)').matches &&
-      document.documentElement.dataset.interaction !== 'keyboard'
-    ) {
-      document.startViewTransition(() => {
-        flushSync(() => setAtmosphere(next));
-      });
-    } else setAtmosphere(next);
+    setAtmosphere(next);
   };
   return [atmosphere, changeAtmosphere] as const;
+}
+
+export function AtmosphereSwitch({
+  value,
+  onChange,
+  toolbar = false,
+}: {
+  value: Atmosphere;
+  onChange: (value: Atmosphere) => void;
+  toolbar?: boolean;
+}) {
+  return (
+    <SquishSwitch
+      checked={value === 'night'}
+      onChange={(night) => onChange(night ? 'night' : 'morning')}
+      ariaLabel="밤 공부"
+      className={toolbar ? 'atmosphere-switch atmosphere-switch--toolbar' : 'atmosphere-switch'}
+      trackColor="#27272a"
+      trackOnColor="#f5f5f5"
+      thumbColor="#f5f5f5"
+      thumbOnColor="#27272a"
+      width={76}
+      height={38}
+      radius={19}
+      speed={50}
+      stretch={36}
+      hoverScale={1.035}
+      colorDuration={320}
+      thumbContent={value === 'night' ? <Moon size={15} /> : <Sun size={15} />}
+    />
+  );
 }
 
 export function AtmospherePicker({
@@ -74,30 +97,15 @@ export function AtmospherePicker({
       role="group"
       aria-label="공부 공간 분위기"
     >
-      {(
-        [
-          ['morning', '아침 창가', '맑은 빛, 가벼운 시작', Sun],
-          ['night', '밤 공부', '낮은 조명, 깊은 몰입', Moon],
-        ] as const
-      ).map(([theme, label, description, Icon]) => (
-        <button
-          key={theme}
-          className="atmosphere-option"
-          aria-pressed={value === theme}
-          aria-label={label}
-          type="button"
-          onClick={() => onChange(theme)}
-        >
-          <Icon size={17} strokeWidth={1.6} aria-hidden="true" />
-          <span>
-            <strong>{label}</strong>
-            {!compact && <small>{description}</small>}
-          </span>
-          {!compact && value === theme && (
-            <Check className="atmosphere-check" size={17} aria-hidden="true" />
-          )}
-        </button>
-      ))}
+      <span className="atmosphere-caption" data-active={value === 'morning'}>
+        <Sun size={16} aria-hidden="true" />
+        <span>아침 창가{!compact && <small>맑은 빛, 가벼운 시작</small>}</span>
+      </span>
+      <AtmosphereSwitch value={value} onChange={onChange} />
+      <span className="atmosphere-caption" data-active={value === 'night'}>
+        <Moon size={16} aria-hidden="true" />
+        <span>밤 공부{!compact && <small>낮은 조명, 깊은 몰입</small>}</span>
+      </span>
     </div>
   );
 }

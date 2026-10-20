@@ -24,7 +24,6 @@ import {
   X,
   ChartNoAxesColumnIncreasing,
   Copy,
-  Moon,
   Sun,
 } from 'lucide-react';
 import {
@@ -48,7 +47,12 @@ import { TaskProgress, DayProgressRing } from './TaskProgress';
 import WorkspacePanel from './WorkspacePanel';
 import DetailRecord from './DetailRecord';
 import DataProtection from './DataProtection';
-import { AtmospherePicker, CompletionSparkles, useAtmosphere } from './Atmosphere';
+import {
+  AtmospherePicker,
+  AtmosphereSwitch,
+  CompletionSparkles,
+  useAtmosphere,
+} from './Atmosphere';
 import WelcomeScreen from './WelcomeScreen';
 import { readEntryNavigation, saveEntryNavigation } from './entryNavigation';
 import SwipeRow from './SwipeRow';
@@ -537,18 +541,7 @@ export default function App() {
         </div>
       </aside>
       <header className="topbar">
-        <button
-          key={atmosphere}
-          className="icon-button atmosphere-toggle"
-          aria-label={atmosphere === 'morning' ? '밤 공부로 전환' : '아침 창가로 전환'}
-          onClick={() => setAtmosphere(atmosphere === 'morning' ? 'night' : 'morning')}
-        >
-          {atmosphere === 'morning' ? (
-            <Moon size={20} strokeWidth={1.7} />
-          ) : (
-            <Sun size={20} strokeWidth={1.7} />
-          )}
-        </button>
+        <AtmosphereSwitch value={atmosphere} onChange={setAtmosphere} toolbar />
         <button className="mode-chip" onClick={() => goView('settings')}>
           <span className={`status-dot ${planner.session ? 'online' : ''}`} />
           {planner.session ? (isOwner ? '내 공간' : '승인받은 공간') : '로그인 전'}

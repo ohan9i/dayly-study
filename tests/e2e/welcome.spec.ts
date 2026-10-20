@@ -104,7 +104,7 @@ test('signed-in drafts, restored side clock and theme survive scrolling and menu
   await page.getByRole('button', { name: '할 일 저장' }).click();
   await page
     .locator('.planner-moment')
-    .getByRole('button', { name: '밤 공부', exact: true })
+    .getByRole('switch', { name: '밤 공부', exact: true })
     .click();
   await expect(page.locator('html')).toHaveAttribute('data-atmosphere', 'night');
   await page.getByRole('button', { name: '부정정 보의 처짐 계산 기록 열기' }).click();
