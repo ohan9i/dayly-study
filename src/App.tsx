@@ -52,6 +52,7 @@ import { AtmospherePicker, CompletionSparkles, useAtmosphere } from './Atmospher
 import WelcomeScreen from './WelcomeScreen';
 import { readEntryNavigation, saveEntryNavigation } from './entryNavigation';
 import { usePaperNavigation } from './usePaperNavigation';
+import HoldButton from './HoldButton';
 
 type View = 'home' | 'calendar' | 'stats' | 'settings';
 type ModalState = { kind: 'task'; item?: Task } | { kind: 'search' } | { kind: 'account' } | null;
@@ -506,18 +507,23 @@ export default function App() {
         </div>
       </aside>
       <header className="topbar">
-        <button
+        <HoldButton
+          key={atmosphere}
           className="icon-button atmosphere-toggle"
           aria-label={atmosphere === 'morning' ? '밤 공부로 전환' : '아침 창가로 전환'}
-          title={atmosphere === 'morning' ? '밤 공부로 전환' : '아침 창가로 전환'}
-          onClick={() => setAtmosphere(atmosphere === 'morning' ? 'night' : 'morning')}
+          title={atmosphere === 'morning' ? '2초 눌러 밤 공부로 전환' : '2초 눌러 아침 창가로 전환'}
+          backgroundColor="var(--surface-toolbar)"
+          textColor="var(--text-secondary)"
+          doneLabel={<span className="sr-only">전환 완료</span>}
+          doneIcon={<Check size={20} aria-hidden="true" />}
+          onHold={() => setAtmosphere(atmosphere === 'morning' ? 'night' : 'morning')}
         >
           {atmosphere === 'morning' ? (
             <Moon size={20} strokeWidth={1.7} />
           ) : (
             <Sun size={20} strokeWidth={1.7} />
           )}
-        </button>
+        </HoldButton>
         <button className="mode-chip" onClick={() => goView('settings')}>
           <span className={`status-dot ${planner.session ? 'online' : ''}`} />
           {planner.session ? (isOwner ? '내 공간' : '승인받은 공간') : '로그인 전'}

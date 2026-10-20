@@ -20,6 +20,7 @@ import {
 import DetailItemsEditor from './DetailItemsEditor';
 import { supabase, type Planner } from './planner';
 import { FILE_ACCEPT, FILE_BUCKET, MAX_QUEUED_FILES, fileSize, validateFile } from './files';
+import HoldButton from './HoldButton';
 
 export function FilePicker({
   files,
@@ -256,15 +257,17 @@ function FileCard({
           </button>
         )}
         {canDelete && (
-          <button
-            type="button"
-            className="icon-button"
+          <HoldButton
+            className="icon-button attachment-trash-hold"
             aria-label={`${file.filename} 삭제`}
+            title="2초 눌러 파일 삭제 확인"
+            doneLabel={<span className="sr-only">삭제 확인</span>}
+            doneIcon={<Check size={16} aria-hidden="true" />}
             disabled={working || disabled}
-            onClick={() => setConfirmDelete(true)}
+            onHold={() => setConfirmDelete(true)}
           >
             <Trash2 size={16} />
-          </button>
+          </HoldButton>
         )}
       </div>
       {confirmDelete && (
@@ -741,15 +744,18 @@ export default function TaskDetail({
         </div>
       )}
       {item && onDelete && (
-        <button
-          type="button"
-          className="text-button delete-button"
+        <HoldButton
+          className="delete-button"
           aria-label="이 할 일 삭제"
-          onClick={onDelete}
+          title="2초 누르면 휴지통으로 보내기 확인창이 열려요"
+          doneLabel="삭제 확인"
+          icon={<Trash2 size={17} aria-hidden="true" />}
+          doneIcon={<Check size={17} aria-hidden="true" />}
+          onHold={onDelete}
           disabled={disabled}
         >
-          <Trash2 size={17} /> 계획 삭제 · 휴지통으로
-        </button>
+          2초 눌러 휴지통으로
+        </HoldButton>
       )}
       {item && canContribute && !unavailable && targets.length > 0 && (
         <div className="task-move">

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, Moon, Sun } from 'lucide-react';
 import { flushSync } from 'react-dom';
+import HoldButton from './HoldButton';
 
 export type Atmosphere = 'morning' | 'night';
 const storageKey = 'dayly.atmosphere';
@@ -80,22 +81,30 @@ export function AtmospherePicker({
           ['night', '밤 공부', '낮은 조명, 깊은 몰입', Moon],
         ] as const
       ).map(([theme, label, description, Icon]) => (
-        <button
+        <HoldButton
           key={theme}
-          type="button"
           className="atmosphere-option"
           aria-pressed={value === theme}
-          onClick={() => onChange(theme)}
+          aria-label={label}
+          title={`2초 눌러 ${label}로 전환`}
+          disabled={value === theme}
+          backgroundColor={value === theme ? 'var(--surface-selected)' : 'var(--surface-soft)'}
+          textColor="var(--text)"
+          radius={14}
+          doneLabel="전환 완료"
+          doneIcon={<Check size={17} aria-hidden="true" />}
+          onHold={() => onChange(theme)}
         >
           <Icon size={17} strokeWidth={1.6} aria-hidden="true" />
           <span>
             <strong>{label}</strong>
             {!compact && <small>{description}</small>}
+            <small className="hold-theme-hint">{value === theme ? '사용 중' : '2초 누르기'}</small>
           </span>
           {!compact && value === theme && (
             <Check className="atmosphere-check" size={17} aria-hidden="true" />
           )}
-        </button>
+        </HoldButton>
       ))}
     </div>
   );

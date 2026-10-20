@@ -2,6 +2,104 @@
 .home-layout[hidden] {
   display: none;
 }
+/* Hold actions retain the planner palette; purple is the intentional fill. */
+.hold-button .hold-button__label svg {
+  color: inherit;
+}
+.hold-button.atmosphere-toggle,
+.hold-button.attachment-trash-hold {
+  display: inline-grid;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  background: var(--hb-bg);
+  color: var(--hb-text);
+  border-radius: 14px;
+}
+.hold-button.delete-button {
+  min-height: 44px;
+  padding: 0 16px;
+  max-width: 100%;
+  background: var(--hb-bg);
+  color: var(--hb-text);
+  font-size: 13px;
+}
+.atmosphere-option.hold-button {
+  display: inline-grid;
+  height: auto;
+  min-height: 92px;
+  padding: 14px;
+  background: var(--hb-bg);
+  color: var(--hb-text);
+}
+.atmosphere-option.hold-button .hold-button__label {
+  width: 100%;
+}
+.atmosphere-option.hold-button .hold-button__label > span {
+  width: 100%;
+  white-space: normal;
+  text-align: left;
+  gap: 10px;
+}
+.atmosphere-option.hold-button .hold-button__label strong {
+  line-height: 1.4;
+}
+.atmosphere-option.hold-button .hold-button__label--fill small {
+  color: inherit;
+}
+.atmosphere-option.hold-button .hold-theme-hint {
+  font-size: 11px;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+.atmosphere-option.hold-button:disabled {
+  opacity: 1;
+}
+.atmosphere-picker.compact {
+  border-radius: 18px;
+}
+.compact .atmosphere-option.hold-button {
+  min-height: 48px;
+  padding: 5px 8px;
+  border-radius: 14px;
+}
+.compact .atmosphere-option.hold-button .hold-button__label > span {
+  justify-content: center;
+  gap: 6px;
+}
+.compact .atmosphere-option.hold-button .hold-theme-hint {
+  font-size: 9px;
+  line-height: 1.2;
+  margin-top: 3px;
+}
+html[data-interaction='keyboard'] .hold-button {
+  transform: none !important;
+  transition: none !important;
+}
+html[data-interaction='keyboard'] .hold-button__crest {
+  display: none;
+}
+html[data-interaction='keyboard'] .hold-button__pulse {
+  animation: none;
+}
+html[data-interaction='keyboard'] .hold-button__fill {
+  clip-path: inset(0);
+  opacity: 0;
+}
+html[data-interaction='keyboard'] .hold-button[data-phase='done'] .hold-button__fill {
+  opacity: 1;
+}
+html[data-interaction='keyboard'] .hold-button__label > span {
+  filter: none;
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hold-button,
+  .hold-button__label > span {
+    transition: none !important;
+  }
+}
 :root {
   --studio: #f0efeb;
   --planner-cover: #68758d;

@@ -59,7 +59,7 @@ test('approved participant can send another author’s plan to trash and restore
   await signIn(page);
   await select(page, SHARED_SPACE);
   await page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' }).click();
-  await page.getByRole('button', { name: '이 할 일 삭제', exact: true }).click();
+  await page.getByRole('button', { name: '이 할 일 삭제', exact: true }).click({ delay: 2150 });
   await page.getByRole('button', { name: '확인', exact: true }).click();
   await expect(page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' })).toHaveCount(0);
   await page.getByRole('button', { name: '설정', exact: true }).click();
