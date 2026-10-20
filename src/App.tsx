@@ -52,6 +52,7 @@ import WelcomeScreen from './WelcomeScreen';
 import { readEntryNavigation, saveEntryNavigation } from './entryNavigation';
 import SwipeRow from './SwipeRow';
 import LoadingStatus from './LoadingStatus';
+import PlannerClouds from './PlannerClouds';
 import SpringCheck, { SpringCheckLabel } from './SpringCheck';
 
 type View = 'home' | 'calendar' | 'stats' | 'settings';
@@ -564,7 +565,9 @@ export default function App() {
 
   const content = (
     <div className="app-shell">
-      <div className="scenery" aria-hidden="true" />
+      <div className="scenery" aria-hidden="true">
+        {view === 'home' && <PlannerClouds />}
+      </div>
       <button className="brand mobile-brand" aria-label="Dayly 홈" onClick={() => goView('home')}>
         Dayly<span className="brand-dot">.</span>
       </button>
