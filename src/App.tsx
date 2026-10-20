@@ -24,6 +24,8 @@ import {
   X,
   ChartNoAxesColumnIncreasing,
   Copy,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import {
   addDays,
@@ -46,6 +48,7 @@ import { TaskProgress, DayProgressRing } from './TaskProgress';
 import WorkspacePanel from './WorkspacePanel';
 import DetailRecord from './DetailRecord';
 import DataProtection from './DataProtection';
+import { AtmospherePicker, CompletionSparkles, StudyScene, useAtmosphere } from './Atmosphere';
 
 type View = 'home' | 'calendar' | 'stats' | 'settings';
 type ModalState = { kind: 'task'; item?: Task } | { kind: 'search' } | { kind: 'account' } | null;
@@ -132,6 +135,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export default function App() {
+  const [atmosphere, setAtmosphere] = useAtmosphere();
   const planner = usePlanner();
   const { data, isOwner, canWrite, busy, loading } = planner;
   const [view, setView] = useState<View>('home');
@@ -265,6 +269,12 @@ export default function App() {
   );
   const taskCard = (
     <section className="glass-card tasks-card" aria-labelledby="tasks-heading">
+      <CompletionSparkles
+        done={totalProgress.done}
+        total={totalProgress.total}
+        scope={`${date}:${planner.workspace?.id}:${tasks.map((task) => task.id).join(',')}`}
+        ready={!loading && Boolean(planner.session)}
+      />
       <div className="card-header">
         <h2 id="tasks-heading">
           <span className="section-icon">
@@ -478,6 +488,18 @@ export default function App() {
         </div>
       </aside>
       <header className="topbar">
+        <button
+          className="icon-button atmosphere-toggle"
+          aria-label={atmosphere === 'morning' ? '밤 공부로 전환' : '아침 창가로 전환'}
+          title={atmosphere === 'morning' ? '밤 공부로 전환' : '아침 창가로 전환'}
+          onClick={() => setAtmosphere(atmosphere === 'morning' ? 'night' : 'morning')}
+        >
+          {atmosphere === 'morning' ? (
+            <Moon size={20} strokeWidth={1.7} />
+          ) : (
+            <Sun size={20} strokeWidth={1.7} />
+          )}
+        </button>
         <button className="mode-chip" onClick={() => setView('settings')}>
           <span className={`status-dot ${planner.session ? 'online' : ''}`} />
           {planner.session ? (isOwner ? '내 공간' : '승인받은 공간') : '로그인 전'}
@@ -583,6 +605,9 @@ export default function App() {
               {taskCard}
             </div>
             <aside className="moment">
+              <span className="moment-label">
+                {atmosphere === 'morning' ? '햇살이 머무는 시간' : '고요히 깊어지는 시간'}
+              </span>
               <div className="live-clock" aria-label={`현재 시각 ${clock}`}>
                 {clock}
               </div>
@@ -592,6 +617,8 @@ export default function App() {
                 꾸준한 오늘이
                 <br />더 멀리 데려다 줄 거야.
               </blockquote>
+              <StudyScene />
+              <AtmospherePicker value={atmosphere} onChange={setAtmosphere} compact />
             </aside>
           </div>
         )}
@@ -694,6 +721,15 @@ export default function App() {
               <h1>나에게 맞는 공부 공간.</h1>
               <p className="page-description">기록을 보관하고, 함께 공부할 사람을 관리해요.</p>
             </div>
+            <section className="glass-card settings-card atmosphere-settings">
+              <h2>
+                <Sun size={19} />
+                공부 공간의 분위기
+              </h2>
+              <p className="setting-description">오늘의 공부에 어울리는 빛을 골라 보세요.</p>
+              <AtmospherePicker value={atmosphere} onChange={setAtmosphere} />
+              <p className="atmosphere-note">이 브라우저에 선택한 분위기를 기억해요.</p>
+            </section>
             <section className="glass-card settings-card">
               <h2>
                 <UserRound size={19} />

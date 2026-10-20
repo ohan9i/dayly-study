@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#d4eaff" />
+    <script>
+      try {
+        const theme = localStorage.getItem('dayly.atmosphere') === 'night' ? 'night' : 'morning';
+        document.documentElement.dataset.atmosphere = theme;
+        document.documentElement.style.colorScheme = theme === 'night' ? 'dark' : 'light';
+        document.querySelector('meta[name="theme-color"]').content =
+          theme === 'night' ? '#132638' : '#d4eaff';
+      } catch {}
+    </script>
     <meta
       name="description"
       content="맑은 하루, 차곡차곡 쌓이는 공부. 과목별 할 일과 완료 현황을 관리하는 Dayly."
