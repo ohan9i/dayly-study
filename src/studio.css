@@ -1,4 +1,7 @@
 /* Shared studio and reading surfaces. Keep text and input boundaries crisp. */
+.home-layout[hidden] {
+  display: none;
+}
 :root {
   --studio: #f0efeb;
   --planner-cover: #68758d;

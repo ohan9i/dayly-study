@@ -51,6 +51,7 @@ import DataProtection from './DataProtection';
 import { AtmospherePicker, CompletionSparkles, useAtmosphere } from './Atmosphere';
 import WelcomeScreen from './WelcomeScreen';
 import { readEntryNavigation, saveEntryNavigation } from './entryNavigation';
+import { usePaperNavigation } from './usePaperNavigation';
 
 type View = 'home' | 'calendar' | 'stats' | 'settings';
 type ModalState = { kind: 'task'; item?: Task } | { kind: 'search' } | { kind: 'account' } | null;
@@ -142,6 +143,8 @@ export default function App() {
   const { data, isOwner, canWrite, busy, loading } = planner;
   const [view, setView] = useState<View>(() => readEntryNavigation().view || 'home');
   const [date, setDate] = useState(() => readEntryNavigation().date || todayKey());
+  const paper = useRef<HTMLElement>(null);
+  const { navigate, overlay: paperOverlay } = usePaperNavigation(view === 'home', paper);
   const [month, setMonth] = useState(
     () => readEntryNavigation().month || todayKey().slice(0, 7) + '-01',
   );
@@ -210,10 +213,20 @@ export default function App() {
     }
   };
   const goDate = (next: string) => {
-    setDate(next);
-    setView('home');
-    setModal(null);
+    navigate(
+      () => {
+        setDate(next);
+        setView('home');
+        setModal(null);
+      },
+      date !== next || view !== 'home' || modal !== null,
+    );
   };
+  const goView = (next: View) =>
+    navigate(() => {
+      setView(next);
+      if (next === 'calendar') setMonth(date.slice(0, 7) + '-01');
+    }, next !== view);
   const requestDelete = (item: Task) =>
     setConfirmation({
       title: '할 일을 휴지통으로 보낼까요?',
@@ -249,33 +262,33 @@ export default function App() {
             }
           }}
           onChange={(e) => {
-            if (e.target.value) setDate(e.target.value);
+            if (e.target.value) goDate(e.target.value);
           }}
         />
       </label>
       <button
         className="icon-button"
         aria-label="이전 날짜"
-        onClick={() => setDate(addDays(date, -1))}
+        onClick={() => goDate(addDays(date, -1))}
       >
         <ChevronLeft size={18} />
       </button>
       <button
         className="icon-button"
         aria-label="다음 날짜"
-        onClick={() => setDate(addDays(date, 1))}
+        onClick={() => goDate(addDays(date, 1))}
       >
         <ChevronRight size={18} />
       </button>
       {date !== today && (
-        <button className="text-button" onClick={() => setDate(today)}>
+        <button className="text-button" onClick={() => goDate(today)}>
           오늘
         </button>
       )}
     </div>
   );
   const taskCard = (
-    <section className="glass-card tasks-card" aria-labelledby="tasks-heading">
+    <section ref={paper} className="glass-card tasks-card" aria-labelledby="tasks-heading">
       <CompletionSparkles
         done={totalProgress.done}
         total={totalProgress.total}
@@ -459,12 +472,13 @@ export default function App() {
 
   const content = (
     <div className="app-shell">
+      {paperOverlay}
       <div className="scenery" aria-hidden="true" />
-      <button className="brand mobile-brand" aria-label="Dayly 홈" onClick={() => setView('home')}>
+      <button className="brand mobile-brand" aria-label="Dayly 홈" onClick={() => goView('home')}>
         Dayly<span className="brand-dot">.</span>
       </button>
       <aside className="sidebar">
-        <button className="brand" aria-label="Dayly 홈" onClick={() => setView('home')}>
+        <button className="brand" aria-label="Dayly 홈" onClick={() => goView('home')}>
           Dayly<span className="brand-dot">.</span>
         </button>
         <nav aria-label="주 메뉴" data-active={view}>
@@ -475,10 +489,7 @@ export default function App() {
               aria-current={view === id ? 'page' : undefined}
               aria-label={label}
               title={label}
-              onClick={() => {
-                setView(id);
-                if (id === 'calendar') setMonth(date.slice(0, 7) + '-01');
-              }}
+              onClick={() => goView(id)}
             >
               <Icon size={25} strokeWidth={1.7} />
               <span>{label}</span>
@@ -507,7 +518,7 @@ export default function App() {
             <Sun size={20} strokeWidth={1.7} />
           )}
         </button>
-        <button className="mode-chip" onClick={() => setView('settings')}>
+        <button className="mode-chip" onClick={() => goView('settings')}>
           <span className={`status-dot ${planner.session ? 'online' : ''}`} />
           {planner.session ? (isOwner ? '내 공간' : '승인받은 공간') : '로그인 전'}
         </button>
@@ -590,35 +601,33 @@ export default function App() {
         {planner.session && planner.workspace && view !== 'settings' && (
           <WorkspacePanel planner={planner} compact />
         )}
-        {view === 'home' && (
-          <div className="home-layout">
-            <div className="daily-column">
-              <div className="page-heading">
-                {dateNav}
-                <h1 id="planner" tabIndex={-1}>
-                  {displayName
-                    ? `${displayName}님의 계획`
-                    : date === today
-                      ? '오늘의 계획'
-                      : '하루의 계획'}
-                </h1>
-              </div>
-              {taskCard}
+        <div className="home-layout" hidden={view !== 'home'} inert={view !== 'home'}>
+          <div className="daily-column">
+            <div className="page-heading">
+              {dateNav}
+              <h1 id={view === 'home' ? 'planner' : undefined} tabIndex={-1}>
+                {displayName
+                  ? `${displayName}님의 계획`
+                  : date === today
+                    ? '오늘의 계획'
+                    : '하루의 계획'}
+              </h1>
             </div>
-            <aside className="moment planner-moment" aria-label="시계와 공부 공간 분위기">
-              <span className="moment-label">SEOUL / KST</span>
-              <time
-                className="live-clock"
-                dateTime={now.toISOString()}
-                aria-label={`현재 시각 ${clock}`}
-              >
-                {clock}
-              </time>
-              <p>{formatDate(today, true)}</p>
-              <AtmospherePicker value={atmosphere} onChange={setAtmosphere} compact />
-            </aside>
+            {taskCard}
           </div>
-        )}
+          <aside className="moment planner-moment" aria-label="시계와 공부 공간 분위기">
+            <span className="moment-label">SEOUL / KST</span>
+            <time
+              className="live-clock"
+              dateTime={now.toISOString()}
+              aria-label={`현재 시각 ${clock}`}
+            >
+              {clock}
+            </time>
+            <p>{formatDate(today, true)}</p>
+            <AtmospherePicker value={atmosphere} onChange={setAtmosphere} compact />
+          </aside>
+        </div>
         {view === 'calendar' && (
           <div className="wide-page">
             <div className="page-heading">

@@ -1,0 +1,16 @@
+.planner-paper-transition {
+  position: fixed;
+  z-index: 18;
+  pointer-events: none;
+  contain: layout paint style;
+}
+.planner-paper-transition .paper-crumple-hit,
+.planner-paper-transition .paper-crumple-focus,
+.planner-paper-transition .paper-crumple-sr {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .planner-paper-transition {
+    display: none;
+  }
+}
