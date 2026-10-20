@@ -3,7 +3,7 @@ import { mockCloud, signIn, PNG } from './cloud-fixture';
 
 test('approved member can recover a deleted plan with its original file', async ({ page }) => {
   const cloud = await mockCloud(page, { approved: true });
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await page.getByRole('button', { name: '할 일 추가', exact: true }).click();
   await page.getByLabel('할 일', { exact: true }).fill('영구 보존 계획');
@@ -43,7 +43,7 @@ test('missing or disabled server protection is clearly reported', async ({ page 
       body: JSON.stringify({ code: 'PGRST202' }),
     }),
   );
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await page.getByRole('button', { name: '설정', exact: true }).click();
   await expect(page.locator('.retention-status')).toContainText(
@@ -73,7 +73,7 @@ test('backup status only reports a confirmed upload and revoked history access i
       body: JSON.stringify({ last_completed_at: new Date().toISOString() }),
     }),
   );
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await page.getByRole('button', { name: '설정', exact: true }).click();
   await expect(page.locator('.backup-status')).toContainText('마지막 백업 성공:');

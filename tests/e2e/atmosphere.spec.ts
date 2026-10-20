@@ -14,7 +14,7 @@ async function setup(page: Page) {
     details: ['철근콘크리트 보의 휨 설계'],
   };
   await mockCloud(page, { tasks: [{ ...task, details: encodeTaskProgress(task, new Set()) }] });
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await page.evaluate(() => document.fonts.ready);
 }
@@ -94,7 +94,7 @@ test('theme persists, synchronizes across tabs and preserves a draft in an open 
   await page.getByLabel('세부 항목 1', { exact: true }).fill('처짐 계산 복습');
   const other = await context.newPage();
   await mockCloud(other);
-  await other.goto('/');
+  await other.goto('/#planner');
   await other.getByRole('button', { name: '아침 창가로 전환', exact: true }).click();
   await expect(page.locator('html')).toHaveAttribute('data-atmosphere', 'morning');
   await expect(page.getByLabel('할 일', { exact: true })).toHaveValue(
@@ -138,7 +138,7 @@ for (const [width, height] of [
       expect(buttons[i].height).toBeGreaterThanOrEqual(36);
       if (i) expect(buttons[i].left).toBeGreaterThanOrEqual(buttons[i - 1].right);
     }
-    await expect(page.locator('.study-scene'))[width <= 1000 ? 'toBeHidden' : 'toBeVisible']();
+    await expect(page.locator('.study-scene, .moment')).toHaveCount(0);
     await capture('home');
     await contrast(
       page,
@@ -148,8 +148,6 @@ for (const [width, height] of [
         '.detail-row-title',
         '.save-note',
         '.live-clock',
-        '.moment > p',
-        '.moment blockquote',
       ],
       `.local/atmosphere/night-${width}-contrast.json`,
     );
@@ -172,9 +170,8 @@ for (const [width, height] of [
       await contrast(
         page,
         [
-          '.moment-label',
-          '.compact .atmosphere-option[aria-pressed="true"] strong',
-          '.compact .atmosphere-option[aria-pressed="false"] strong',
+          '.date-display',
+          '.live-clock',
         ],
         `.local/atmosphere/morning-${width}-controls-contrast.json`,
       );
@@ -219,7 +216,7 @@ test('reduced motion and keyboard changes are immediate; blocked storage still a
       return original.call(this, key, value);
     };
   });
-  await page.goto('/');
+  await page.goto('/#planner');
   await page.getByRole('button', { name: '밤 공부로 전환', exact: true }).click();
   await expect(page.locator('html')).toHaveAttribute('data-atmosphere', 'night');
   expect(

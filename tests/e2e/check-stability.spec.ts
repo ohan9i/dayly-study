@@ -67,7 +67,7 @@ for (const width of [1440, 390]) {
         },
       ],
     });
-    await page.goto('/');
+    await page.goto('/#planner');
     await signIn(page);
     await page.getByRole('button', { name: '할 일 추가', exact: true }).click();
     await page.getByLabel('할 일', { exact: true }).fill('안정적인 체크');

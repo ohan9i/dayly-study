@@ -25,7 +25,7 @@ for (const [width, height] of [
       ],
     };
     await mockCloud(page, { tasks: [{ ...task, details: encodeTaskProgress(task, new Set()) }] });
-    await page.goto('/');
+    await page.goto('/#planner');
     await signIn(page);
     await page.evaluate(() => document.fonts.ready);
     mkdirSync('.local/usability', { recursive: true });
@@ -61,7 +61,6 @@ for (const [width, height] of [
             '.view-home h1',
             '.tasks-card',
             '.live-clock',
-            '.moment',
             '.task-details .detail-checkbox',
             '.detail-row-title',
           ];
@@ -108,9 +107,7 @@ for (const [width, height] of [
           '.task-title',
           '.detail-row-title',
           '.save-note',
-          '.moment .live-clock',
-          '.moment > p',
-          '.moment blockquote',
+          '.live-clock',
         ].map((selector) => {
           const el = document.querySelector<HTMLElement>(selector)!;
           const rect = el.getBoundingClientRect(),
@@ -118,7 +115,7 @@ for (const [width, height] of [
           const data = {
             selector,
             x: rect.x,
-            y: rect.y,
+            y: rect.y + scrollY,
             width: rect.width,
             height: rect.height,
             color: style.color,

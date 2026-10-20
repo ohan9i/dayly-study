@@ -47,7 +47,7 @@ test('remaining counts follow shared checks, undo, whole-plan completion and bar
       details: encodeTaskProgress(task, new Set()),
     })),
   });
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await page.getByLabel('사용 공간 선택').selectOption(SHARED_SPACE);
   await page.getByRole('button', { name: '달력', exact: true }).click();

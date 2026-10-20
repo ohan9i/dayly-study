@@ -8,8 +8,8 @@ test('detail items persist; search, calendar and statistics show main task compl
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await mockCloud(page);
-  await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('오늘도 좋은 하루');
+  await page.goto('/#planner');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('오늘의 계획');
   await expect(page.getByRole('button', { name: '공부 기록', exact: true })).toHaveCount(0);
   await expect(page.getByText('오늘의 공부 기록', { exact: true })).toHaveCount(0);
   await page.evaluate(() => document.fonts.ready);
@@ -67,7 +67,7 @@ test('login errors, signup and reset requests keep editing locked; logout locks 
   page,
 }) => {
   const cloud = await mockCloud(page);
-  await page.goto('/');
+  await page.goto('/#planner');
   await expect(page.getByRole('checkbox').first()).toBeDisabled();
   await page.getByRole('button', { name: '할 일 추가', exact: true }).click();
   await page.getByLabel('이메일', { exact: true }).fill(TEST_EMAIL);
@@ -107,7 +107,7 @@ test('mobile layout has no horizontal overflow and navigation and dialogs remain
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockCloud(page);
-  await page.goto('/');
+  await page.goto('/#planner');
   await page.evaluate(() => document.fonts.ready);
   await page.screenshot({ path: '.local/preview-mobile.png', fullPage: true });
   await signIn(page);
@@ -156,6 +156,8 @@ test('a password recovery link opens the new-password form and completes recover
   await page.getByLabel('비밀번호 확인', { exact: true }).fill('new-study-pass-2026');
   await page.getByRole('button', { name: '새 비밀번호 저장' }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
+  await expect(page.locator('.entry-flow')).toHaveAttribute('data-intro', 'false');
+  expect(await page.evaluate(() => history.state?.daylyEntry?.intro)).toBe(false);
   await expect(page.getByText('여백이 있는 하루', { exact: true })).toBeVisible();
   expect(
     cloud.requests.some(

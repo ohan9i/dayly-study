@@ -13,7 +13,7 @@ const retainedTask = {
 
 test('ordinary logout only revokes the current device session', async ({ page }) => {
   await mockCloud(page);
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await page.getByRole('button', { name: '내 계정', exact: true }).click();
   const logout = page.waitForRequest(
@@ -41,7 +41,7 @@ test('failed auxiliary read preserves plans, blocks record operations, and recov
     await route.fallback();
   });
   await page.clock.install();
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await expect(page.getByRole('alert')).toContainText('수행 기록을 불러오지 못했어요');
   await page.getByRole('checkbox', { name: '보존된 구조역학 계획 완료', exact: true }).click();
@@ -73,7 +73,7 @@ test('failed initial core read recovers through the bounded retry timer', async 
     await route.fallback();
   });
   await page.clock.install();
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await expect(page.getByText('내 공간을 아직 불러오지 못했어요.', { exact: true })).toBeVisible();
   denied = false;
@@ -87,7 +87,7 @@ test('unavailable shared space is cleared and explained even when fallback loadi
 }) => {
   const cloud = await mockCloud(page, { approved: true });
   await page.clock.install();
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await page.getByLabel('사용 공간 선택').selectOption(SHARED_SPACE);
   await expect(page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' })).toBeVisible();
@@ -126,7 +126,7 @@ test('automatic initialization retries stop after three attempts while manual re
     });
   });
   await page.clock.install();
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   for (let i = 0; i < 3; i++) {
     await page.clock.runFor(10000);

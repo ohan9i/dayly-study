@@ -48,7 +48,9 @@ import { TaskProgress, DayProgressRing } from './TaskProgress';
 import WorkspacePanel from './WorkspacePanel';
 import DetailRecord from './DetailRecord';
 import DataProtection from './DataProtection';
-import { AtmospherePicker, CompletionSparkles, StudyScene, useAtmosphere } from './Atmosphere';
+import { AtmospherePicker, CompletionSparkles, useAtmosphere } from './Atmosphere';
+import WelcomeScreen from './WelcomeScreen';
+import { readEntryNavigation, saveEntryNavigation } from './entryNavigation';
 
 type View = 'home' | 'calendar' | 'stats' | 'settings';
 type ModalState = { kind: 'task'; item?: Task } | { kind: 'search' } | { kind: 'account' } | null;
@@ -138,9 +140,14 @@ export default function App() {
   const [atmosphere, setAtmosphere] = useAtmosphere();
   const planner = usePlanner();
   const { data, isOwner, canWrite, busy, loading } = planner;
-  const [view, setView] = useState<View>('home');
-  const [date, setDate] = useState(todayKey);
-  const [month, setMonth] = useState(() => todayKey().slice(0, 7) + '-01');
+  const [view, setView] = useState<View>(() => readEntryNavigation().view || 'home');
+  const [date, setDate] = useState(() => readEntryNavigation().date || todayKey());
+  const [month, setMonth] = useState(
+    () => readEntryNavigation().month || todayKey().slice(0, 7) + '-01',
+  );
+  useEffect(() => {
+    saveEntryNavigation({ view, date, month, scroll: window.scrollY });
+  }, [view, date, month]);
   const [now, setNow] = useState(new Date());
   const [modal, setModal] = useState<ModalState>(null);
   const [openRecords, setOpenRecords] = useState<Set<string>>(() => new Set());
@@ -246,6 +253,9 @@ export default function App() {
           }}
         />
       </label>
+      <time className="live-clock" aria-label={`현재 시각 ${clock}`}>
+        {clock}
+      </time>
       <button
         className="icon-button"
         aria-label="이전 날짜"
@@ -450,7 +460,7 @@ export default function App() {
     </section>
   );
 
-  return (
+  const content = (
     <div className="app-shell">
       <div className="scenery" aria-hidden="true" />
       <button className="brand mobile-brand" aria-label="Dayly 홈" onClick={() => setView('home')}>
@@ -588,45 +598,25 @@ export default function App() {
             <div className="daily-column">
               <div className="page-heading">
                 {dateNav}
-                <h1>
-                  {date === today ? (
-                    <>
-                      {displayName && <span className="name-line">{displayName}님,</span>}오늘도
-                      좋은 하루가 될 거예요.
-                    </>
-                  ) : (
-                    '차곡차곡, 하루를 돌아봐요.'
-                  )}
+                <h1 id="planner" tabIndex={-1}>
+                  {displayName
+                    ? `${displayName}님의 계획`
+                    : date === today
+                      ? '오늘의 계획'
+                      : '하루의 계획'}
                 </h1>
-                <div className="heading-subrow">
-                  <p>작은 공부가 모여, 나의 내일이 되니까.</p>
-                </div>
               </div>
               {taskCard}
             </div>
-            <aside className="moment">
-              <span className="moment-label">
-                {atmosphere === 'morning' ? '햇살이 머무는 시간' : '고요히 깊어지는 시간'}
-              </span>
-              <div className="live-clock" aria-label={`현재 시각 ${clock}`}>
-                {clock}
-              </div>
-              <p>{formatDate(today, true)}</p>
-              <div className="quote-divider" />
-              <blockquote>
-                꾸준한 오늘이
-                <br />더 멀리 데려다 줄 거야.
-              </blockquote>
-              <StudyScene />
-              <AtmospherePicker value={atmosphere} onChange={setAtmosphere} compact />
-            </aside>
           </div>
         )}
         {view === 'calendar' && (
           <div className="wide-page">
             <div className="page-heading">
               <p className="eyebrow">MY DAYS</p>
-              <h1>하루하루, 쌓이는 나의 기록.</h1>
+              <h1 id="planner" tabIndex={-1}>
+                하루하루, 쌓이는 나의 기록.
+              </h1>
               <p className="page-description">날짜를 누르면 그날의 할 일을 볼 수 있어요.</p>
             </div>
             <section className="glass-card calendar-card">
@@ -703,7 +693,9 @@ export default function App() {
           <div className="wide-page">
             <div className="page-heading">
               <p className="eyebrow">YOUR LITTLE PROGRESS</p>
-              <h1>꾸준함이 보여요.</h1>
+              <h1 id="planner" tabIndex={-1}>
+                꾸준함이 보여요.
+              </h1>
               <p className="page-description">작은 계획을 얼마나 꾸준히 실천했는지 살펴봐요.</p>
             </div>
             <div className="section-toolbar">{dateNav}</div>
@@ -718,7 +710,9 @@ export default function App() {
           <div className="wide-page settings-page">
             <div className="page-heading">
               <p className="eyebrow">MAKE IT YOURS</p>
-              <h1>나에게 맞는 공부 공간.</h1>
+              <h1 id="planner" tabIndex={-1}>
+                나에게 맞는 공부 공간.
+              </h1>
               <p className="page-description">기록을 보관하고, 함께 공부할 사람을 관리해요.</p>
             </div>
             <section className="glass-card settings-card atmosphere-settings">
@@ -1066,6 +1060,7 @@ export default function App() {
       )}
     </div>
   );
+  return <WelcomeScreen bypass={planner.passwordRecovery}>{content}</WelcomeScreen>;
 }
 
 function MemberForm({

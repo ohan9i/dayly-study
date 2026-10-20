@@ -28,7 +28,7 @@ test('title-only, one item and multiple items support ordered editing, empty fil
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   const cloud = await mockCloud(page);
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await open(page, '제목만 있는 계획');
   await save(page);
@@ -120,7 +120,7 @@ test('Korean composition Enter does not insert a row or submit; normal Enter res
   page,
 }) => {
   const cloud = await mockCloud(page);
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await open(page);
   const input = field(page, 1);
@@ -179,7 +179,7 @@ test('legacy local memo and cloud string notes survive migration, editing and re
       { ...legacy, workspace_id: OWN_SPACE, details: '순열 복습\n\n 오답 정리', memo: undefined },
     ],
   });
-  await page.goto('/');
+  await page.goto('/#planner');
   await expect(page.locator('.task-details .detail-row-title')).toHaveText(['문제집 30페이지까지']);
   await expect(page.getByRole('checkbox', { name: '기존 수학 계획 완료' })).toHaveAttribute(
     'aria-checked',
@@ -208,7 +208,7 @@ test('the existing text-only database stores a structured array and preserves it
   page,
 }) => {
   const cloud = await mockCloud(page, { nativeDetails: false });
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await open(page);
   await field(page, 1).fill('순열 문제 10개');
@@ -249,7 +249,7 @@ test('permission errors keep the draft and never retry a different storage forma
       body: JSON.stringify({ code: '42501', message: 'permission denied for detail_items' }),
     });
   });
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await open(page);
   await field(page, 1).fill('저장 권한을 확인해도 유지할 초안');
@@ -263,7 +263,7 @@ for (const width of [390, 360]) {
   test(`detail inputs and delete buttons remain separate at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 });
     await mockCloud(page);
-    await page.goto('/');
+    await page.goto('/#planner');
     await signIn(page);
     await open(page, '수학 공부와 오답노트 정리');
     for (let index = 1; index <= 12; index++) {

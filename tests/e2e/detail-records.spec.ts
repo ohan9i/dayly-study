@@ -5,7 +5,7 @@ import { mockCloud, signIn, PNG } from './cloud-fixture';
 
 test('detail records stay inline, independent, and separate from progress', async ({ page }) => {
   await mockCloud(page);
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await page.getByRole('button', { name: '할 일 추가' }).click();
   await page.getByLabel('할 일', { exact: true }).fill('수학 공부');

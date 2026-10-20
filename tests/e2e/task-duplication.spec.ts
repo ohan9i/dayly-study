@@ -6,7 +6,7 @@ test('copy resets progress, leaves records/files and original untouched, and can
   page,
 }) => {
   const cloud = await mockCloud(page, { nativeDetails: false });
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await page.getByRole('button', { name: '할 일 추가', exact: true }).click();
   await page.getByLabel('할 일', { exact: true }).fill('원본 계획');
@@ -92,7 +92,7 @@ test('approved participant copies another author while content stays read-only',
   page,
 }) => {
   const cloud = await mockCloud(page, { approved: true });
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await page.getByLabel('사용 공간 선택').selectOption(SHARED_SPACE);
   await page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' }).click();
@@ -113,7 +113,7 @@ test('approved participant copies another author while content stays read-only',
 for (const stage of ['denied', 'missing-server-update'])
   test(`${stage} cannot leave a partial copy`, async ({ page }) => {
     const cloud = await mockCloud(page, { approved: true });
-    await page.goto('/');
+    await page.goto('/#planner');
     await signIn(page);
     await page.getByLabel('사용 공간 선택').selectOption(SHARED_SPACE);
     await page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' }).click();
@@ -143,7 +143,7 @@ for (const stage of ['denied', 'missing-server-update'])
 
 test('signed-out visitors have no copy action', async ({ page }) => {
   await mockCloud(page);
-  await page.goto('/');
+  await page.goto('/#planner');
   await page.getByRole('button', { name: '수학 공부 상세 보기' }).click();
   await expect(page.getByRole('button', { name: '이 계획 복제', exact: true })).toHaveCount(0);
 });
@@ -153,7 +153,7 @@ test('an unrelated completion read failure does not lock a server-authorized cop
 }) => {
   const cloud = await mockCloud(page, { approved: true });
   await page.clock.install();
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await page.getByLabel('사용 공간 선택').selectOption(SHARED_SPACE);
   await page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' }).click();

@@ -10,7 +10,7 @@ test('approved participant checks parent and subtask while content stays read-on
   page,
 }) => {
   await mockCloud(page, { approved: true });
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await select(page, SHARED_SPACE);
   const parent = page.getByRole('checkbox', { name: '공유한 구조역학 문제 완료', exact: true });
@@ -35,7 +35,7 @@ test('approved participant checks parent and subtask while content stays read-on
 
 test('approved participant moves another author’s plan between spaces', async ({ page }) => {
   const cloud = await mockCloud(page, { approved: true });
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await select(page, SHARED_SPACE);
   await page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' }).click();
@@ -55,7 +55,7 @@ test('approved participant can send another author’s plan to trash and restore
   page,
 }) => {
   await mockCloud(page, { approved: true });
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await select(page, SHARED_SPACE);
   await page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' }).click();
@@ -74,7 +74,7 @@ for (const width of [1440, 390])
   }) => {
     await page.setViewportSize({ width, height: 900 });
     const cloud = await mockCloud(page, { approved: true });
-    await page.goto('/');
+    await page.goto('/#planner');
     await signIn(page);
     await select(page, SHARED_SPACE);
     await page.getByRole('button', { name: '할 일 추가', exact: true }).click();
@@ -138,7 +138,7 @@ test('remote checks synchronize without resetting draft focus; stale form save r
     ],
   });
   await page.clock.install();
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await page.getByRole('button', { name: '함께 체크 상세 보기', exact: true }).click();
   const draft = page.getByLabel('세부 항목 1', { exact: true });
@@ -169,7 +169,7 @@ test('a new empty space keeps its draft without full reloads, and revoked member
 }) => {
   const cloud = await mockCloud(page, { approved: true, emptyActivity: true });
   await page.clock.install();
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await page.getByRole('button', { name: '할 일 추가', exact: true }).click();
   const draft = page.getByLabel('할 일', { exact: true });
@@ -209,7 +209,7 @@ test('a remote change during manual refresh cannot leave the page permanently lo
     ],
   });
   await page.clock.install();
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   let release!: () => void;
   const pending = new Promise<void>((resolve) => {

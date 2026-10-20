@@ -31,7 +31,7 @@ test('partial checks, parent completion and the weighted day ring update immedia
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await mockCloud(page, { nativeDetails: false });
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await create(page, '수학 공부', ['확률 문제 20문제', '오답 정리', '개념 복습', '연습문제']);
   await create(page, '책 읽기', []);
@@ -99,7 +99,7 @@ test('duplicate texts have independent checks and edit/remove keeps completion w
   page,
 }) => {
   await mockCloud(page);
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await create(page, '복습', ['같은 내용', '같은 내용']);
   await check(page, 2, '복습');
@@ -133,7 +133,7 @@ test('failed progress saves roll back the optimistic checkbox and all aggregate 
   page,
 }) => {
   await mockCloud(page);
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await create(page, '수학 공부', ['확률', '오답']);
   await page.route('https://*.supabase.co/rest/v1/rpc/set_task_completion', async (route) => {
@@ -160,7 +160,7 @@ for (const width of [1440, 1280, 800, 390, 360]) {
   }) => {
     await page.setViewportSize({ width, height: width >= 800 ? 900 : 844 });
     await mockCloud(page);
-    await page.goto('/');
+    await page.goto('/#planner');
     await signIn(page);
     await create(page, '수학 공부', [
       '확률 문제를 풀이하고 오답노트에 풀이 과정을 정리하기',

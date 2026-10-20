@@ -8,7 +8,7 @@ test('task files and compact performance notes survive reload, preview, download
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   const cloud = await mockCloud(page);
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await page.getByRole('button', { name: '할 일 추가', exact: true }).click();
   await page.getByLabel('할 일', { exact: true }).fill('보의 휨 설계 수행');
@@ -66,7 +66,7 @@ test('failed uploads retain the queue and retry without duplicating the task or 
   page,
 }) => {
   const cloud = await mockCloud(page);
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await page.getByRole('button', { name: '할 일 추가', exact: true }).click();
   await page.getByLabel('할 일', { exact: true }).fill('업로드 재시도');
@@ -112,7 +112,7 @@ test('a newly registered member gets a private space and can add notes in approv
   page,
 }) => {
   const cloud = await mockCloud(page, { approved: true, startWithoutOwnSpace: true });
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await expect(page.getByLabel('사용 공간 선택')).toHaveValue(OWN_SPACE);
   await expect(page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' })).toHaveCount(0);
@@ -151,7 +151,7 @@ test('mobile detail stays compact and rejects oversized, unsupported and too man
 }) => {
   await page.setViewportSize({ width: 320, height: 844 });
   await mockCloud(page);
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await page.getByRole('button', { name: '할 일 추가', exact: true }).click();
   await page.getByLabel('파일 첨부', { exact: true }).setInputFiles({
@@ -210,7 +210,7 @@ test('mobile detail stays compact and rejects oversized, unsupported and too man
 
 test('a lost ready response never removes an already saved original', async ({ page }) => {
   const cloud = await mockCloud(page);
-  await page.goto('/');
+  await page.goto('/#planner');
   await signIn(page);
   await page.getByRole('button', { name: '할 일 추가', exact: true }).click();
   await page.getByLabel('할 일', { exact: true }).fill('응답 유실에도 보존');

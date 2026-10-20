@@ -34,7 +34,7 @@ for (const width of [1536, 390]) {
     page.on('pageerror', (error) => errors.push(error.message));
     const cloud = await mockCloud(page);
     await page.clock.install();
-    await page.goto('./');
+    await page.goto('./#planner');
     await signIn(page);
     const reads = () =>
       cloud.requests.filter(
