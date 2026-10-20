@@ -363,7 +363,7 @@ const HoldButton: React.FC<HoldButtonProps> = ({
         {Math.round(holdTime / 100) / 10}초 동안 길게 눌러 실행합니다. 손을 떼거나 Escape를 누르면
         취소합니다.
       </span>
-      <span className="hold-button__sr" role="status">
+      <span className="hold-button__sr" aria-live="polite" aria-atomic="true">
         {phase === 'done' ? doneLabel : ''}
       </span>
     </button>

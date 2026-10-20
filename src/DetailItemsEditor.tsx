@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { Check, Plus, X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { progressPercent, type DetailCheck } from './domain';
 import { TaskProgress } from './TaskProgress';
+import SpringCheck from './SpringCheck';
 
 type Row = { id: string; text: string; completed: boolean };
 const makeRow = (text = ''): Row => ({ id: crypto.randomUUID(), text, completed: false });
@@ -111,17 +112,16 @@ export default function DetailItemsEditor({
             className={`detail-input-row ${row.completed ? 'detail-is-complete' : ''}`}
             key={row.id}
           >
-            <button
+            <SpringCheck
               className="detail-checkbox"
-              type="button"
-              role="checkbox"
-              aria-label={`세부 항목 ${index + 1} 완료`}
-              aria-checked={row.completed}
+              ariaLabel={`세부 항목 ${index + 1} 완료`}
+              checked={row.completed}
+              color="var(--text)"
+              boxSize={24}
+              boxRadius={8}
               disabled={!canCheck || !row.text.trim()}
-              onClick={() => void toggle(row)}
-            >
-              {row.completed && <Check size={11} />}
-            </button>
+              onChange={() => void toggle(row)}
+            />
             <input type="hidden" name="detailId" value={row.id} />
             <input type="hidden" name="detailComplete" value={String(row.completed)} />
             <input

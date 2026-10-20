@@ -2,6 +2,96 @@
 .home-layout[hidden] {
   display: none;
 }
+/* Spring checks keep title links and record buttons as independent actions. */
+.spring-check.task-checkbox,
+.spring-check.detail-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+  min-height: 44px;
+  background: transparent;
+}
+.spring-check.task-checkbox {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+}
+.spring-check.detail-checkbox {
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  flex: 0 0 32px;
+}
+.detail-input-row .spring-check.detail-checkbox {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  flex-basis: 44px;
+}
+.spring-check.task-checkbox::before,
+.spring-check.detail-checkbox::before {
+  content: none;
+}
+.spring-check.task-checkbox:disabled,
+.spring-check.detail-checkbox:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.spring-check .spring-check__tick {
+  width: 68%;
+  height: 68%;
+  stroke: var(--sc-check);
+  stroke-width: 2.6;
+  animation: none;
+}
+.spring-check .spring-check__ring {
+  opacity: 0.65;
+}
+.spring-check .spring-check__box {
+  outline: 1px solid var(--control-border);
+}
+.task-row .task-title:has(.spring-check__label),
+.detail-row-main .detail-row-title:has(.spring-check__label) {
+  color: var(--text);
+  text-decoration: none;
+}
+.task-title .spring-check__label {
+  font-size: 18px;
+  line-height: 1.6;
+}
+@media (max-width: 700px) {
+  .task-details .spring-check.detail-checkbox {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    flex-basis: 44px;
+  }
+  .detail-row-main .detail-row-title {
+    padding-top: 8px;
+  }
+}
+@media (max-width: 420px) {
+  .detail-row-main {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    row-gap: 0;
+  }
+  .detail-row-main > .detail-checkbox {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .detail-row-main > .detail-row-title {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .detail-row-main > .detail-record-toggle {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: end;
+  }
+}
 /* Hold actions retain the planner palette; purple is the intentional fill. */
 .hold-button .hold-button__label svg {
   color: inherit;

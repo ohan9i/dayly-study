@@ -53,6 +53,7 @@ import WelcomeScreen from './WelcomeScreen';
 import { readEntryNavigation, saveEntryNavigation } from './entryNavigation';
 import { usePaperNavigation } from './usePaperNavigation';
 import HoldButton from './HoldButton';
+import SpringCheck, { SpringCheckLabel } from './SpringCheck';
 
 type View = 'home' | 'calendar' | 'stats' | 'settings';
 type ModalState = { kind: 'task'; item?: Task } | { kind: 'search' } | { kind: 'account' } | null;
@@ -327,16 +328,18 @@ export default function App() {
         <ul className="task-list">
           {tasks.map((task) => (
             <li key={task.id} className={`task-row ${completed.has(task.id) ? 'is-complete' : ''}`}>
-              <button
+              <SpringCheck
                 className="task-checkbox"
-                role="checkbox"
-                aria-checked={completed.has(task.id)}
-                aria-label={`${task.title} 완료`}
+                checked={completed.has(task.id)}
+                ariaLabel={`${task.title} 완료`}
+                color="var(--text)"
+                boxSize={28}
+                boxRadius={9}
+                doneOpacity={0.72}
+                labelSelector=".task-title .spring-check__label"
                 disabled={!canWrite || busy}
-                onClick={() => void act(() => planner.toggleTask(task.id))}
-              >
-                {completed.has(task.id) && <Check size={18} strokeWidth={2.4} />}
-              </button>
+                onChange={() => void act(() => planner.toggleTask(task.id))}
+              />
               <div className="task-copy">
                 <div className="task-heading">
                   <button
@@ -344,7 +347,9 @@ export default function App() {
                     aria-label={`${task.title} 상세 보기`}
                     onClick={() => setModal({ kind: 'task', item: task })}
                   >
-                    {task.title}
+                    <SpringCheckLabel checked={completed.has(task.id)}>
+                      {task.title}
+                    </SpringCheckLabel>
                   </button>
                   {(data.attachments || []).filter(
                     (file) => file.task_id === task.id && file.state === 'ready',
@@ -380,19 +385,27 @@ export default function App() {
                           className={`${task.detailChecks?.[index]?.completed ? 'detail-is-complete' : ''} ${expanded ? 'detail-is-expanded' : ''}`}
                         >
                           <div className="detail-row-main">
-                            <button
+                            <SpringCheck
                               className="detail-checkbox"
-                              role="checkbox"
-                              aria-label={`${task.title} 세부 항목 ${index + 1} 완료`}
-                              aria-checked={Boolean(task.detailChecks?.[index]?.completed)}
+                              ariaLabel={`${task.title} 세부 항목 ${index + 1} 완료`}
+                              checked={Boolean(task.detailChecks?.[index]?.completed)}
+                              color="var(--text)"
+                              boxSize={20}
+                              boxRadius={6}
+                              doneOpacity={0.72}
+                              labelSelector=".detail-row-title .spring-check__label"
                               disabled={!canWrite || busy}
-                              onClick={() =>
+                              onChange={() =>
                                 void act(() => planner.toggleDetail(task.id, detailId))
                               }
-                            >
-                              {task.detailChecks?.[index]?.completed && <Check size={11} />}
-                            </button>
-                            <span className="detail-row-title">{detail}</span>
+                            />
+                            <span className="detail-row-title">
+                              <SpringCheckLabel
+                                checked={Boolean(task.detailChecks?.[index]?.completed)}
+                              >
+                                {detail}
+                              </SpringCheckLabel>
+                            </span>
                             <button
                               className="detail-record-toggle"
                               aria-label={`${detail} 기록 ${expanded ? '접기' : '열기'}`}

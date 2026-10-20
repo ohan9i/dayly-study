@@ -26,6 +26,8 @@ async function contrast(page: Page, selectors: string[], filename: string) {
         const el = document.querySelector<HTMLElement>(selector)!;
         const rect = el.getBoundingClientRect();
         const style = getComputedStyle(el);
+        const word = el.querySelector<HTMLElement>('.spring-check__word');
+        const rules = Array.from(el.querySelectorAll<HTMLElement>('.spring-check__rule'));
         const result = {
           selector,
           x: rect.x,
@@ -33,12 +35,17 @@ async function contrast(page: Page, selectors: string[], filename: string) {
           width: rect.width,
           height: rect.height,
           color: style.color,
+          opacity: word ? Number(getComputedStyle(word).opacity) : 1,
+          ruleVisibility: rules.map((rule) => rule.style.visibility),
           inline: el.style.cssText,
           minimum: parseFloat(style.fontSize) >= 24 ? 3 : 4.5,
         };
         el.style.color = 'transparent';
         el.style.textShadow = 'none';
         el.style.textDecorationColor = 'transparent';
+        rules.forEach((rule) => {
+          rule.style.visibility = 'hidden';
+        });
         return result;
       }),
     selectors,
@@ -50,7 +57,11 @@ async function contrast(page: Page, selectors: string[], filename: string) {
   await page.evaluate(
     (targets) =>
       targets.forEach((target) => {
-        document.querySelector<HTMLElement>(target.selector)!.style.cssText = target.inline;
+        const el = document.querySelector<HTMLElement>(target.selector)!;
+        el.style.cssText = target.inline;
+        el.querySelectorAll<HTMLElement>('.spring-check__rule').forEach((rule, index) => {
+          rule.style.visibility = target.ruleVisibility[index];
+        });
       }),
     targets,
   );
@@ -60,7 +71,7 @@ async function contrast(page: Page, selectors: string[], filename: string) {
       .map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))
       .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
   const values = targets.map((target) => {
-    const fg = luminance(target.color.match(/\d+/g)!.slice(0, 3).map(Number));
+    const ink = target.color.match(/\d+/g)!.slice(0, 3).map(Number);
     const samples: number[] = [];
     for (const x of [0.1, 0.3, 0.5, 0.7, 0.9])
       for (const y of [0.25, 0.5, 0.75]) {
@@ -68,7 +79,13 @@ async function contrast(page: Page, selectors: string[], filename: string) {
           (Math.floor(target.y + target.height * y) * pixels.info.width +
             Math.floor(target.x + target.width * x)) *
           3;
-        const bg = luminance([...pixels.data.subarray(offset, offset + 3)]);
+        const backdrop = [...pixels.data.subarray(offset, offset + 3)];
+        const bg = luminance(backdrop);
+        const fg = luminance(
+          ink.map(
+            (value, channel) => value * target.opacity + backdrop[channel] * (1 - target.opacity),
+          ),
+        );
         samples.push((Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05));
       }
     return { selector: target.selector, contrast: Math.min(...samples), minimum: target.minimum };
@@ -113,6 +130,9 @@ for (const [width, height] of [
     await page.setViewportSize({ width, height });
     await page.addInitScript(() => localStorage.setItem('dayly.atmosphere', 'night'));
     await setup(page);
+    const checked = page.getByRole('checkbox').first();
+    await checked.click();
+    await expect(checked).toBeEnabled();
     // Contrast samples must measure the reading surface, without the temporary login toast.
     await expect(page.locator('.toast.visible')).toHaveCount(0, { timeout: 6000 });
     mkdirSync('.local/atmosphere', { recursive: true });

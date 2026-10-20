@@ -91,6 +91,7 @@ export async function capturePaper(element: HTMLElement): Promise<PaperFrame> {
       'visibility',
       'appearance',
       'object-fit',
+      'clip-path',
       'content',
       'z-index',
     ],

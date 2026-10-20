@@ -112,6 +112,8 @@ for (const [width, height] of [
           const el = document.querySelector<HTMLElement>(selector)!;
           const rect = el.getBoundingClientRect(),
             style = getComputedStyle(el);
+          const word = el.querySelector<HTMLElement>('.spring-check__word');
+          const rules = Array.from(el.querySelectorAll<HTMLElement>('.spring-check__rule'));
           const data = {
             selector,
             x: rect.x,
@@ -119,6 +121,8 @@ for (const [width, height] of [
             width: rect.width,
             height: rect.height,
             color: style.color,
+            opacity: word ? Number(getComputedStyle(word).opacity) : 1,
+            ruleVisibility: rules.map((rule) => rule.style.visibility),
             minimum: parseFloat(style.fontSize) >= 24 ? 3 : 4.5,
             inlineColor: el.style.color,
             inlineTextShadow: el.style.textShadow,
@@ -127,6 +131,10 @@ for (const [width, height] of [
           el.style.color = 'transparent';
           el.style.textShadow = 'none';
           el.style.textDecorationColor = 'transparent';
+          // The strike is a separate visual layer, not part of the backdrop.
+          rules.forEach((rule) => {
+            rule.style.visibility = 'hidden';
+          });
           return data;
         });
       });
@@ -147,6 +155,9 @@ for (const [width, height] of [
             el.style.color = target.inlineColor;
             el.style.textShadow = target.inlineTextShadow;
             el.style.textDecorationColor = target.inlineDecorationColor;
+            el.querySelectorAll<HTMLElement>('.spring-check__rule').forEach((rule, index) => {
+              rule.style.visibility = target.ruleVisibility[index];
+            });
           }),
         targets,
       );
@@ -156,7 +167,7 @@ for (const [width, height] of [
           .map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))
           .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
       const contrasts = targets.map((target) => {
-        const foreground = luminance(target.color.match(/\d+/g)!.slice(0, 3).map(Number));
+        const ink = target.color.match(/\d+/g)!.slice(0, 3).map(Number);
         const samples: number[] = [];
         for (const fx of [0.1, 0.3, 0.5, 0.7, 0.9])
           for (const fy of [0.25, 0.5, 0.75]) {
@@ -164,7 +175,14 @@ for (const [width, height] of [
               (Math.floor(target.y + target.height * fy) * pixels.info.width +
                 Math.floor(target.x + target.width * fx)) *
               3;
-            const background = luminance([...pixels.data.subarray(index, index + 3)]);
+            const backdrop = [...pixels.data.subarray(index, index + 3)];
+            const background = luminance(backdrop);
+            const foreground = luminance(
+              ink.map(
+                (value, channel) =>
+                  value * target.opacity + backdrop[channel] * (1 - target.opacity),
+              ),
+            );
             samples.push(
               (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05),
             );
