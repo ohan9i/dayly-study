@@ -46,11 +46,15 @@ test('copy resets progress, leaves records/files and original untouched, and can
       await new Promise((resolve) => setTimeout(resolve, 400));
     await route.fallback();
   });
-  // Dispatch two submissions in one JS turn, before React has rendered disabled.
+  // A form submission cannot bypass the required hold.
   await page.locator('.task-duplicate-picker').evaluate((form: HTMLFormElement) => {
     form.requestSubmit();
     form.requestSubmit();
   });
+  expect(taskWrites() - writeCount).toBe(0);
+  await page.getByRole('button', { name: '계획 복제', exact: true }).click();
+  expect(taskWrites() - writeCount).toBe(0);
+  await page.getByRole('button', { name: '계획 복제', exact: true }).click({ delay: 2150 });
   await expect(page.getByRole('dialog')).not.toBeVisible();
   expect(cloud.tasks()).toHaveLength(2);
   expect(cloud.tasks()[0]).toEqual(before);
@@ -100,7 +104,7 @@ test('approved participant copies another author while content stays read-only',
   await expect(page.getByRole('button', { name: '다른 플래너로 이동', exact: true })).toBeEnabled();
   const source = structuredClone(cloud.tasks()[0]);
   await page.getByRole('button', { name: '이 계획 복제', exact: true }).click();
-  await page.getByRole('button', { name: '계획 복제', exact: true }).click();
+  await page.getByRole('button', { name: '계획 복제', exact: true }).click({ delay: 2150 });
   await expect(page.getByRole('dialog')).not.toBeVisible();
   expect(cloud.tasks()).toHaveLength(2);
   const copy = normalizeTask(cloud.tasks()[1]);
@@ -130,7 +134,7 @@ for (const stage of ['denied', 'missing-server-update'])
         }),
       });
     });
-    await page.getByRole('button', { name: '계획 복제', exact: true }).click();
+    await page.getByRole('button', { name: '계획 복제', exact: true }).click({ delay: 2150 });
     await expect(page.getByRole('dialog').getByRole('alert')).toContainText(
       stage === 'denied' ? '복제 권한' : '서버 업데이트',
     );
@@ -169,10 +173,11 @@ test('an unrelated completion read failure does not lock a server-authorized cop
   );
   cloud.externalCheck(cloud.tasks()[0].id, 0, true);
   await page.clock.runFor(6000);
+  await page.clock.resume();
   await expect(page.locator('.error-banner')).toContainText('접근 권한');
   await expect(page.getByRole('button', { name: '이 계획 복제', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: '이 계획 복제', exact: true }).click();
-  await page.getByRole('button', { name: '계획 복제', exact: true }).click();
+  await page.getByRole('button', { name: '계획 복제', exact: true }).click({ delay: 2150 });
   await expect(page.getByRole('dialog')).not.toBeVisible();
   expect(cloud.tasks()).toHaveLength(2);
   expect(cloud.tasks()[1].created_by).not.toBe(cloud.tasks()[0].created_by);

@@ -42,7 +42,7 @@ test('approved participant moves another author’s plan between spaces', async 
   await expect(page.getByLabel('할 일', { exact: true })).toHaveAttribute('readonly', '');
   await page.getByRole('button', { name: '다른 플래너로 이동', exact: true }).click();
   await page.getByLabel('이동할 공간').selectOption(OWN_SPACE);
-  await page.getByRole('button', { name: '이동', exact: true }).click();
+  await page.getByRole('button', { name: '이동', exact: true }).click({ delay: 2150 });
   await expect(page.getByRole('dialog')).not.toBeVisible();
   await expect(page.getByLabel('사용 공간 선택')).toHaveValue(OWN_SPACE);
   await expect(page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' })).toBeVisible();

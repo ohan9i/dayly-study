@@ -96,7 +96,6 @@
 .hold-button .hold-button__label svg {
   color: inherit;
 }
-.hold-button.atmosphere-toggle,
 .hold-button.attachment-trash-hold {
   display: inline-grid;
   width: 44px;
@@ -107,6 +106,7 @@
   color: var(--hb-text);
   border-radius: 14px;
 }
+.hold-button.task-action-hold,
 .hold-button.delete-button {
   min-height: 44px;
   padding: 0 16px;
@@ -114,54 +114,6 @@
   background: var(--hb-bg);
   color: var(--hb-text);
   font-size: 13px;
-}
-.atmosphere-option.hold-button {
-  display: inline-grid;
-  height: auto;
-  min-height: 92px;
-  padding: 14px;
-  background: var(--hb-bg);
-  color: var(--hb-text);
-}
-.atmosphere-option.hold-button .hold-button__label {
-  width: 100%;
-}
-.atmosphere-option.hold-button .hold-button__label > span {
-  width: 100%;
-  white-space: normal;
-  text-align: left;
-  gap: 10px;
-}
-.atmosphere-option.hold-button .hold-button__label strong {
-  line-height: 1.4;
-}
-.atmosphere-option.hold-button .hold-button__label--fill small {
-  color: inherit;
-}
-.atmosphere-option.hold-button .hold-theme-hint {
-  font-size: 11px;
-  line-height: 1.4;
-  margin-top: 4px;
-}
-.atmosphere-option.hold-button:disabled {
-  opacity: 1;
-}
-.atmosphere-picker.compact {
-  border-radius: 18px;
-}
-.compact .atmosphere-option.hold-button {
-  min-height: 48px;
-  padding: 5px 8px;
-  border-radius: 14px;
-}
-.compact .atmosphere-option.hold-button .hold-button__label > span {
-  justify-content: center;
-  gap: 6px;
-}
-.compact .atmosphere-option.hold-button .hold-theme-hint {
-  font-size: 9px;
-  line-height: 1.2;
-  margin-top: 3px;
 }
 html[data-interaction='keyboard'] .hold-button {
   transform: none !important;

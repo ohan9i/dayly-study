@@ -496,6 +496,7 @@ export default function TaskDetail({
   const [moving, setMoving] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
   const duplicationLock = useRef(false);
+  const duplicationAuthorized = useRef(false);
   const duplicationForm = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (duplicating) duplicationForm.current?.scrollIntoView({ block: 'nearest' });
@@ -683,6 +684,8 @@ export default function TaskDetail({
               aria-label="계획 복제"
               onSubmit={async (event) => {
                 event.preventDefault();
+                if (!duplicationAuthorized.current) return;
+                duplicationAuthorized.current = false;
                 if (duplicationLock.current || duplicateDisabled) return;
                 const copyDate = String(new FormData(event.currentTarget).get('copyDate'));
                 duplicationLock.current = true;
@@ -735,9 +738,22 @@ export default function TaskDetail({
                 >
                   취소
                 </button>
-                <button type="submit" className="soft-button" disabled={duplicateDisabled}>
-                  {working ? '복제 중…' : '계획 복제'}
-                </button>
+                <HoldButton
+                  className="task-action-hold"
+                  aria-label="계획 복제"
+                  disabled={duplicateDisabled}
+                  title="2초 눌러 선택한 날짜에 복제"
+                  doneLabel="복제 중…"
+                  onHold={() => {
+                    const form = duplicationForm.current;
+                    if (!form || !form.reportValidity()) return;
+                    duplicationAuthorized.current = true;
+                    form.requestSubmit();
+                    duplicationAuthorized.current = false;
+                  }}
+                >
+                  2초 눌러 계획 복제
+                </HoldButton>
               </div>
             </form>
           )}
@@ -807,16 +823,18 @@ export default function TaskDetail({
                 >
                   취소
                 </button>
-                <button
-                  type="button"
-                  className="soft-button"
+                <HoldButton
+                  className="task-action-hold"
+                  aria-label="이동"
+                  title="2초 눌러 선택한 플래너로 이동"
+                  doneLabel="이동 중…"
                   disabled={
                     disabled ||
                     dirty ||
                     files.length > 0 ||
                     !targets.some((space) => space.id === targetId)
                   }
-                  onClick={async () => {
+                  onHold={async () => {
                     setWorking(true);
                     setError('');
                     try {
@@ -832,8 +850,8 @@ export default function TaskDetail({
                     }
                   }}
                 >
-                  이동
-                </button>
+                  2초 눌러 이동
+                </HoldButton>
               </div>
             </div>
           )}

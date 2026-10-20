@@ -51,8 +51,7 @@ import DataProtection from './DataProtection';
 import { AtmospherePicker, CompletionSparkles, useAtmosphere } from './Atmosphere';
 import WelcomeScreen from './WelcomeScreen';
 import { readEntryNavigation, saveEntryNavigation } from './entryNavigation';
-import { usePaperNavigation } from './usePaperNavigation';
-import HoldButton from './HoldButton';
+import SwipeRow from './SwipeRow';
 import SpringCheck, { SpringCheckLabel } from './SpringCheck';
 
 type View = 'home' | 'calendar' | 'stats' | 'settings';
@@ -145,8 +144,7 @@ export default function App() {
   const { data, isOwner, canWrite, busy, loading } = planner;
   const [view, setView] = useState<View>(() => readEntryNavigation().view || 'home');
   const [date, setDate] = useState(() => readEntryNavigation().date || todayKey());
-  const paper = useRef<HTMLElement>(null);
-  const { navigate, overlay: paperOverlay } = usePaperNavigation(view === 'home', paper);
+  const [swipeMenu, setSwipeMenu] = useState<{ id: string; side: 'add' | 'delete' } | null>(null);
   const [month, setMonth] = useState(
     () => readEntryNavigation().month || todayKey().slice(0, 7) + '-01',
   );
@@ -215,20 +213,16 @@ export default function App() {
     }
   };
   const goDate = (next: string) => {
-    navigate(
-      () => {
-        setDate(next);
-        setView('home');
-        setModal(null);
-      },
-      date !== next || view !== 'home' || modal !== null,
-    );
+    setSwipeMenu(null);
+    setDate(next);
+    setView('home');
+    setModal(null);
   };
-  const goView = (next: View) =>
-    navigate(() => {
-      setView(next);
-      if (next === 'calendar') setMonth(date.slice(0, 7) + '-01');
-    }, next !== view);
+  const goView = (next: View) => {
+    setSwipeMenu(null);
+    setView(next);
+    if (next === 'calendar') setMonth(date.slice(0, 7) + '-01');
+  };
   const requestDelete = (item: Task) =>
     setConfirmation({
       title: '할 일을 휴지통으로 보낼까요?',
@@ -290,7 +284,7 @@ export default function App() {
     </div>
   );
   const taskCard = (
-    <section ref={paper} className="glass-card tasks-card" aria-labelledby="tasks-heading">
+    <section className="glass-card tasks-card" aria-labelledby="tasks-heading">
       <CompletionSparkles
         done={totalProgress.done}
         total={totalProgress.total}
@@ -327,118 +321,142 @@ export default function App() {
       {tasks.length ? (
         <ul className="task-list">
           {tasks.map((task) => (
-            <li key={task.id} className={`task-row ${completed.has(task.id) ? 'is-complete' : ''}`}>
-              <SpringCheck
-                className="task-checkbox"
-                checked={completed.has(task.id)}
-                ariaLabel={`${task.title} 완료`}
-                color="var(--text)"
-                boxSize={28}
-                boxRadius={9}
-                doneOpacity={0.72}
-                labelSelector=".task-title .spring-check__label"
-                disabled={!canWrite || busy}
-                onChange={() => void act(() => planner.toggleTask(task.id))}
-              />
-              <div className="task-copy">
-                <div className="task-heading">
-                  <button
-                    className="task-title"
-                    aria-label={`${task.title} 상세 보기`}
-                    onClick={() => setModal({ kind: 'task', item: task })}
-                  >
-                    <SpringCheckLabel checked={completed.has(task.id)}>
-                      {task.title}
-                    </SpringCheckLabel>
-                  </button>
-                  {(data.attachments || []).filter(
-                    (file) => file.task_id === task.id && file.state === 'ready',
-                  ).length > 0 && (
-                    <span
-                      className="task-file-count"
-                      aria-label={`첨부 파일 ${(data.attachments || []).filter((file) => file.task_id === task.id && file.state === 'ready').length}개`}
+            <li key={task.id} className="task-swipe-item">
+              <SwipeRow
+                title={task.title}
+                contentClassName={`task-row ${completed.has(task.id) ? 'is-complete' : ''}`}
+                open={swipeMenu?.id === task.id ? swipeMenu.side : null}
+                disabled={!canWrite || busy || loading}
+                onOpenChange={(side) =>
+                  setSwipeMenu(
+                    side
+                      ? { id: task.id, side }
+                      : (current) => (current?.id === task.id ? null : current),
+                  )
+                }
+                onAdd={() => {
+                  setSwipeMenu(null);
+                  setModal({ kind: 'task' });
+                }}
+                onDelete={() => {
+                  setSwipeMenu(null);
+                  requestDelete(task);
+                }}
+              >
+                <SpringCheck
+                  className="task-checkbox"
+                  checked={completed.has(task.id)}
+                  ariaLabel={`${task.title} 완료`}
+                  color="var(--text)"
+                  boxSize={28}
+                  boxRadius={9}
+                  doneOpacity={0.72}
+                  labelSelector=".task-title .spring-check__label"
+                  disabled={!canWrite || busy}
+                  onChange={() => void act(() => planner.toggleTask(task.id))}
+                />
+                <div className="task-copy">
+                  <div className="task-heading">
+                    <button
+                      className="task-title"
+                      aria-label={`${task.title} 상세 보기`}
+                      onClick={() => setModal({ kind: 'task', item: task })}
                     >
-                      <Paperclip size={13} />
-                      {
-                        (data.attachments || []).filter(
-                          (file) => file.task_id === task.id && file.state === 'ready',
-                        ).length
-                      }
-                    </span>
+                      <SpringCheckLabel checked={completed.has(task.id)}>
+                        {task.title}
+                      </SpringCheckLabel>
+                    </button>
+                    {(data.attachments || []).filter(
+                      (file) => file.task_id === task.id && file.state === 'ready',
+                    ).length > 0 && (
+                      <span
+                        className="task-file-count"
+                        aria-label={`첨부 파일 ${(data.attachments || []).filter((file) => file.task_id === task.id && file.state === 'ready').length}개`}
+                      >
+                        <Paperclip size={13} />
+                        {
+                          (data.attachments || []).filter(
+                            (file) => file.task_id === task.id && file.state === 'ready',
+                          ).length
+                        }
+                      </span>
+                    )}
+                  </div>
+                  {task.details.length > 0 && (
+                    <ul className="task-details" aria-label={`${task.title} 세부 항목`}>
+                      {task.details.map((detail, index) => {
+                        const detailId =
+                          task.detailChecks?.[index]?.id || `${task.id}-detail-${index}`;
+                        const recordKey = `${task.id}:${detailId}`;
+                        const expanded = openRecords.has(recordKey);
+                        const hasRecord = (data.taskNotes || []).some(
+                          (note) =>
+                            note.task_id === task.id &&
+                            readDetailNote(note.body).detailId === detailId,
+                        );
+                        return (
+                          <li
+                            key={detailId}
+                            className={`${task.detailChecks?.[index]?.completed ? 'detail-is-complete' : ''} ${expanded ? 'detail-is-expanded' : ''}`}
+                          >
+                            <div className="detail-row-main">
+                              <SpringCheck
+                                className="detail-checkbox"
+                                ariaLabel={`${task.title} 세부 항목 ${index + 1} 완료`}
+                                checked={Boolean(task.detailChecks?.[index]?.completed)}
+                                color="var(--text)"
+                                boxSize={20}
+                                boxRadius={6}
+                                doneOpacity={0.72}
+                                labelSelector=".detail-row-title .spring-check__label"
+                                disabled={!canWrite || busy}
+                                onChange={() =>
+                                  void act(() => planner.toggleDetail(task.id, detailId))
+                                }
+                              />
+                              <span className="detail-row-title">
+                                <SpringCheckLabel
+                                  checked={Boolean(task.detailChecks?.[index]?.completed)}
+                                >
+                                  {detail}
+                                </SpringCheckLabel>
+                              </span>
+                              <button
+                                className="detail-record-toggle"
+                                aria-label={`${detail} 기록 ${expanded ? '접기' : '열기'}`}
+                                aria-expanded={expanded}
+                                onClick={() =>
+                                  setOpenRecords((current) => {
+                                    const next = new Set(current);
+                                    if (next.has(recordKey)) next.delete(recordKey);
+                                    else next.add(recordKey);
+                                    return next;
+                                  })
+                                }
+                              >
+                                기록
+                                {hasRecord && (
+                                  <span className="record-dot" aria-label="기록 있음" />
+                                )}
+                                <ChevronRight size={14} />
+                              </button>
+                            </div>
+                            {expanded && (
+                              <DetailRecord task={task} detailId={detailId} planner={planner} />
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                  {task.details.length > 0 && (
+                    <TaskProgress
+                      progress={taskProgress(task, completed)}
+                      label={`${task.title} 진행률`}
+                    />
                   )}
                 </div>
-                {task.details.length > 0 && (
-                  <ul className="task-details" aria-label={`${task.title} 세부 항목`}>
-                    {task.details.map((detail, index) => {
-                      const detailId =
-                        task.detailChecks?.[index]?.id || `${task.id}-detail-${index}`;
-                      const recordKey = `${task.id}:${detailId}`;
-                      const expanded = openRecords.has(recordKey);
-                      const hasRecord = (data.taskNotes || []).some(
-                        (note) =>
-                          note.task_id === task.id &&
-                          readDetailNote(note.body).detailId === detailId,
-                      );
-                      return (
-                        <li
-                          key={detailId}
-                          className={`${task.detailChecks?.[index]?.completed ? 'detail-is-complete' : ''} ${expanded ? 'detail-is-expanded' : ''}`}
-                        >
-                          <div className="detail-row-main">
-                            <SpringCheck
-                              className="detail-checkbox"
-                              ariaLabel={`${task.title} 세부 항목 ${index + 1} 완료`}
-                              checked={Boolean(task.detailChecks?.[index]?.completed)}
-                              color="var(--text)"
-                              boxSize={20}
-                              boxRadius={6}
-                              doneOpacity={0.72}
-                              labelSelector=".detail-row-title .spring-check__label"
-                              disabled={!canWrite || busy}
-                              onChange={() =>
-                                void act(() => planner.toggleDetail(task.id, detailId))
-                              }
-                            />
-                            <span className="detail-row-title">
-                              <SpringCheckLabel
-                                checked={Boolean(task.detailChecks?.[index]?.completed)}
-                              >
-                                {detail}
-                              </SpringCheckLabel>
-                            </span>
-                            <button
-                              className="detail-record-toggle"
-                              aria-label={`${detail} 기록 ${expanded ? '접기' : '열기'}`}
-                              aria-expanded={expanded}
-                              onClick={() =>
-                                setOpenRecords((current) => {
-                                  const next = new Set(current);
-                                  if (next.has(recordKey)) next.delete(recordKey);
-                                  else next.add(recordKey);
-                                  return next;
-                                })
-                              }
-                            >
-                              기록
-                              {hasRecord && <span className="record-dot" aria-label="기록 있음" />}
-                              <ChevronRight size={14} />
-                            </button>
-                          </div>
-                          {expanded && (
-                            <DetailRecord task={task} detailId={detailId} planner={planner} />
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-                {task.details.length > 0 && (
-                  <TaskProgress
-                    progress={taskProgress(task, completed)}
-                    label={`${task.title} 진행률`}
-                  />
-                )}
-              </div>
+              </SwipeRow>
             </li>
           ))}
         </ul>
@@ -486,7 +504,6 @@ export default function App() {
 
   const content = (
     <div className="app-shell">
-      {paperOverlay}
       <div className="scenery" aria-hidden="true" />
       <button className="brand mobile-brand" aria-label="Dayly 홈" onClick={() => goView('home')}>
         Dayly<span className="brand-dot">.</span>
@@ -520,23 +537,18 @@ export default function App() {
         </div>
       </aside>
       <header className="topbar">
-        <HoldButton
+        <button
           key={atmosphere}
           className="icon-button atmosphere-toggle"
           aria-label={atmosphere === 'morning' ? '밤 공부로 전환' : '아침 창가로 전환'}
-          title={atmosphere === 'morning' ? '2초 눌러 밤 공부로 전환' : '2초 눌러 아침 창가로 전환'}
-          backgroundColor="var(--surface-toolbar)"
-          textColor="var(--text-secondary)"
-          doneLabel={<span className="sr-only">전환 완료</span>}
-          doneIcon={<Check size={20} aria-hidden="true" />}
-          onHold={() => setAtmosphere(atmosphere === 'morning' ? 'night' : 'morning')}
+          onClick={() => setAtmosphere(atmosphere === 'morning' ? 'night' : 'morning')}
         >
           {atmosphere === 'morning' ? (
             <Moon size={20} strokeWidth={1.7} />
           ) : (
             <Sun size={20} strokeWidth={1.7} />
           )}
-        </HoldButton>
+        </button>
         <button className="mode-chip" onClick={() => goView('settings')}>
           <span className={`status-dot ${planner.session ? 'online' : ''}`} />
           {planner.session ? (isOwner ? '내 공간' : '승인받은 공간') : '로그인 전'}

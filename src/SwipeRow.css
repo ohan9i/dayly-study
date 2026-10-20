@@ -1,0 +1,93 @@
+.task-swipe-item {
+  list-style: none;
+  border-bottom: 1px solid var(--line);
+}
+.task-swipe-item:last-child {
+  border-bottom: 0;
+}
+.swipe-row {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  isolation: isolate;
+}
+.swipe-row .swipe-row__surface.task-row {
+  position: relative;
+  margin: 0;
+  border-bottom: 0;
+  background-color: var(--glass-bg);
+  touch-action: pan-y;
+}
+.swipe-row__rail {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.swipe-row[data-open='closed']:not([data-dragging]) .swipe-row__rail {
+  visibility: hidden;
+}
+.swipe-row__rail--add {
+  left: 0;
+  background: var(--surface-selected);
+}
+.swipe-row__rail--delete {
+  right: 0;
+  background: #a63339;
+}
+.swipe-row__rail > button {
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 4px;
+}
+.swipe-row__rail--add > button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  background: transparent;
+  font-size: 13px;
+}
+.swipe-row__rail .hold-button {
+  font-size: 12px;
+}
+.swipe-row__rail .hold-button__label > span {
+  flex-direction: column;
+  gap: 8px;
+}
+.swipe-row__menus {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  flex: 0 0 36px;
+  align-self: flex-start;
+}
+.swipe-row__menus button {
+  display: grid;
+  place-items: center;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 8px;
+}
+.swipe-row__menus button:hover {
+  background: var(--surface-hover);
+}
+@media (max-width: 700px) {
+  .swipe-row__surface.task-row:has(.swipe-row__menus) {
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+  }
+  .swipe-row__menus {
+    flex-basis: 44px;
+  }
+  .swipe-row__menus button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

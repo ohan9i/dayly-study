@@ -100,7 +100,7 @@ test('theme persists, synchronizes across tabs and preserves a draft in an open 
   context,
 }) => {
   await setup(page);
-  await page.getByRole('button', { name: '밤 공부로 전환', exact: true }).click({ delay: 2150 });
+  await page.getByRole('button', { name: '밤 공부로 전환', exact: true }).click();
   await expect(page.locator('html')).toHaveAttribute('data-atmosphere', 'night');
   const date = await page.getByLabel('조회 날짜').inputValue();
   await page.reload();
@@ -112,7 +112,7 @@ test('theme persists, synchronizes across tabs and preserves a draft in an open 
   const other = await context.newPage();
   await mockCloud(other);
   await other.goto('/#planner');
-  await other.getByRole('button', { name: '아침 창가로 전환', exact: true }).click({ delay: 2150 });
+  await other.getByRole('button', { name: '아침 창가로 전환', exact: true }).click();
   await expect(page.locator('html')).toHaveAttribute('data-atmosphere', 'morning');
   await expect(page.getByLabel('할 일', { exact: true })).toHaveValue(
     '아직 저장하지 않은 구조역학 계획',
@@ -174,7 +174,7 @@ for (const [width, height] of [
     await page
       .locator('.atmosphere-settings')
       .getByRole('button', { name: /아침 창가/ })
-      .click({ delay: 2150 });
+      .click();
     await expect(page.locator('html')).toHaveAttribute('data-atmosphere', 'morning');
     await page.getByRole('button', { name: '나의 하루', exact: true }).click();
     await page.screenshot({
@@ -193,7 +193,7 @@ for (const [width, height] of [
     await page
       .locator('.atmosphere-settings')
       .getByRole('button', { name: /밤 공부/ })
-      .click({ delay: 2150 });
+      .click();
     await page.getByRole('button', { name: '내 계정', exact: true }).click();
     await capture('account');
     await contrast(
@@ -230,7 +230,7 @@ test('reduced motion and keyboard changes are immediate; blocked storage still a
     };
   });
   await page.goto('/#planner');
-  await page.getByRole('button', { name: '밤 공부로 전환', exact: true }).click({ delay: 2150 });
+  await page.getByRole('button', { name: '밤 공부로 전환', exact: true }).click();
   await expect(page.locator('html')).toHaveAttribute('data-atmosphere', 'night');
   expect(
     await page
