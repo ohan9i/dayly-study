@@ -27,7 +27,9 @@
   align-items: center;
   justify-content: center;
 }
-.swipe-row[data-open='closed']:not([data-dragging]) .swipe-row__rail {
+.swipe-row[data-open='closed']:not([data-dragging]) .swipe-row__rail,
+.swipe-row[data-open='add']:not([data-dragging]) .swipe-row__rail--delete,
+.swipe-row[data-open='delete']:not([data-dragging]) .swipe-row__rail--add {
   visibility: hidden;
 }
 .swipe-row__rail--add {
