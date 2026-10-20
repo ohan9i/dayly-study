@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Check, Eye, EyeOff, LockKeyhole, LogIn, LogOut, Mail, ShieldCheck } from 'lucide-react';
 import { supabase } from './planner';
@@ -162,9 +163,14 @@ export default function Account({
             지금은 조회만 가능하며, 로그인 후 할 일을 편집합니다.
           </p>
         </div>
-        <button className="primary-button full-width" onClick={onDone}>
+        <Button
+          variant="default"
+          size="default"
+          className="primary-button full-width"
+          onClick={onDone}
+        >
           나의 하루로 돌아가기
-        </button>
+        </Button>
       </>
     );
   if (sessionEmail && mode !== 'password')
@@ -176,18 +182,26 @@ export default function Account({
           <p>로그인되어 있어요. 승인된 공간을 편집할 수 있습니다.</p>
         </div>
         <div className="account-actions">
-          <button
+          <Button
+            variant="secondary"
+            size="default"
             className="soft-button full-width"
             disabled={busy}
             onClick={() => switchMode('password')}
           >
             <LockKeyhole size={17} />
             비밀번호 변경
-          </button>
-          <button className="soft-button full-width" disabled={busy} onClick={() => void signOut()}>
+          </Button>
+          <Button
+            variant="secondary"
+            size="default"
+            className="soft-button full-width"
+            disabled={busy}
+            onClick={() => void signOut()}
+          >
             <LogOut size={17} />
             로그아웃
-          </button>
+          </Button>
         </div>
         {error && (
           <p className="form-error" role="alert">
@@ -206,9 +220,14 @@ export default function Account({
             ? '가입 확인 메일의 링크를 누른 뒤, 이메일과 비밀번호로 로그인해 주세요.'
             : '이 이메일로 가입한 계정이 있다면 재설정 메일이 전송됩니다. 메일의 링크에서 새 비밀번호를 정해 주세요.'}
         </p>
-        <button className="text-button" onClick={() => switchMode('login')}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-button"
+          onClick={() => switchMode('login')}
+        >
           로그인으로 돌아가기
-        </button>
+        </Button>
       </div>
     );
   const changing = mode === 'password';
@@ -284,7 +303,9 @@ export default function Account({
             {error}
           </p>
         )}
-        <button
+        <Button
+          variant="default"
+          size="default"
           className="primary-button full-width"
           disabled={busy || (changing && !sessionEmail)}
           type="submit"
@@ -305,36 +326,42 @@ export default function Account({
                 : mode === 'reset'
                   ? '재설정 메일 받기'
                   : '비밀번호로 로그인'}
-        </button>
+        </Button>
         {mode === 'login' && (
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             className="text-button auth-reset"
             disabled={busy}
             type="button"
             onClick={() => switchMode('reset')}
           >
             비밀번호를 잊었나요?
-          </button>
+          </Button>
         )}
         {mode === 'reset' && (
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             className="text-button auth-reset"
             disabled={busy}
             type="button"
             onClick={() => switchMode('login')}
           >
             로그인으로 돌아가기
-          </button>
+          </Button>
         )}
         {changing && (
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             className="text-button auth-reset"
             disabled={busy}
             type="button"
             onClick={() => (recovery ? void signOut() : switchMode('login'))}
           >
             {recovery ? '재설정 취소하고 로그아웃' : '계정으로 돌아가기'}
-          </button>
+          </Button>
         )}
       </form>
     </>

@@ -14,7 +14,7 @@ export function useAtmosphere() {
     document.documentElement.style.colorScheme = atmosphere === 'night' ? 'dark' : 'light';
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', atmosphere === 'night' ? '#202329' : '#f0efeb');
+      ?.setAttribute('content', atmosphere === 'night' ? '#242320' : '#f1efe9');
     try {
       localStorage.setItem(storageKey, atmosphere);
     } catch {

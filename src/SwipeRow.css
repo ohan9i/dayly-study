@@ -24,18 +24,6 @@
   min-height: 44px;
   align-items: center;
 }
-.task-details .swipe-row__rail > button {
-  min-height: 44px;
-  padding: 4px;
-}
-.task-details .swipe-row__rail--add > button,
-.task-details .swipe-row__rail .hold-button__label > span {
-  gap: 2px;
-}
-.task-details .swipe-row__rail--add svg {
-  width: 18px;
-  height: 18px;
-}
 .swipe-row .swipe-row__surface.task-row {
   position: relative;
   margin: 0;
@@ -47,10 +35,12 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 100px;
+  width: 92px;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0 10px;
+  background: var(--surface-soft);
 }
 .swipe-row[data-open='closed']:not([data-dragging]) > .swipe-row__rail,
 .swipe-row[data-open='add']:not([data-dragging]) > .swipe-row__rail--delete,
@@ -59,30 +49,30 @@
 }
 .swipe-row__rail--add {
   left: 0;
-  background: var(--surface-selected);
 }
 .swipe-row__rail--delete {
   right: 0;
-  background: #a63339;
 }
-.swipe-row__rail > button {
+.swipe-row .swipe-row__rail > .ui-button {
   width: 100%;
-  min-height: 64px;
-  padding: 10px 4px;
-}
-.swipe-row__rail--add > button {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  color: var(--text);
-  background: transparent;
-  font-size: 13px;
-}
-.swipe-row__rail .hold-button {
+  height: 40px;
+  min-height: 40px;
+  padding: 0 8px;
+  border-radius: 6px;
   font-size: 12px;
+  gap: 5px;
+}
+.swipe-row .swipe-row__rail > .ui-button svg {
+  width: 14px;
+  height: 14px;
 }
 .swipe-row__rail .hold-button__label > span {
-  flex-direction: column;
-  gap: 8px;
+  flex-direction: row;
+  gap: 5px;
+}
+@media (pointer: coarse), (max-width: 700px) {
+  .swipe-row .swipe-row__rail > .ui-button {
+    height: 44px;
+    min-height: 44px;
+  }
 }

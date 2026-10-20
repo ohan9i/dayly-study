@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import {
   CalendarDays,
@@ -52,7 +53,7 @@ import WelcomeScreen from './WelcomeScreen';
 import { readEntryNavigation, saveEntryNavigation } from './entryNavigation';
 import SwipeRow from './SwipeRow';
 import LoadingStatus from './LoadingStatus';
-import PlannerClouds from './PlannerClouds';
+import PlannerBackground from './PlannerBackground';
 import SpringCheck, { SpringCheckLabel } from './SpringCheck';
 
 type View = 'home' | 'calendar' | 'stats' | 'settings';
@@ -242,7 +243,7 @@ export default function App() {
       message:
         '“' +
         item.title +
-        '”을 현재 목록에서 삭제합니다. 내용·기록·첨부 원본은 보관되며 설정의 휴지통에서 복원할 수 있어요.',
+        '”을 현재 목록에서 삭제합니다. 내용과 기록, 첨부 원본은 보관되며 설정의 휴지통에서 복원할 수 있어요.',
       action: () => planner.deleteTask(item.id),
     });
   const requestDeleteDetail = (task: Task, detailId: string, text: string) => {
@@ -319,9 +320,9 @@ export default function App() {
         <ChevronRight size={18} />
       </button>
       {date !== today && (
-        <button className="text-button" onClick={() => goDate(today)}>
+        <Button variant="ghost" size="sm" className="text-button" onClick={() => goDate(today)}>
           오늘
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -351,14 +352,16 @@ export default function App() {
             />
           </div>
         )}
-        <button
+        <Button
+          variant="default"
+          size="icon"
           className="add-button"
           aria-label="할 일 추가"
           disabled={busy || loading}
           onClick={() => setModal({ kind: canWrite ? 'task' : 'account' })}
         >
           <Plus size={24} strokeWidth={1.9} />
-        </button>
+        </Button>
       </div>
       {tasks.length ? (
         <ul className="task-list">
@@ -390,8 +393,8 @@ export default function App() {
                   checked={completed.has(task.id)}
                   ariaLabel={`${task.title} 완료`}
                   color="var(--text)"
-                  boxSize={28}
-                  boxRadius={9}
+                  boxSize={22}
+                  boxRadius={5}
                   doneOpacity={0.72}
                   labelSelector=".task-title .spring-check__label"
                   disabled={!canWrite || busy}
@@ -467,7 +470,7 @@ export default function App() {
                                 checked={Boolean(task.detailChecks?.[index]?.completed)}
                                 color="var(--text)"
                                 boxSize={20}
-                                boxRadius={6}
+                                boxRadius={5}
                                 doneOpacity={0.72}
                                 labelSelector=".detail-row-title .spring-check__label"
                                 disabled={!canWrite || busy}
@@ -482,7 +485,9 @@ export default function App() {
                                   {detail}
                                 </SpringCheckLabel>
                               </span>
-                              <button
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 className="detail-record-toggle"
                                 aria-label={`${detail} 기록 ${expanded ? '접기' : '열기'}`}
                                 aria-expanded={expanded}
@@ -500,7 +505,7 @@ export default function App() {
                                   <span className="record-dot" aria-label="기록 있음" />
                                 )}
                                 <ChevronRight size={14} />
-                              </button>
+                              </Button>
                             </SwipeRow>
                             {expanded && (
                               <DetailRecord task={task} detailId={detailId} planner={planner} />
@@ -527,13 +532,15 @@ export default function App() {
           title="여백이 있는 하루"
           text="오늘 하고 싶은 공부를 하나씩 적어 보세요."
           action={
-            <button
+            <Button
+              variant="secondary"
+              size="default"
               className="soft-button"
               disabled={busy || loading}
               onClick={() => setModal({ kind: canWrite ? 'task' : 'account' })}
             >
               <Plus size={16} />첫 할 일 적기
-            </button>
+            </Button>
           }
         />
       )}
@@ -548,9 +555,14 @@ export default function App() {
               ? '예시 일정이에요. 로그인하고 나의 하루를 시작해 보세요.'
               : '로그인 후 할 일을 편집할 수 있어요.'}
           </span>
-          <button className="text-button" onClick={() => setModal({ kind: 'account' })}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-button"
+            onClick={() => setModal({ kind: 'account' })}
+          >
             로그인
-          </button>
+          </Button>
         </div>
       )}
       {planner.session && (
@@ -566,7 +578,7 @@ export default function App() {
   const content = (
     <div className="app-shell">
       <div className="scenery" aria-hidden="true">
-        {view === 'home' && <PlannerClouds />}
+        {view === 'home' && <PlannerBackground atmosphere={atmosphere} paused={Boolean(modal)} />}
       </div>
       <button className="brand mobile-brand" aria-label="Dayly 홈" onClick={() => goView('home')}>
         Dayly<span className="brand-dot">.</span>
@@ -666,13 +678,15 @@ export default function App() {
               <strong>내 공간을 아직 불러오지 못했어요.</strong>
               <p>새로고침하면 내 공간을 자동으로 준비하고 승인받은 공간을 확인합니다.</p>
             </div>
-            <button
+            <Button
+              variant="secondary"
+              size="default"
               className="soft-button"
               disabled={busy}
               onClick={() => void act(planner.refresh, '공간을 다시 확인했어요.')}
             >
               다시 불러오기
-            </button>
+            </Button>
           </div>
         )}
         {planner.session && planner.workspace && view !== 'settings' && (
@@ -720,12 +734,14 @@ export default function App() {
                   {month.slice(0, 4)}년 {Number(month.slice(5, 7))}월
                 </h2>
                 <div className="row-actions">
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className="text-button"
                     onClick={() => setMonth(today.slice(0, 7) + '-01')}
                   >
                     이번 달
-                  </button>
+                  </Button>
                   <button
                     className="icon-button"
                     aria-label="이전 달"
@@ -779,7 +795,7 @@ export default function App() {
               <p className="card-footnote">
                 <span className="legend-dot" />
                 오늘 <span className="legend-square" />
-                선택한 날 · 막대는 진행률, 숫자는 남은 계획
+                선택한 날, 막대는 진행률, 숫자는 남은 계획
               </p>
             </section>
           </div>
@@ -840,9 +856,15 @@ export default function App() {
                   placeholder="인사말에 사용할 이름"
                   defaultValue={displayName}
                 />
-                <button className="soft-button" type="submit" disabled={!canWrite}>
+                <Button
+                  variant="secondary"
+                  size="default"
+                  className="soft-button"
+                  type="submit"
+                  disabled={!canWrite}
+                >
                   저장
-                </button>
+                </Button>
               </form>
             </section>
             <section className="glass-card settings-card">
@@ -861,9 +883,14 @@ export default function App() {
                       : '이메일과 비밀번호로 로그인하면 나의 공간 또는 승인된 공유 공간에 저장합니다.'}
                   </p>
                 </div>
-                <button className="soft-button" onClick={() => setModal({ kind: 'account' })}>
+                <Button
+                  variant="secondary"
+                  size="default"
+                  className="soft-button"
+                  onClick={() => setModal({ kind: 'account' })}
+                >
                   {planner.session ? '계정 보기' : '로그인 / 회원가입'}
-                </button>
+                </Button>
               </div>
               {planner.session && <WorkspacePanel planner={planner} />}
             </section>
@@ -877,7 +904,7 @@ export default function App() {
                   <>
                     <p className="setting-description">
                       승인한 이메일로 로그인한 사람은 할 일을 작성하고 함께 완료 체크할 수 있어요.
-                      제목·날짜는 작성자와 공간 관리자만 수정할 수 있어요. 승인된 참여자는 계획을
+                      제목과 날짜는 작성자와 공간 관리자만 수정할 수 있어요. 승인된 참여자는 계획을
                       삭제하거나 접근 가능한 다른 공간으로 이동할 수 있습니다.
                     </p>
                     <MemberForm
@@ -962,14 +989,16 @@ export default function App() {
                 있어요.
               </p>
               <div className="backup-actions">
-                <button
+                <Button
+                  variant="secondary"
+                  size="default"
                   className="soft-button"
                   onClick={exportData}
                   disabled={Boolean(planner.session) && !planner.canManageRecords}
                 >
                   <Download size={16} />
                   백업 내려받기
-                </button>
+                </Button>
               </div>
             </section>
             {planner.session && planner.workspace && (
@@ -1127,14 +1156,18 @@ export default function App() {
         >
           <p className="confirm-message">{confirmation.message}</p>
           <div className="form-actions">
-            <button
+            <Button
+              variant="secondary"
+              size="default"
               className="soft-button"
               disabled={confirmBusy}
               onClick={() => setConfirmation(null)}
             >
               취소
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="destructive"
+              size="default"
               className="danger-button"
               disabled={confirmBusy}
               onClick={async () => {
@@ -1151,7 +1184,7 @@ export default function App() {
               }}
             >
               {confirmBusy ? '처리 중…' : '확인'}
-            </button>
+            </Button>
           </div>
         </Modal>
       )}
@@ -1201,10 +1234,16 @@ function MemberForm({
           aria-label="승인할 작성자의 이메일"
           placeholder="함께 쓸 사람의 이메일"
         />
-        <button className="soft-button" disabled={busy || disabled} type="submit">
+        <Button
+          variant="secondary"
+          size="default"
+          className="soft-button"
+          disabled={busy || disabled}
+          type="submit"
+        >
           <Plus size={16} />
           {busy ? '승인 중…' : '작성자 승인'}
-        </button>
+        </Button>
       </div>
       {error && (
         <p className="form-error" role="alert">

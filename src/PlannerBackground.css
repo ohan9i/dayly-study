@@ -1,0 +1,35 @@
+.planner-background {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  contain: paint;
+  background:
+    radial-gradient(ellipse at 80% 15%, var(--surface-soft), transparent 65%),
+    linear-gradient(145deg, var(--studio), var(--surface-selected));
+}
+.planner-background[hidden] {
+  display: none;
+}
+.planner-background::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    color-mix(in srgb, var(--studio) 88%, transparent),
+    color-mix(in srgb, var(--studio) 55%, transparent) 45%,
+    color-mix(in srgb, var(--studio) 16%, transparent)
+  );
+}
+@media (max-width: 700px) {
+  .planner-background::after {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--studio) 85%, transparent),
+      color-mix(in srgb, var(--studio) 65%, transparent) 50%,
+      color-mix(in srgb, var(--studio) 30%, transparent)
+    );
+  }
+}

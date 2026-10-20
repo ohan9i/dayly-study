@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f0efeb" />
+    <meta name="theme-color" content="#f1efe9" />
     <script>
       try {
         const theme = localStorage.getItem('dayly.atmosphere') === 'night' ? 'night' : 'morning';
         document.documentElement.dataset.atmosphere = theme;
         document.documentElement.style.colorScheme = theme === 'night' ? 'dark' : 'light';
         document.querySelector('meta[name="theme-color"]').content =
-          theme === 'night' ? '#202329' : '#f0efeb';
+          theme === 'night' ? '#242320' : '#f1efe9';
       } catch {}
     </script>
     <meta

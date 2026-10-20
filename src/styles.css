@@ -548,7 +548,7 @@ svg {
   width: 88px;
   height: 4px;
   border-radius: 99px;
-  background: rgba(67, 126, 169, 0.12);
+  background: var(--line);
   overflow: hidden;
 }
 .progress-track i {
@@ -597,7 +597,7 @@ svg {
   border-bottom-color: transparent;
 }
 .task-row.is-complete {
-  background: linear-gradient(90deg, rgba(224, 240, 249, 0.22), transparent 70%);
+  background: linear-gradient(90deg, var(--surface-soft), transparent 70%);
 }
 .task-checkbox {
   position: relative;
@@ -617,7 +617,7 @@ svg {
   position: absolute;
   width: 21px;
   height: 21px;
-  border: 1.3px solid #819ead;
+  border: 1.3px solid var(--control-border);
   border-radius: 5px;
   background: var(--surface-soft);
   transition:
@@ -726,7 +726,7 @@ svg {
 .detail-record-panel {
   margin: 0 var(--space-2) var(--space-2) 32px;
   padding: var(--space-2) 0 var(--space-1) var(--space-3);
-  border-left: 1px solid rgba(70, 139, 194, 0.23);
+  border-left: 1px solid var(--control-border);
 }
 .detail-record-notes {
   display: grid;
@@ -757,7 +757,7 @@ svg {
 }
 .detail-record-form textarea:focus {
   outline: none;
-  border-color: rgba(70, 139, 194, 0.28);
+  border-color: var(--control-border);
   background: var(--surface-soft);
 }
 .detail-record-actions {
@@ -793,7 +793,7 @@ svg {
 }
 .detail-record-save:hover,
 .detail-record-save:focus-visible {
-  background: rgba(70, 139, 194, 0.09);
+  background: var(--surface-hover);
 }
 .detail-record-add {
   min-height: 32px;
@@ -865,7 +865,7 @@ svg {
 .detail-is-complete input[type='text'] {
   color: var(--text-muted);
   text-decoration: line-through;
-  text-decoration-color: rgba(96, 123, 141, 0.35);
+  text-decoration-color: var(--control-border);
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
 }
@@ -884,7 +884,7 @@ svg {
   max-width: 180px;
   height: 4px;
   border-radius: 99px;
-  background: rgba(67, 126, 169, 0.12);
+  background: var(--line);
   overflow: hidden;
 }
 .detail-progress-track i {
@@ -909,7 +909,7 @@ svg {
   stroke-width: 3;
 }
 .ring-track {
-  stroke: rgba(67, 126, 169, 0.12);
+  stroke: var(--line);
 }
 .ring-value {
   stroke: var(--sky-500);
@@ -966,7 +966,7 @@ svg {
 .is-complete .task-title {
   color: var(--text-muted);
   text-decoration-line: line-through;
-  text-decoration-color: rgba(96, 123, 141, 0.52);
+  text-decoration-color: var(--control-border);
 }
 .task-file-count {
   display: inline-flex;
@@ -1167,7 +1167,7 @@ svg {
   margin-top: auto;
   border-radius: 3px;
   overflow: hidden;
-  background: rgba(67, 126, 169, 0.12);
+  background: var(--line);
 }
 .calendar-progress-track i {
   display: block;
@@ -1208,7 +1208,7 @@ svg {
   margin: 0;
 }
 .calendar-day.selected-day {
-  border-color: rgba(70, 139, 194, 0.4);
+  border-color: var(--control-border);
   background: var(--surface-selected);
 }
 .calendar-day.outside-month {
@@ -1382,12 +1382,12 @@ svg {
   position: relative;
   width: 100%;
   min-height: 2px;
-  background: rgba(167, 202, 228, 0.35);
+  background: var(--surface-selected);
   border-radius: 6px 6px 3px 3px;
   overflow: hidden;
 }
 .is-empty .bar-planned {
-  background: rgba(96, 123, 141, 0.16);
+  background: var(--line);
 }
 .bar-completed {
   position: absolute;
@@ -2395,7 +2395,7 @@ svg {
   }
   .task-checkbox:not(:disabled):hover::before {
     border-color: var(--sky-500);
-    box-shadow: 0 0 0 3px rgba(70, 139, 194, 0.08);
+    box-shadow: 0 0 0 3px var(--surface-selected);
   }
   .task-title:hover {
     color: var(--sky-600);

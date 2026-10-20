@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { Check, Home, Users } from 'lucide-react';
 import { useState } from 'react';
 import type { Planner } from './planner';
@@ -138,9 +139,14 @@ function SpaceName({ planner }: { planner: Planner }) {
         />
       </label>
       <p>함께 쓰는 사람이 알아보기 쉬운 이름으로 바꿀 수 있어요.</p>
-      <button className="soft-button" disabled={!planner.canWrite || planner.busy}>
+      <Button
+        variant="secondary"
+        size="default"
+        className="soft-button"
+        disabled={!planner.canWrite || planner.busy}
+      >
         공간 이름 저장
-      </button>
+      </Button>
       {saved && <span role="status">이름을 저장했어요.</span>}
       {error && (
         <p className="form-error" role="alert">

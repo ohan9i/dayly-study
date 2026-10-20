@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Plus, X } from 'lucide-react';
 import { progressPercent, type DetailCheck } from './domain';
@@ -127,8 +128,8 @@ export default function DetailItemsEditor({
               ariaLabel={`세부 항목 ${index + 1} 완료`}
               checked={row.completed}
               color="var(--text)"
-              boxSize={24}
-              boxRadius={8}
+              boxSize={20}
+              boxRadius={5}
               disabled={!canCheck || !row.text.trim()}
               onChange={() => void toggle(row)}
             />
@@ -185,14 +186,16 @@ export default function DetailItemsEditor({
         />
       )}
       {editable && (
-        <button
+        <Button
+          variant="outline"
+          size="default"
           ref={addButton}
           className="detail-add-button"
           type="button"
           onClick={() => addAfter(rows.length - 1)}
         >
           <Plus size={16} /> 한 줄 추가
-        </button>
+        </Button>
       )}
     </div>
   );

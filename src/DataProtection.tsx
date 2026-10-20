@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Download, History, RefreshCw, ShieldCheck } from 'lucide-react';
 import { supabase, type Planner } from './planner';
@@ -122,7 +123,7 @@ export default function DataProtection({
         {loading
           ? '서버 보존 보호 확인 중…'
           : retained
-            ? '복구 보호 적용됨: 승인된 참여자는 계획을 삭제·이동할 수 있고, 삭제한 계획은 휴지통에서 복원할 수 있습니다.'
+            ? '복구 보호 적용됨: 승인된 참여자는 계획을 삭제하거나 이동할 수 있고, 삭제한 계획은 휴지통에서 복원할 수 있습니다.'
             : '서버 보존 보호를 확인하지 못했어요. 서버 설정 적용 또는 연결 확인이 필요합니다.'}
       </p>
       <p className="setting-description">
@@ -138,16 +139,22 @@ export default function DataProtection({
           최근 백업이 오래됐어요. 관리자에게 백업 실행 상태를 확인해 주세요.
         </p>
       )}
-      <button className="soft-button" disabled={loading} onClick={() => void refresh()}>
+      <Button
+        variant="secondary"
+        size="default"
+        className="soft-button"
+        disabled={loading}
+        onClick={() => void refresh()}
+      >
         <RefreshCw size={16} />
         {loading ? '확인 중…' : '보호 상태 새로고침'}
-      </button>
+      </Button>
       {error && (
         <p className="form-error" role="alert">
           {error}
         </p>
       )}
-      <h3 className="deletion-heading">휴지통 · 삭제한 계획 복원</h3>
+      <h3 className="deletion-heading">삭제한 계획 복원</h3>
       <p className="card-footnote">
         계획을 삭제해도 기록과 첨부 원본을 보관합니다. 원래 공간과 날짜로 복원할 수 있어요.
       </p>
@@ -160,10 +167,12 @@ export default function DataProtection({
             <div>
               <strong>{plan.title}</strong>
               <small>
-                계획 날짜: {plan.date} · 삭제: {format(plan.deleted_at)}
+                계획 날짜: {plan.date}, 삭제: {format(plan.deleted_at)}
               </small>
             </div>
-            <button
+            <Button
+              variant="secondary"
+              size="default"
               className="soft-button"
               disabled={Boolean(restoring) || planner.busy}
               aria-label={`${plan.title} 복원`}
@@ -181,16 +190,22 @@ export default function DataProtection({
               }}
             >
               {restoring === plan.id ? '복원 중…' : '복원'}
-            </button>
+            </Button>
           </li>
         ))}
       </ul>
       <h3 className="deletion-heading">계획 변경 이력</h3>
-      <p className="card-footnote">계획의 생성·수정·이동 내역을 필요할 때 확인하세요.</p>
-      <button className="soft-button" aria-haspopup="dialog" onClick={onOpenHistory}>
+      <p className="card-footnote">계획의 생성과 수정, 이동 내역을 필요할 때 확인하세요.</p>
+      <Button
+        variant="secondary"
+        size="default"
+        className="soft-button"
+        aria-haspopup="dialog"
+        onClick={onOpenHistory}
+      >
         <History size={16} />
         계획 변경 이력 보기
-      </button>
+      </Button>
       <h3 className="deletion-heading">
         <History size={16} />
         삭제 이력
@@ -208,7 +223,7 @@ export default function DataProtection({
             <div>
               <strong>{event.task_title}</strong>
               <small>
-                {{ task: '계획', note: '수행 기록', attachment: '첨부' }[event.entity_type]} ·{' '}
+                {{ task: '계획', note: '수행 기록', attachment: '첨부' }[event.entity_type]},{' '}
                 {format(event.deleted_at)}
               </small>
               <small title={event.deleted_by || event.actor_role}>
@@ -222,7 +237,9 @@ export default function DataProtection({
                       : '서버 관리 작업'}
               </small>
             </div>
-            <button
+            <Button
+              variant="secondary"
+              size="default"
               className="soft-button"
               aria-label={`${event.task_title} 삭제 이력 내려받기`}
               disabled={Boolean(downloading)}
@@ -230,7 +247,7 @@ export default function DataProtection({
             >
               <Download size={15} />
               {downloading === event.id ? '내려받는 중…' : '이력 내려받기'}
-            </button>
+            </Button>
           </li>
         ))}
       </ul>

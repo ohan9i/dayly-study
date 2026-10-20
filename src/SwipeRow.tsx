@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, type ReactNode, type PointerEvent } from 'rea
 import { animate, motion, useMotionValue } from 'motion/react';
 import { Plus, Trash2 } from 'lucide-react';
 import HoldButton from './HoldButton';
+import { Button } from '@/components/ui/button';
 import './SwipeRow.css';
 
 type Side = 'add' | 'delete' | null;
@@ -44,7 +45,7 @@ export default function SwipeRow({
   const suppressClick = useRef(false);
   const change = useRef(onOpenChange);
   change.current = onOpenChange;
-  const width = 100;
+  const width = 92;
   const settle = (target: number) => {
     x.stop();
     if (
@@ -141,7 +142,7 @@ export default function SwipeRow({
       data-open={open || 'closed'}
       role="group"
       aria-label={`${title} 작업 메뉴`}
-      aria-description="왼쪽으로 밀면 삭제, 오른쪽으로 밀면 추가. 키보드에서는 왼쪽·오른쪽 화살표로 열고 Escape로 닫습니다."
+      aria-description="왼쪽으로 밀면 삭제, 오른쪽으로 밀면 추가. 키보드에서는 왼쪽과 오른쪽 화살표로 열고 Escape로 닫습니다."
       tabIndex={disabled ? undefined : 0}
       onKeyDown={(event) => {
         if (
@@ -168,15 +169,17 @@ export default function SwipeRow({
         inert={disabled || open !== 'add'}
         aria-hidden={disabled || open !== 'add'}
       >
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           type="button"
           aria-label={addLabel || `${title} 옆에 계획 추가`}
           onClick={onAdd}
           disabled={disabled}
         >
-          <Plus size={22} aria-hidden="true" />
+          <Plus size={14} aria-hidden="true" />
           추가
-        </button>
+        </Button>
       </div>
       <div
         id={`${id}-delete`}
@@ -188,13 +191,12 @@ export default function SwipeRow({
           aria-label={deleteLabel || `${title} 휴지통으로`}
           title="2초 눌러 삭제 확인"
           disabled={disabled || open !== 'delete'}
-          backgroundColor="#a63339"
-          radius={12}
-          doneLabel="삭제 확인"
-          icon={<Trash2 size={18} aria-hidden="true" />}
+          textColor="var(--danger)"
+          doneLabel="확인"
+          icon={<Trash2 size={14} aria-hidden="true" />}
           onHold={onDelete}
         >
-          2초 · 삭제
+          삭제
         </HoldButton>
       </div>
       <motion.div

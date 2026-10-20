@@ -13,6 +13,7 @@ import React, {
 } from 'react';
 
 import './HoldButton.css';
+import { Button } from '@/components/ui/button';
 
 export type HoldButtonSize = 'sm' | 'md' | 'lg';
 export type HoldButtonDirection = 'right' | 'up';
@@ -76,19 +77,19 @@ const HoldButton: React.FC<HoldButtonProps> = ({
   doneLabel = 'Deleted',
   icon = null,
   doneIcon = null,
-  backgroundColor = '#27272a',
-  fillColor = '#5227FF',
-  textColor = '#f5f5f5',
-  fillTextColor = '#ffffff',
+  backgroundColor = 'var(--surface-solid)',
+  fillColor = 'var(--accent-solid)',
+  textColor = 'var(--text)',
+  fillTextColor = 'var(--on-accent)',
   size = 'md',
-  radius = 14,
+  radius = 6,
   fillDirection = 'right',
   holdTime = 2000,
   releaseTime = 200,
   pressScale = 0.97,
-  wave = true,
+  wave = false,
   waveAmplitude = 6,
-  glow = true,
+  glow = false,
   resetAfter = 1200,
   disabled = false,
   onHold,
@@ -321,7 +322,8 @@ const HoldButton: React.FC<HoldButtonProps> = ({
   } as CSSProperties;
 
   return (
-    <button
+    <Button
+      variant="outline"
       {...buttonProps}
       ref={buttonRef}
       type="button"
@@ -366,7 +368,7 @@ const HoldButton: React.FC<HoldButtonProps> = ({
       <span className="hold-button__sr" aria-live="polite" aria-atomic="true">
         {phase === 'done' ? doneLabel : ''}
       </span>
-    </button>
+    </Button>
   );
 };
 

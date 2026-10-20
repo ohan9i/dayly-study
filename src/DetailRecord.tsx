@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Check } from 'lucide-react';
 import { encodeDetailNote, readDetailNote, type Task } from './domain';
@@ -90,7 +91,9 @@ export default function DetailRecord({
         </div>
       )}
       {canContribute && notes.length > 0 && !adding && (
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
           type="button"
           className="detail-record-add"
           onClick={() => {
@@ -99,7 +102,7 @@ export default function DetailRecord({
           }}
         >
           기록 더하기
-        </button>
+        </Button>
       )}
       {canContribute && (notes.length === 0 || adding) ? (
         <form onSubmit={(event) => void submit(event)} className="detail-record-form">
@@ -120,10 +123,16 @@ export default function DetailRecord({
               onChecking={setChecking}
               label="수행 파일 첨부"
             />
-            <button className="detail-record-save" disabled={disabled} type="submit">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="detail-record-save"
+              disabled={disabled}
+              type="submit"
+            >
               <Check size={14} />
               기록 저장
-            </button>
+            </Button>
           </div>
           {error && (
             <p className="form-error" role="alert">

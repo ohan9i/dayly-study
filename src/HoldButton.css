@@ -1,9 +1,9 @@
 .hold-button {
-  --hb-radius: 14px;
-  --hb-bg: #27272a;
-  --hb-fill: #5227ff;
-  --hb-text: #f5f5f5;
-  --hb-fill-text: #ffffff;
+  --hb-radius: 6px;
+  --hb-bg: var(--surface-solid);
+  --hb-fill: var(--accent-solid);
+  --hb-text: var(--text);
+  --hb-fill-text: var(--on-accent);
   --hb-hold: 2000ms;
   --hb-release: 200ms;
   --hb-press: 0.97;
@@ -23,15 +23,15 @@
   place-items: center;
   isolation: isolate;
   margin: 0;
-  border: 0;
+  border: 1px solid var(--line);
   border-radius: var(--hb-radius);
   background: var(--hb-bg);
   color: var(--hb-text);
   font-family: inherit;
   font-weight: 500;
-  letter-spacing: 0.01em;
-  line-height: 1;
-  box-shadow: var(--hb-shadow);
+  letter-spacing: -0.01em;
+  line-height: 1.5;
+  box-shadow: none;
   cursor: pointer;
   outline: none;
   user-select: none;
@@ -52,9 +52,9 @@
 }
 
 .hold-button--md {
-  height: 44px;
-  padding: 0 22px;
-  font-size: 15px;
+  height: 40px;
+  padding: 0 16px;
+  font-size: 13px;
 }
 
 .hold-button--lg {
@@ -133,9 +133,7 @@
   align-items: center;
   gap: 8px;
   white-space: nowrap;
-  transition:
-    opacity 200ms ease,
-    filter 200ms ease;
+  transition: opacity 150ms ease;
 }
 
 .hold-button__icon {
@@ -149,17 +147,14 @@
 
 .hold-button__done {
   opacity: 0;
-  filter: blur(2px);
 }
 
 .hold-button[data-phase='done'] .hold-button__idle {
   opacity: 0;
-  filter: blur(2px);
 }
 
 .hold-button[data-phase='done'] .hold-button__done {
   opacity: 1;
-  filter: blur(0);
 }
 
 .hold-button__clip {
@@ -224,6 +219,14 @@
 
 .hold-button__label--fill {
   z-index: auto;
+}
+
+@media (pointer: coarse), (max-width: 700px) {
+  .hold-button--md,
+  .hold-button--sm {
+    height: 44px;
+    min-height: 44px;
+  }
 }
 
 .hold-button__sr {

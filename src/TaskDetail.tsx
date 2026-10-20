@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import {
   Check,
@@ -417,17 +418,19 @@ export function NoteCard({
             disabled={disabled}
           />
           <div className="note-edit-actions">
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               className="text-button"
               type="button"
               disabled={disabled}
               onClick={() => setEditing(false)}
             >
               취소
-            </button>
-            <button className="soft-button" disabled={disabled}>
+            </Button>
+            <Button variant="secondary" size="default" className="soft-button" disabled={disabled}>
               수정 저장
-            </button>
+            </Button>
           </div>
         </form>
       ) : (
@@ -436,13 +439,15 @@ export function NoteCard({
             <p className={`note-body ${expanded ? 'expanded' : ''}`}>{content.body}</p>
           )}
           {content.body.length > 180 && (
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               type="button"
               className="text-button note-expand"
               onClick={() => setExpanded(!expanded)}
             >
               {expanded ? '접기' : '더 보기'}
-            </button>
+            </Button>
           )}
         </>
       )}
@@ -650,16 +655,28 @@ export default function TaskDetail({
         )}
         {editable || (canContribute && files.length > 0) ? (
           <div className="form-actions">
-            <button className="primary-button" disabled={disabled} type="submit">
+            <Button
+              variant="default"
+              size="default"
+              className="primary-button"
+              disabled={disabled}
+              type="submit"
+            >
               <Check size={17} />
               {disabled ? progress || '저장 중…' : editable ? '할 일 저장' : '파일 올리기'}
-            </button>
+            </Button>
           </div>
         ) : onLogin ? (
-          <button className="soft-button full-width" type="button" onClick={onLogin}>
+          <Button
+            variant="secondary"
+            size="default"
+            className="soft-button full-width"
+            type="button"
+            onClick={onLogin}
+          >
             <LockKeyhole size={17} />
             로그인하고 편집하기
-          </button>
+          </Button>
         ) : (
           <p className="card-footnote">
             제목과 세부 항목은 이 할 일의 작성자와 관리자만 수정할 수 있어요.
@@ -669,7 +686,9 @@ export default function TaskDetail({
       {item && canContribute && !unavailable && (
         <div className="task-duplicate">
           {!duplicating ? (
-            <button
+            <Button
+              variant="outline"
+              size="default"
               type="button"
               className="text-button"
               disabled={duplicateDisabled}
@@ -679,7 +698,7 @@ export default function TaskDetail({
               }}
             >
               이 계획 복제
-            </button>
+            </Button>
           ) : (
             <form
               ref={duplicationForm}
@@ -720,7 +739,7 @@ export default function TaskDetail({
               <p className="card-footnote">
                 생성 공간: <strong>{planner.workspace?.name}</strong>
                 <br />
-                저장된 제목과 세부 항목만 복제해요. 완료 상태·기록·첨부는 가져오지 않아요.
+                저장된 제목과 세부 항목만 복제해요. 완료 상태와 기록, 첨부는 가져오지 않아요.
               </p>
               {(dirty || files.length > 0) && (
                 <p className="card-footnote">
@@ -733,14 +752,16 @@ export default function TaskDetail({
                 </p>
               )}
               <div className="note-edit-actions">
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   type="button"
                   className="text-button"
                   disabled={duplicateDisabled}
                   onClick={() => setDuplicating(false)}
                 >
                   취소
-                </button>
+                </Button>
                 <HoldButton
                   className="task-action-hold"
                   aria-label="계획 복제"
@@ -779,7 +800,9 @@ export default function TaskDetail({
       {item && canContribute && !unavailable && targets.length > 0 && (
         <div className="task-move">
           {!moving ? (
-            <button
+            <Button
+              variant="outline"
+              size="default"
               type="button"
               className="text-button"
               disabled={disabled}
@@ -789,7 +812,7 @@ export default function TaskDetail({
               }}
             >
               다른 플래너로 이동
-            </button>
+            </Button>
           ) : (
             <div className="task-move-picker" role="group" aria-label="다른 플래너로 이동">
               <label className="field">
@@ -803,14 +826,14 @@ export default function TaskDetail({
                   {targets.map((space) => (
                     <option key={space.id} value={space.id}>
                       {space.owner_id === planner.session?.user.id
-                        ? `내 플래너 · ${space.name}`
+                        ? `내 플래너: ${space.name}`
                         : space.name}
                     </option>
                   ))}
                 </select>
               </label>
               <p className="card-footnote">
-                날짜와 기록·첨부를 유지하고 선택한 공간으로 이동합니다.
+                날짜, 기록, 첨부를 유지하고 선택한 공간으로 이동합니다.
               </p>
               {(dirty || files.length > 0) && (
                 <p className="card-footnote">
@@ -818,14 +841,16 @@ export default function TaskDetail({
                 </p>
               )}
               <div className="note-edit-actions">
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   type="button"
                   className="text-button"
                   disabled={disabled}
                   onClick={() => setMoving(false)}
                 >
                   취소
-                </button>
+                </Button>
                 <HoldButton
                   className="task-action-hold"
                   aria-label="이동"

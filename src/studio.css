@@ -124,6 +124,7 @@ html[data-interaction='keyboard'] .squish-switch__thumb {
   letter-spacing: -0.025em;
 }
 .home-layout .date-display {
+  color: var(--text);
   font-size: 14px;
   line-height: 1.5;
   font-weight: 450;
@@ -242,10 +243,11 @@ html[data-interaction='keyboard'] .squish-switch__thumb {
   animation: none;
 }
 .spring-check .spring-check__ring {
-  opacity: 0.65;
+  box-shadow: inset 0 0 0 1.25px var(--control-border);
+  opacity: 1;
 }
 .spring-check .spring-check__box {
-  outline: 1px solid var(--control-border);
+  outline: none;
 }
 .task-row .task-title:has(.spring-check__label),
 .detail-row-main .detail-row-title:has(.spring-check__label) {
@@ -287,7 +289,7 @@ html[data-interaction='keyboard'] .squish-switch__thumb {
     justify-self: end;
   }
 }
-/* Hold actions retain the planner palette; purple is the intentional fill. */
+/* Hold actions share the same outline, radius and palette as standard buttons. */
 .hold-button .hold-button__label svg {
   color: inherit;
 }
@@ -299,16 +301,19 @@ html[data-interaction='keyboard'] .squish-switch__thumb {
   padding: 0;
   background: var(--hb-bg);
   color: var(--hb-text);
-  border-radius: 14px;
+  border-radius: 6px;
 }
 .hold-button.task-action-hold,
 .hold-button.delete-button {
-  min-height: 44px;
+  min-height: 40px;
   padding: 0 16px;
   max-width: 100%;
   background: var(--hb-bg);
   color: var(--hb-text);
   font-size: 13px;
+}
+.task-duplicate + .hold-button.delete-button {
+  margin-top: 12px;
 }
 html[data-interaction='keyboard'] .hold-button {
   transform: none !important;
@@ -338,63 +343,87 @@ html[data-interaction='keyboard'] .hold-button__label > span {
   }
 }
 :root {
-  --studio: #f0efeb;
+  --sky-50: #f7f4ee;
+  --sky-100: #eee8de;
+  --sky-200: #d8cbbb;
+  --sky-400: #8b7964;
+  --sky-500: #71604c;
+  --sky-600: #5b4e3f;
+  --surface-accent: #eee9e1;
+  --surface-accent-hover: #e4ddd2;
+  --on-accent: #fffdf8;
+  --destructive-solid: #9b4541;
+  --focus-ring: 0 0 0 3px #8c827629;
+  --shadow-dialog: 0 28px 100px -28px #29241d59;
+  --studio: #f1efe9;
   --planner-cover: #68758d;
   --planner-cover-dark: #4e5a70;
   --planner-paper: #faf8f2;
-  --text: #2c3035;
-  --text-secondary: #50565e;
-  --text-muted: #626971;
-  --text-faint: #69717b;
-  --line: #dcdedc;
+  --text: #302e2b;
+  --text-secondary: #55514b;
+  --text-muted: #686158;
+  --text-faint: #70685f;
+  --line: #ddd7cd;
   --glass-bg: var(--planner-paper);
-  --glass-border: #ddded9;
+  --glass-border: #dfd9cf;
   --glass-blur: 0px;
   --shadow-soft: 0 5px 18px -12px #303a4938;
-  --surface-input: #fffefa;
-  --surface-disabled: #ecece7;
+  --surface-input: #fffdf8;
+  --surface-disabled: #ebe6de;
   --surface-focus: #ffffff;
-  --surface-soft: #e8e9e4;
-  --surface-hover: #e8ecee;
-  --surface-selected: #e1e8ed;
-  --surface-toolbar: #f7f6f1;
+  --surface-soft: #eee9e1;
+  --surface-hover: #e7e0d6;
+  --surface-selected: #e8e0d4;
+  --surface-toolbar: #f7f4ee;
   --surface-solid: #faf8f2;
-  --sidebar-bg: #eaeae5;
-  --control-border: #a5aeb3;
-  --brand-color: #586b7b;
-  --accent-solid: #456578;
-  --accent-hover: #375567;
-  --backdrop: #22282f55;
+  --sidebar-bg: #eae5dc;
+  --control-border: #8c8276;
+  --brand-color: #63584b;
+  --accent-solid: #39342e;
+  --accent-hover: #51493f;
+  --backdrop: #29241d66;
   --radius-card: 16px;
   --radius-lg: 20px;
   background: var(--studio);
 }
 :root[data-atmosphere='night'] {
-  --studio: #202329;
+  --sky-50: #302d28;
+  --sky-100: #38342e;
+  --sky-200: #655b4c;
+  --sky-400: #c9b89e;
+  --sky-500: #d9c7ac;
+  --sky-600: #dfcfb8;
+  --surface-accent: #38342e;
+  --surface-accent-hover: #454036;
+  --on-accent: #29251f;
+  --destructive-solid: #9b4541;
+  --focus-ring: 0 0 0 3px #b6a58b40;
+  --shadow-dialog: 0 28px 100px -28px #000b;
+  --studio: #242320;
   --planner-cover: #4e5c73;
   --planner-cover-dark: #344157;
   --planner-paper: #e9e5d9;
-  --text: #e9e7e2;
-  --text-secondary: #d2d2cf;
-  --text-muted: #bfc3c5;
-  --text-faint: #b2b9bd;
-  --line: #444b53;
-  --glass-bg: #2b3037;
-  --glass-border: #454b53;
+  --text: #eeeae2;
+  --text-secondary: #d8d1c6;
+  --text-muted: #c7bfb2;
+  --text-faint: #bbb2a5;
+  --line: #4b463f;
+  --glass-bg: #2d2b27;
+  --glass-border: #48433b;
   --shadow-soft: 0 5px 18px -12px #0008;
-  --surface-input: #242a31;
-  --surface-disabled: #30353c;
-  --surface-focus: #333d46;
-  --surface-soft: #363e46;
-  --surface-hover: #3a454e;
-  --surface-selected: #3d4b58;
-  --surface-toolbar: #2c323a;
-  --surface-solid: #2b3037;
-  --sidebar-bg: #24292f;
-  --control-border: #85949f;
-  --brand-color: #c6d2da;
-  --accent-solid: #456f8c;
-  --accent-hover: #3b627c;
+  --surface-input: #262420;
+  --surface-disabled: #34312c;
+  --surface-focus: #3d3933;
+  --surface-soft: #38342e;
+  --surface-hover: #454036;
+  --surface-selected: #4a4237;
+  --surface-toolbar: #302d28;
+  --surface-solid: #2d2b27;
+  --sidebar-bg: #272521;
+  --control-border: #9c9181;
+  --brand-color: #d7cbb9;
+  --accent-solid: #e5dbcb;
+  --accent-hover: #d2c5b2;
   background: var(--studio);
 }
 body,
@@ -464,7 +493,7 @@ html[data-interaction='pointer'] .page-heading h1:focus {
   overflow: clip;
   isolation: isolate;
   background:
-    radial-gradient(ellipse at 82% 8%, #fffefa 0, #fffefa00 67%),
+    radial-gradient(ellipse at 82% 8%, #fffdf8 0, #fffdf800 67%),
     linear-gradient(165deg, #f4f2ed, var(--studio) 70%);
 }
 [data-atmosphere='night'] .welcome-stage {

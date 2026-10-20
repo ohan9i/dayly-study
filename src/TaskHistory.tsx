@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { supabase, type Planner } from './planner';
@@ -64,13 +65,19 @@ export default function TaskHistory({ planner }: { planner: Planner }) {
   return (
     <section className="task-history" aria-label="계획 변경 내역">
       <p className="card-footnote">
-        생성·수정·삭제·복원·공간 이동·날짜 변경을 확인할 수 있어요. 기록 기능 적용 전의 변경은
-        표시되지 않습니다.
+        생성과 수정, 삭제와 복원, 공간 이동과 날짜 변경을 확인할 수 있어요. 기록 기능 적용 전의
+        변경은 표시되지 않습니다.
       </p>
-      <button className="soft-button" onClick={() => void refresh()} disabled={loading}>
+      <Button
+        variant="secondary"
+        size="default"
+        className="soft-button"
+        onClick={() => void refresh()}
+        disabled={loading}
+      >
         <RefreshCw size={16} />
         이력 새로고침
-      </button>
+      </Button>
       {loading && (
         <p role="status" className="setting-description">
           변경 이력을 불러오는 중이에요.
@@ -99,8 +106,8 @@ export default function TaskHistory({ planner }: { planner: Planner }) {
                     date_change: '날짜 변경',
                     update: '수정',
                   } as Record<string, string>
-                )[change.operation] || change.operation}{' '}
-                · {format(change.changed_at)}
+                )[change.operation] || change.operation}
+                , {format(change.changed_at)}
               </small>
               <small>
                 처리 계정:{' '}
