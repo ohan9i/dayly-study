@@ -253,9 +253,6 @@ export default function App() {
           }}
         />
       </label>
-      <time className="live-clock" aria-label={`현재 시각 ${clock}`}>
-        {clock}
-      </time>
       <button
         className="icon-button"
         aria-label="이전 날짜"
@@ -608,6 +605,18 @@ export default function App() {
               </div>
               {taskCard}
             </div>
+            <aside className="moment planner-moment" aria-label="시계와 공부 공간 분위기">
+              <span className="moment-label">SEOUL / KST</span>
+              <time
+                className="live-clock"
+                dateTime={now.toISOString()}
+                aria-label={`현재 시각 ${clock}`}
+              >
+                {clock}
+              </time>
+              <p>{formatDate(today, true)}</p>
+              <AtmospherePicker value={atmosphere} onChange={setAtmosphere} compact />
+            </aside>
           </div>
         )}
         {view === 'calendar' && (

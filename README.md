@@ -1,6 +1,6 @@
 # Dayly — 나의 공부, 나의 하루
 
-청회색 플래너를 펼쳐 사용하는 개인 학습 대시보드입니다. 시작 화면에서 스크롤하면 표지가 열리고 실제 플래너로 이어집니다. **플래너 바로 열기** 또는 `#planner` 주소로 즉시 진입할 수 있으며, 동작 줄이기 설정에서는 정적인 표지와 일반 스크롤을 제공합니다. 아침·밤 스튜디오 테마를 지원합니다. [시작 화면 구현 기록](docs/START_SCREEN_IMPLEMENTATION_20261020.md)
+청회색 플래너를 펼쳐 사용하는 개인 학습 대시보드입니다. 큰 **DAYLY** 글자와 홀로그램 표지를 표시하고, 첫 스크롤을 감지하면 표지가 자동으로 열리며 플래너로 이어집니다. 진입 후에는 시작 화면을 숨겨 위로 스크롤해도 다시 나타나지 않습니다. `#planner` 직접 진입과 키보드 건너뛰기를 지원하며, 동작 줄이기 설정에서는 즉시 전환합니다. 시계·아침/밤 선택기와 메뉴 전환 효과를 제공하며 명언은 표시하지 않습니다. [시작 화면 구현 기록](docs/START_SCREEN_IMPLEMENTATION_20261020.md)
 
 **홈페이지:** <https://ohan9i.github.io/dayly-study/>
 
@@ -67,6 +67,8 @@ Node.js 24를 기준으로 작성하고 검사했습니다.
 | `src/WelcomeScreen.tsx`, `src/PlannerObject.tsx`                    | 시작 화면과 CSS 3D 플래너                          |
 | `src/plannerScroll.ts`, `src/entryNavigation.ts`                   | 스크롤 전환, 접근성, 화면·위치 복원                 |
 | `src/studio.css`                                                  | 스튜디오 테마, 종이 표면, 시작 화면 반응형          |
+| `src/HoloCard.tsx`, `src/HoloCard.css`                              | React Bits 기반 표지 홀로그램과 수요 기반 렌더링    |
+| `src/assets/planner-cover.svg`                                    | 해상도에 독립적인 Dayly 표지 원본                  |
 | `src/Account.tsx`                                                 | 회원가입, 비밀번호 로그인과 재설정                  |
 | `src/TaskDetail.tsx`                                              | 할 일 상세, 첨부 미리보기와 수행 내용               |
 | `src/WorkspacePanel.tsx`                                          | 내 공간과 승인받은 공간 선택, 이름 변경             |

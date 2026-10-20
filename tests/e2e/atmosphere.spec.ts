@@ -138,17 +138,13 @@ for (const [width, height] of [
       expect(buttons[i].height).toBeGreaterThanOrEqual(36);
       if (i) expect(buttons[i].left).toBeGreaterThanOrEqual(buttons[i - 1].right);
     }
-    await expect(page.locator('.study-scene, .moment')).toHaveCount(0);
+    await expect(page.locator('.study-scene, .moment blockquote')).toHaveCount(0);
+    await expect(page.locator('.planner-moment .live-clock')).toBeVisible();
+    await expect(page.locator('.planner-moment .atmosphere-picker')).toBeVisible();
     await capture('home');
     await contrast(
       page,
-      [
-        '.view-home h1',
-        '.task-title',
-        '.detail-row-title',
-        '.save-note',
-        '.live-clock',
-      ],
+      ['.view-home h1', '.task-title', '.detail-row-title', '.save-note', '.live-clock'],
       `.local/atmosphere/night-${width}-contrast.json`,
     );
     for (const label of ['달력', '학습 흐름', '설정']) {
@@ -169,10 +165,7 @@ for (const [width, height] of [
     if (width > 1000) {
       await contrast(
         page,
-        [
-          '.date-display',
-          '.live-clock',
-        ],
+        ['.date-display', '.live-clock'],
         `.local/atmosphere/morning-${width}-controls-contrast.json`,
       );
     }

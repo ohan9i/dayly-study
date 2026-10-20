@@ -1,8 +1,7 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
-import { ArrowDown, ArrowUpRight } from 'lucide-react';
 import { PlannerObject } from './PlannerObject';
 import { hasEntryDestination, readEntryNavigation, saveEntryNavigation } from './entryNavigation';
-import { connectPlannerScroll } from './plannerScroll';
+import { connectPlannerEntry } from './plannerScroll';
 
 export default function WelcomeScreen({
   children,
@@ -16,23 +15,23 @@ export default function WelcomeScreen({
   const stage = useRef<HTMLDivElement>(null);
   const object = useRef<HTMLDivElement>(null);
   const app = useRef<HTMLDivElement>(null);
-  const controls = useRef<HTMLDivElement>(null);
   const enter = useRef<() => void>(() => {});
   const initial = useRef(readEntryNavigation()).current;
-  const directEntry = useRef(hasEntryDestination() || initial.intro === false || bypass);
+  const directEntry = useRef(
+    hasEntryDestination() || initial.entered || initial.intro === false || bypass,
+  );
   // The SDK may consume the URL before recovery is detected. Preserve the
   // destination for this mount after the new password has been saved as well.
   if (bypass) directEntry.current = true;
   const enabled = !directEntry.current;
 
   useLayoutEffect(() => {
-    return connectPlannerScroll({
+    return connectPlannerEntry({
       flow: flow.current!,
       runway: runway.current!,
       stage: stage.current!,
       object: object.current!,
       app: app.current!,
-      controls: controls.current!,
       enabled,
       initial,
       registerEnter: (callback) => {
@@ -81,26 +80,17 @@ export default function WelcomeScreen({
         hidden={!enabled}
       >
         <div className="welcome-stage" ref={stage}>
-          <div className="welcome-wordmark" aria-hidden="true">
-            Dayly<span>.</span>
-          </div>
-          <p className="welcome-caption">오늘의 계획</p>
+          <h1 className="welcome-wordmark" aria-label="DAYLY">
+            {'DAYLY'.split('').map((letter, index) => (
+              <span aria-hidden="true" key={index}>
+                {letter}
+              </span>
+            ))}
+          </h1>
+          <div className="welcome-rule" aria-hidden="true" />
           <div className="book-shadow" aria-hidden="true" />
+          <div className="book-contact-shadow" aria-hidden="true" />
           <PlannerObject ref={object} />
-          <div className="welcome-controls" ref={controls}>
-            <p>
-              스크롤해서 펼치기 <ArrowDown size={15} aria-hidden="true" />
-            </p>
-            <a
-              href="#planner"
-              onClick={(event) => {
-                event.preventDefault();
-                enter.current();
-              }}
-            >
-              플래너 바로 열기 <ArrowUpRight size={14} aria-hidden="true" />
-            </a>
-          </div>
         </div>
       </section>
       <div className="planner-layer" ref={app} inert={enabled && !initial.entered}>

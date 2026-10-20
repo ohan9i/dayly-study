@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, Moon, Sun } from 'lucide-react';
+import { flushSync } from 'react-dom';
 
 export type Atmosphere = 'morning' | 'night';
 const storageKey = 'dayly.atmosphere';
@@ -43,7 +44,19 @@ export function useAtmosphere() {
       window.removeEventListener('pointerdown', pointer, true);
     };
   }, []);
-  return [atmosphere, setAtmosphere] as const;
+  const changeAtmosphere = (next: Atmosphere) => {
+    if (next === atmosphere) return;
+    if (
+      document.startViewTransition &&
+      !window.matchMedia('(prefers-reduced-motion: reduce)').matches &&
+      document.documentElement.dataset.interaction !== 'keyboard'
+    ) {
+      document.startViewTransition(() => {
+        flushSync(() => setAtmosphere(next));
+      });
+    } else setAtmosphere(next);
+  };
+  return [atmosphere, changeAtmosphere] as const;
 }
 
 export function AtmospherePicker({

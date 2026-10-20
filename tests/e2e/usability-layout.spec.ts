@@ -100,15 +100,15 @@ for (const [width, height] of [
       await page.getByRole('button', { name: '순열 문제 풀기 기록 접기', exact: true }).click();
     }
     if (stage !== 'before') {
+      // Bring the reading surface above the fixed mobile navigation before
+      // measuring its backdrop. The footer remains reachable by normal scroll.
+      await page
+        .locator('.save-note')
+        .evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
       // Measure the actual composite backdrop after hiding only the glyphs.
       // Token-vs-white checks miss contrast problems on translucent scenery.
       const targets = await page.evaluate(() => {
-        return [
-          '.task-title',
-          '.detail-row-title',
-          '.save-note',
-          '.live-clock',
-        ].map((selector) => {
+        return ['.task-title', '.detail-row-title', '.save-note', '.live-clock'].map((selector) => {
           const el = document.querySelector<HTMLElement>(selector)!;
           const rect = el.getBoundingClientRect(),
             style = getComputedStyle(el);
@@ -130,7 +130,13 @@ for (const [width, height] of [
           return data;
         });
       });
-      const pixels = await sharp(await page.screenshot({ fullPage: true, animations: 'disabled' }))
+      const pixels = await sharp(
+        await page.screenshot({
+          path: `.local/usability/${stage}-${width}-contrast.png`,
+          fullPage: true,
+          animations: 'disabled',
+        }),
+      )
         .removeAlpha()
         .raw()
         .toBuffer({ resolveWithObject: true });
@@ -165,6 +171,10 @@ for (const [width, height] of [
           }
         return {
           selector: target.selector,
+          x: target.x,
+          y: target.y,
+          width: target.width,
+          height: target.height,
           contrast: Math.min(...samples),
           minimum: target.minimum,
         };
