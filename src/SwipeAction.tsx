@@ -3,9 +3,9 @@ import { Plus, Trash2, X } from 'lucide-react';
 import './SwipeAction.css';
 
 type Side = 'add' | 'delete';
-type Phase = 'idle' | 'dragging' | 'settling' | 'waiting' | 'working';
+type Phase = 'idle' | 'dragging' | 'waiting' | 'working';
 
-/** Finish the swipe, wait one second, then execute. Returning or cancelling aborts it. */
+/** Half-width swipe: add immediately; hold deletion for two seconds without releasing. */
 export default function SwipeAction({
   children,
   title,
@@ -36,7 +36,6 @@ export default function SwipeAction({
   const sideRef = useRef<Side>('add');
   const timer = useRef(0),
     generation = useRef(0);
-  const animation = useRef<Animation | null>(null);
   const suppressClick = useRef(false);
   const changePhase = (next: Phase) => {
     phaseRef.current = next;
@@ -55,8 +54,6 @@ export default function SwipeAction({
   const clear = () => {
     generation.current++;
     window.clearTimeout(timer.current);
-    animation.current?.cancel();
-    animation.current = null;
   };
   const reset = () => {
     clear();
@@ -65,42 +62,26 @@ export default function SwipeAction({
     changePhase('idle');
   };
   const arm = (next: Side) => {
-    if (latest.current.disabled || ['settling', 'waiting', 'working'].includes(phaseRef.current))
-      return;
+    if (latest.current.disabled || ['waiting', 'working'].includes(phaseRef.current)) return;
     clear();
     const token = generation.current;
     suppressClick.current = true;
     setSide(next);
-    changePhase('settling');
+    paint((root.current?.clientWidth || 1) * (next === 'add' ? 0.5 : -0.5));
     root.current?.focus({ preventScroll: true });
-    const target = (root.current?.clientWidth || 1) * (next === 'add' ? 1 : -1);
-    const begin = () => {
+    const execute = async () => {
       if (generation.current !== token || latest.current.disabled || !alive.current) return;
-      paint(target);
-      animation.current?.cancel();
-      animation.current = null;
-      changePhase('waiting');
-      timer.current = window.setTimeout(async () => {
-        if (generation.current !== token || latest.current.disabled || !alive.current) return;
-        changePhase('working');
-        try {
-          await (next === 'add' ? latest.current.onAdd() : latest.current.onDelete());
-        } finally {
-          if (alive.current && generation.current === token) reset();
-        }
-      }, 1000);
+      changePhase('working');
+      try {
+        await (next === 'add' ? latest.current.onAdd() : latest.current.onDelete());
+      } finally {
+        if (alive.current && generation.current === token) reset();
+      }
     };
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) begin();
+    if (next === 'add') void execute();
     else {
-      const move = surface.current!.animate(
-        [
-          { transform: `translate3d(${distance.current}px,0,0)` },
-          { transform: `translate3d(${target}px,0,0)` },
-        ],
-        { duration: 140, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'forwards' },
-      );
-      animation.current = move;
-      void move.finished.then(begin, () => {});
+      changePhase('waiting');
+      timer.current = window.setTimeout(() => void execute(), 2000);
     }
   };
   useEffect(() => {
@@ -161,8 +142,9 @@ export default function SwipeAction({
     if (!current || current.id !== event.pointerId) return;
     const dx = event.clientX - current.x,
       dy = event.clientY - current.y;
-    if (phaseRef.current === 'waiting' || phaseRef.current === 'settling') {
-      if (Math.abs(dx) < (root.current?.clientWidth || 1) * 0.55) {
+    if (phaseRef.current === 'working') return;
+    if (phaseRef.current === 'waiting') {
+      if (dx > -(root.current?.clientWidth || 1) * 0.5) {
         clear();
         changePhase('dragging');
       } else return;
@@ -178,9 +160,9 @@ export default function SwipeAction({
       event.currentTarget.setPointerCapture(event.pointerId);
       changePhase('dragging');
     }
-    const width = root.current?.clientWidth || 1;
-    paint(Math.max(-width, Math.min(width, dx)));
-    if (Math.abs(dx) >= width - 4) arm(dx > 0 ? 'add' : 'delete');
+    const limit = (root.current?.clientWidth || 1) * 0.5;
+    paint(Math.max(-limit, Math.min(limit, dx)));
+    if (Math.abs(dx) >= limit) arm(dx > 0 ? 'add' : 'delete');
   };
   const up = (event: PointerEvent<HTMLDivElement>) => {
     const current = grip.current;
@@ -190,10 +172,8 @@ export default function SwipeAction({
     suppressClick.current = true;
     if (event.currentTarget.hasPointerCapture(event.pointerId))
       event.currentTarget.releasePointerCapture(event.pointerId);
-    if (['waiting', 'settling', 'working'].includes(phaseRef.current)) return;
-    if (Math.abs(distance.current) >= (root.current?.clientWidth || 1) * 0.9)
-      arm(distance.current > 0 ? 'add' : 'delete');
-    else reset();
+    if (phaseRef.current === 'working') return;
+    reset();
   };
   return (
     <div
@@ -206,7 +186,7 @@ export default function SwipeAction({
       aria-description={
         disabled
           ? '밀기 작업은 편집 권한이 필요합니다. 제목과 기록은 열 수 있습니다.'
-          : '오른쪽으로 끝까지 밀면 추가, 왼쪽은 삭제합니다. 완전히 열린 뒤 1초 후 실행합니다. Escape나 취소로 멈출 수 있습니다. 키보드는 오른쪽과 왼쪽 화살표를 사용합니다.'
+          : '오른쪽으로 절반 밀면 즉시 추가합니다. 왼쪽으로 절반 민 상태에서 손을 떼지 않고 2초 유지하면 삭제합니다. 손을 떼거나 되밀면 취소합니다. 키보드는 오른쪽 화살표로 추가하고 왼쪽 화살표를 2초 누르면 삭제합니다.'
       }
       tabIndex={disabled ? undefined : 0}
       onKeyDown={(event) => {
@@ -226,6 +206,12 @@ export default function SwipeAction({
           arm(event.key === 'ArrowRight' ? 'add' : 'delete');
         }
       }}
+      onKeyUp={(event) => {
+        if (event.key === 'ArrowLeft' && phaseRef.current === 'waiting') {
+          event.preventDefault();
+          reset();
+        }
+      }}
       onClickCapture={(event) => {
         if (suppressClick.current && (event.target as Element).closest('.swipe-action__content')) {
           suppressClick.current = false;
@@ -240,8 +226,10 @@ export default function SwipeAction({
           {phase === 'working'
             ? '처리 중…'
             : phase === 'waiting'
-              ? `1초 후 ${side === 'add' ? '추가' : '삭제'}`
-              : '끝까지 밀어 주세요'}
+              ? '2초 유지하면 삭제'
+              : side === 'add'
+                ? '절반 밀면 추가'
+                : '절반 밀고 유지'}
         </span>
         {phase === 'waiting' && (
           <button
@@ -259,7 +247,7 @@ export default function SwipeAction({
       <div
         ref={surface}
         className={`swipe-action__content ${contentClassName}`}
-        inert={phase === 'waiting' || phase === 'working'}
+        inert={phase === 'working'}
         onPointerDown={down}
         onPointerMove={move}
         onPointerUp={up}
@@ -274,9 +262,7 @@ export default function SwipeAction({
         {children}
       </div>
       <span className="sr-only" aria-live="polite" aria-atomic="true">
-        {phase === 'waiting'
-          ? `1초 후 ${side === 'add' ? '추가' : '삭제'}합니다. 취소할 수 있어요.`
-          : ''}
+        {phase === 'waiting' ? '이 상태로 2초 유지하면 삭제합니다. 손을 떼면 취소해요.' : ''}
       </span>
     </div>
   );

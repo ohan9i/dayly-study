@@ -16,23 +16,28 @@
 }
 .swipe-action__rail {
   position: absolute;
-  inset: 0;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 4px;
   padding: 4px 8px;
   background: var(--ui-secondary);
   color: var(--text);
 }
 .swipe-action[data-side='delete'] > .swipe-action__rail {
   color: var(--ui-danger);
+  left: auto;
+  right: 0;
 }
 .swipe-action__copy {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 12px;
 }
 .swipe-action__cancel {
   display: inline-flex;
@@ -53,7 +58,7 @@
   height: 3px;
   background: currentColor;
   transform-origin: left;
-  animation: swipe-wait 1s linear both;
+  animation: swipe-wait 2s linear both;
   pointer-events: none;
 }
 .swipe-action[data-phase='idle'] > .swipe-action__rail {
@@ -63,7 +68,6 @@
   overflow: visible;
 }
 .task-copy > .swipe-action[data-phase='dragging'],
-.task-copy > .swipe-action[data-phase='settling'],
 .task-copy > .swipe-action[data-phase='waiting'],
 .task-copy > .swipe-action[data-phase='working'] {
   overflow: hidden;
@@ -83,4 +87,17 @@
   .swipe-action__countdown {
     animation: none;
   }
+}
+
+.swipe-action__cancel {
+  font-size: 0;
+  padding-inline: 4px;
+  border: 0;
+  flex-shrink: 0;
+}
+.swipe-action__copy {
+  min-width: 0;
+}
+.swipe-action__copy svg {
+  flex-shrink: 0;
 }
