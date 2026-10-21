@@ -49,7 +49,8 @@ for (const width of [1440, 390, 320])
     await page.setViewportSize({ width, height: 900 });
     await mockCloud(page);
     await page.goto('/#planner');
-    await expect(page.getByRole('switch')).toHaveCount(1);
+    await expect(page.locator('.planner-moment').getByRole('switch')).toHaveCount(1);
+    await expect(page.locator('.focus-clock-card').getByRole('switch')).toHaveCount(1);
     const sizes = await page.locator('.home-layout').evaluate((root) => {
       const size = (selector: string) =>
         parseFloat(getComputedStyle(root.querySelector(selector)!).fontSize);

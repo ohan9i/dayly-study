@@ -39,7 +39,8 @@ test('the single clock switch slides, saves the theme and has no duplicate contr
   await expect(page.getByRole('switch')).toHaveCount(0);
   await expect(page.locator('.atmosphere-settings')).toHaveCount(0);
   await page.getByRole('button', { name: '나의 하루', exact: true }).click();
-  await expect(page.getByRole('switch')).toHaveCount(1);
+  await expect(page.locator('.planner-moment').getByRole('switch')).toHaveCount(1);
+  await expect(page.locator('.focus-clock-card').getByRole('switch')).toHaveCount(1);
   await toggle.click();
   await expect(toggle).not.toBeChecked();
   await page.reload();

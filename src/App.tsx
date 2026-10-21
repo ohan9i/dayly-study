@@ -58,6 +58,7 @@ import { useDraftUnloadGuard } from './recordDrafts';
 import LoadingStatus from './LoadingStatus';
 import PlannerBackground from './PlannerBackground';
 import SpringCheck, { SpringCheckLabel } from './SpringCheck';
+import FocusClock from './FocusClock';
 
 type View = 'home' | 'calendar' | 'stats' | 'settings';
 type ModalState =
@@ -727,18 +728,21 @@ export default function App() {
             </div>
             {taskCard}
           </div>
-          <aside className="moment planner-moment" aria-label="시계와 공부 공간 분위기">
-            <span className="moment-label">SEOUL / KST</span>
-            <time
-              className="live-clock"
-              dateTime={now.toISOString()}
-              aria-label={`현재 시각 ${clock}`}
-            >
-              {clock}
-            </time>
-            <p>현재 시각, 서울</p>
-            <AtmospherePicker value={atmosphere} onChange={setAtmosphere} compact />
-          </aside>
+          <div className="planner-side-column">
+            <aside className="moment planner-moment" aria-label="시계와 공부 공간 분위기">
+              <span className="moment-label">SEOUL / KST</span>
+              <time
+                className="live-clock"
+                dateTime={now.toISOString()}
+                aria-label={`현재 시각 ${clock}`}
+              >
+                {clock}
+              </time>
+              <p>현재 시각, 서울</p>
+              <AtmospherePicker value={atmosphere} onChange={setAtmosphere} compact />
+            </aside>
+            <FocusClock visible={view === 'home'} />
+          </div>
         </div>
         {view === 'calendar' && (
           <div className="wide-page">
