@@ -14,6 +14,10 @@ const save = async (page: Page) => {
 };
 const edit = async (page: Page, title = '수학 공부') => {
   await page.getByRole('button', { name: `${title} 상세 보기`, exact: true }).click();
+  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
+    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
+  if (await page.locator('.task-extra-actions > summary').isVisible())
+    await page.locator('.task-extra-actions > summary').click();
 };
 async function backup(page: Page) {
   await page.getByRole('button', { name: '설정', exact: true }).click();
@@ -43,7 +47,7 @@ test('title-only, one item and multiple items support ordered editing, empty fil
   await field(page, 1).press('Enter');
   await expect(field(page, 2)).toBeFocused();
   await field(page, 2).fill('조건부확률 복습');
-  await page.getByRole('button', { name: '한 줄 추가', exact: true }).click();
+  await page.getByRole('button', { name: '세부 항목 추가', exact: true }).click();
   await expect(field(page, 3)).toBeFocused();
   await field(page, 3).fill('오답노트 정리');
   // Enter inserts immediately below the current row, preserving the following row.
@@ -54,7 +58,7 @@ test('title-only, one item and multiple items support ordered editing, empty fil
   await page.getByRole('button', { name: '세부 항목 2 삭제', exact: true }).click();
   await expect(field(page, 1)).toBeFocused();
   await expect(field(page, 2)).toHaveValue('조건부확률 복습');
-  await page.getByRole('button', { name: '한 줄 추가', exact: true }).click();
+  await page.getByRole('button', { name: '세부 항목 추가', exact: true }).click();
   await field(page, 4).fill('   ');
   await field(page, 2).press('Enter');
   await expect(field(page, 3)).toBeFocused();
@@ -95,7 +99,7 @@ test('title-only, one item and multiple items support ordered editing, empty fil
   await page.getByRole('button', { name: '세부 항목 2 삭제', exact: true }).click();
   await page.getByRole('button', { name: '세부 항목 1 삭제', exact: true }).click();
   await expect(page.locator('.detail-input-row')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '한 줄 추가', exact: true })).toBeFocused();
+  await expect(page.getByRole('button', { name: '세부 항목 추가', exact: true })).toBeFocused();
   await save(page);
   await page.reload();
   await expect(page.locator('.task-details')).toHaveCount(0);

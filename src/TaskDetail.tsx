@@ -21,7 +21,7 @@ import {
 import DetailItemsEditor from './DetailItemsEditor';
 import { supabase, type Planner } from './planner';
 import { FILE_ACCEPT, FILE_BUCKET, MAX_QUEUED_FILES, fileSize, validateFile } from './files';
-import HoldButton from './HoldButton';
+import { updateRecordDraft, useRecordDraft } from './recordDrafts';
 
 export function FilePicker({
   files,
@@ -75,7 +75,7 @@ export function FilePicker({
             }
           }}
         />
-        <span>PDF와 사진, 파일당 10MB</span>
+        <span>PDF·사진 / 파일당 10MB / 최대 5개</span>
       </div>
       {files.length > 0 && (
         <ul className="file-queue">
@@ -258,17 +258,16 @@ function FileCard({
           </button>
         )}
         {canDelete && (
-          <HoldButton
-            className="icon-button attachment-trash-hold"
+          <Button
+            variant="ghost"
+            size="icon"
+            className="icon-button danger-text"
             aria-label={`${file.filename} 삭제`}
-            title="2초 눌러 파일 삭제 확인"
-            doneLabel={<span className="sr-only">삭제 확인</span>}
-            doneIcon={<Check size={16} aria-hidden="true" />}
             disabled={working || disabled}
-            onHold={() => setConfirmDelete(true)}
+            onClick={() => setConfirmDelete(true)}
           >
             <Trash2 size={16} />
-          </HoldButton>
+          </Button>
         )}
       </div>
       {confirmDelete && (
@@ -339,9 +338,17 @@ export function NoteCard({
   disabled: boolean;
 }) {
   const content = readDetailNote(note.body);
-  const [editing, setEditing] = useState(false),
-    [body, setBody] = useState(content.body),
-    [error, setError] = useState('');
+  const draftKey = `${planner.session?.user.id}:${planner.workspace?.id}:edit:${note.id}`;
+  const draft = useRecordDraft(draftKey);
+  const editing = draft.adding,
+    body = draft.body;
+  const setBody = (body: string) => updateRecordDraft(draftKey, { body });
+  const setEditing = (adding: boolean) =>
+    updateRecordDraft(draftKey, { adding, ...(adding ? {} : { body: '' }) });
+  const error = draft.error;
+  const setError = (error: string) => updateRecordDraft(draftKey, { error });
+  const saving = draft.working;
+  const setSaving = (working: boolean) => updateRecordDraft(draftKey, { working });
   const [expanded, setExpanded] = useState(false);
   const canEdit =
     planner.canManageRecords && (planner.isOwner || note.created_by === planner.session?.user.id);
@@ -360,11 +367,15 @@ export function NoteCard({
     timeZone: 'Asia/Seoul',
   }).format(new Date(note.created_at));
   async function action(run: () => Promise<void>) {
+    if (saving) return;
     setError('');
+    setSaving(true);
     try {
       await run();
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setSaving(false);
     }
   }
   return (
@@ -380,7 +391,7 @@ export function NoteCard({
               type="button"
               className="icon-button"
               aria-label="수행 내용 수정"
-              disabled={disabled}
+              disabled={disabled || saving}
               onClick={() => {
                 setBody(content.body);
                 setEditing(true);
@@ -415,7 +426,7 @@ export function NoteCard({
             maxLength={content.detailId ? 9000 : 10000}
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            disabled={disabled}
+            disabled={disabled || saving}
           />
           <div className="note-edit-actions">
             <Button
@@ -423,13 +434,18 @@ export function NoteCard({
               size="sm"
               className="text-button"
               type="button"
-              disabled={disabled}
+              disabled={disabled || saving}
               onClick={() => setEditing(false)}
             >
               취소
             </Button>
-            <Button variant="secondary" size="default" className="soft-button" disabled={disabled}>
-              수정 저장
+            <Button
+              variant="default"
+              size="default"
+              className="detail-record-save"
+              disabled={disabled || saving}
+            >
+              {saving ? '저장 중…' : '수정 저장'}
             </Button>
           </div>
         </form>
@@ -451,7 +467,12 @@ export function NoteCard({
           )}
         </>
       )}
-      <FileList files={files} planner={planner} taskAuthor={taskAuthor} disabled={disabled} />
+      <FileList
+        files={files}
+        planner={planner}
+        taskAuthor={taskAuthor}
+        disabled={disabled || saving}
+      />
       {!content.body && !files.length && (
         <p className="card-footnote">첨부가 완료되지 않은 수행 내용이에요.</p>
       )}
@@ -479,8 +500,12 @@ export default function TaskDetail({
   onBusyChange,
   onDuplicated,
   addDetailAfter,
+  initialAction,
+  onDirtyChange,
 }: {
   item?: Task;
+  initialAction?: 'edit' | 'duplicate' | 'move';
+  onDirtyChange: (dirty: boolean) => void;
   addDetailAfter?: string;
   date: string;
   planner: Planner;
@@ -500,10 +525,24 @@ export default function TaskDetail({
   const [progress, setProgress] = useState('');
   const [checking, setChecking] = useState(false);
   const [dirty, setDirty] = useState(Boolean(addDetailAfter));
-  const [moving, setMoving] = useState(false);
-  const [duplicating, setDuplicating] = useState(false);
+  const [editing, setEditing] = useState(
+    !item || Boolean(addDetailAfter) || initialAction === 'edit',
+  );
+  useEffect(() => {
+    onDirtyChange(dirty || files.length > 0);
+  }, [dirty, files.length, onDirtyChange]);
+  useEffect(() => () => onDirtyChange(false), [onDirtyChange]);
+  useEffect(() => {
+    if (!dirty && !files.length && !working) return;
+    const protect = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener('beforeunload', protect);
+    return () => window.removeEventListener('beforeunload', protect);
+  }, [dirty, files.length, working]);
+  const [moving, setMoving] = useState(initialAction === 'move');
+  const [duplicating, setDuplicating] = useState(initialAction === 'duplicate');
   const duplicationLock = useRef(false);
-  const duplicationAuthorized = useRef(false);
   const duplicationForm = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (duplicating) duplicationForm.current?.scrollIntoView({ block: 'nearest' });
@@ -515,6 +554,7 @@ export default function TaskDetail({
         Number(b.owner_id === planner.session?.user.id) -
         Number(a.owner_id === planner.session?.user.id),
     );
+  const [copyDate, setCopyDate] = useState(date);
   const [targetId, setTargetId] = useState(targets[0]?.id || '');
   useEffect(() => {
     setTargetId((current) =>
@@ -534,7 +574,13 @@ export default function TaskDetail({
   const canContribute = Boolean(planner.session && planner.workspace) && !planner.passwordRecovery;
   const disabled = working || planner.busy || checking || !planner.canWrite || unavailable;
   const duplicateDisabled =
-    working || planner.busy || checking || !planner.canDuplicate || unavailable;
+    working ||
+    planner.busy ||
+    checking ||
+    !planner.canDuplicate ||
+    unavailable ||
+    dirty ||
+    files.length > 0;
   const attached = (planner.data.attachments || []).filter(
     (file) => file.task_id === id.current && !file.note_id,
   );
@@ -559,7 +605,8 @@ export default function TaskDetail({
         completed: detailDone[index] === 'true',
       }))
       .filter((item) => item.text);
-    const title = editable ? String(values.get('title') || '').trim() : item?.title || '';
+    const title =
+      editable && editing ? String(values.get('title') || '').trim() : item?.title || '';
     if (!title) {
       setError('할 일을 적어 주세요.');
       return;
@@ -567,7 +614,7 @@ export default function TaskDetail({
     setWorking(true);
     try {
       for (const file of files) await validateFile(file);
-      if (editable) {
+      if (editable && editing) {
         setProgress('할 일 저장 중…');
         await planner.saveTask(
           {
@@ -601,44 +648,66 @@ export default function TaskDetail({
         </p>
       )}
       <form onSubmit={submit} className="editor-form" onChange={() => setDirty(true)}>
-        <fieldset disabled={disabled}>
-          <label className="field">
-            <span>할 일</span>
-            <input
-              name="title"
-              required
-              maxLength={150}
-              defaultValue={item?.title}
-              placeholder="예: 구조 역학 3장 연습문제 풀기"
-              autoFocus
-              readOnly={!editable}
+        {editable && editing ? (
+          <fieldset disabled={disabled}>
+            <label className="field">
+              <span>할 일</span>
+              <input
+                name="title"
+                required
+                maxLength={150}
+                defaultValue={item?.title}
+                placeholder="예: 구조 역학 3장 연습문제 풀기"
+                autoFocus
+                readOnly={!editable}
+              />
+            </label>
+            <label className="field">
+              <span>날짜</span>
+              <input
+                name="date"
+                type="date"
+                required
+                defaultValue={item?.date || date}
+                readOnly={!editable}
+              />
+            </label>
+            <DetailItemsEditor
+              addAfterId={addDetailAfter}
+              initialItems={item?.details || []}
+              initialChecks={item?.detailChecks}
+              editable={editable}
+              canCheck={planner.canWrite && !disabled}
+              onCheckError={setError}
+              onToggle={async (detailId) => {
+                const stored = planner.data.tasks.find((task) => task.id === id.current);
+                if (stored?.detailChecks?.some((check) => check.id === detailId))
+                  await planner.toggleDetail(id.current, detailId);
+                else if (item) throw new Error('새 세부 항목은 먼저 저장한 뒤 완료 체크해 주세요.');
+              }}
             />
-          </label>
-          <label className="field">
-            <span>날짜</span>
-            <input
-              name="date"
-              type="date"
-              required
-              defaultValue={item?.date || date}
-              readOnly={!editable}
-            />
-          </label>
-          <DetailItemsEditor
-            addAfterId={addDetailAfter}
-            initialItems={item?.details || []}
-            initialChecks={item?.detailChecks}
-            editable={editable}
-            canCheck={planner.canWrite && !disabled}
-            onCheckError={setError}
-            onToggle={async (detailId) => {
-              const stored = planner.data.tasks.find((task) => task.id === id.current);
-              if (stored?.detailChecks?.some((check) => check.id === detailId))
-                await planner.toggleDetail(id.current, detailId);
-              else if (item) throw new Error('새 세부 항목은 먼저 저장한 뒤 완료 체크해 주세요.');
-            }}
-          />
-        </fieldset>
+          </fieldset>
+        ) : (
+          <section className="task-read-view">
+            <h3>{item?.title}</h3>
+            <p>{item?.date}</p>
+            {item?.details.length ? (
+              <ul>
+                {item.details.map((detail, index) => (
+                  <li key={item.detailChecks?.[index]?.id || index}>{detail}</li>
+                ))}
+              </ul>
+            ) : (
+              <p>세부 항목 없음</p>
+            )}
+            {editable && (
+              <Button variant="secondary" type="button" onClick={() => setEditing(true)}>
+                <Pencil size={16} />
+                계획 편집
+              </Button>
+            )}
+          </section>
+        )}
         <FileList files={attached} planner={planner} taskAuthor={taskAuthor} disabled={disabled} />
         {canContribute && planner.canManageRecords && (
           <FilePicker
@@ -653,7 +722,7 @@ export default function TaskDetail({
             {error}
           </p>
         )}
-        {editable || (canContribute && files.length > 0) ? (
+        {(editable && editing) || (canContribute && files.length > 0) ? (
           <div className="form-actions">
             <Button
               variant="default"
@@ -663,7 +732,11 @@ export default function TaskDetail({
               type="submit"
             >
               <Check size={17} />
-              {disabled ? progress || '저장 중…' : editable ? '할 일 저장' : '파일 올리기'}
+              {working
+                ? progress || '저장 중…'
+                : editable && editing
+                  ? '할 일 저장'
+                  : '파일 올리기'}
             </Button>
           </div>
         ) : onLogin ? (
@@ -684,206 +757,202 @@ export default function TaskDetail({
         )}
       </form>
       {item && canContribute && !unavailable && (
-        <div className="task-duplicate">
-          {!duplicating ? (
-            <Button
-              variant="outline"
-              size="default"
-              type="button"
-              className="text-button"
-              disabled={duplicateDisabled}
-              onClick={() => {
-                setMoving(false);
-                setDuplicating(true);
-              }}
-            >
-              이 계획 복제
-            </Button>
-          ) : (
-            <form
-              ref={duplicationForm}
-              className="task-duplicate-picker"
-              aria-label="계획 복제"
-              onSubmit={async (event) => {
-                event.preventDefault();
-                if (!duplicationAuthorized.current) return;
-                duplicationAuthorized.current = false;
-                if (duplicationLock.current || duplicateDisabled) return;
-                const copyDate = String(new FormData(event.currentTarget).get('copyDate'));
-                duplicationLock.current = true;
-                setWorking(true);
-                setError('');
-                setProgress('계획 복제 중…');
-                try {
-                  const copy = await planner.duplicateTask(item.id, copyDate);
-                  onDuplicated(copy);
-                } catch (error) {
-                  setError((error as Error).message);
-                } finally {
-                  duplicationLock.current = false;
-                  setWorking(false);
-                  setProgress('');
-                }
-              }}
-            >
-              <label className="field">
-                <span>복제할 날짜</span>
-                <input
-                  name="copyDate"
-                  type="date"
-                  required
-                  defaultValue={date}
-                  disabled={duplicateDisabled}
-                />
-              </label>
-              <p className="card-footnote">
-                생성 공간: <strong>{planner.workspace?.name}</strong>
-                <br />
-                저장된 제목과 세부 항목만 복제해요. 완료 상태와 기록, 첨부는 가져오지 않아요.
-              </p>
-              {(dirty || files.length > 0) && (
-                <p className="card-footnote">
-                  작성 중인 변경과 첨부는 복제에 포함되지 않아요. 반영하려면 먼저 저장해 주세요.
-                </p>
-              )}
-              {error && (
-                <p className="form-error" role="alert">
-                  {error}
-                </p>
-              )}
-              <div className="note-edit-actions">
+        <details
+          className="task-extra-actions"
+          open={initialAction === 'duplicate' || initialAction === 'move' ? true : undefined}
+        >
+          <summary>추가 작업</summary>
+          {item && canContribute && !unavailable && (
+            <div className="task-duplicate">
+              {!duplicating ? (
                 <Button
-                  variant="ghost"
-                  size="sm"
+                  variant="outline"
+                  size="default"
                   type="button"
                   className="text-button"
                   disabled={duplicateDisabled}
-                  onClick={() => setDuplicating(false)}
-                >
-                  취소
-                </Button>
-                <HoldButton
-                  className="task-action-hold"
-                  aria-label="계획 복제"
-                  disabled={duplicateDisabled}
-                  title="2초 눌러 선택한 날짜에 복제"
-                  doneLabel="복제 중…"
-                  onHold={() => {
-                    const form = duplicationForm.current;
-                    if (!form || !form.reportValidity()) return;
-                    duplicationAuthorized.current = true;
-                    form.requestSubmit();
-                    duplicationAuthorized.current = false;
+                  onClick={() => {
+                    setMoving(false);
+                    setDuplicating(true);
                   }}
                 >
-                  2초 눌러 계획 복제
-                </HoldButton>
-              </div>
-            </form>
-          )}
-        </div>
-      )}
-      {item && onDelete && (
-        <HoldButton
-          className="delete-button"
-          aria-label="이 할 일 삭제"
-          title="2초 누르면 휴지통으로 보내기 확인창이 열려요"
-          doneLabel="삭제 확인"
-          icon={<Trash2 size={17} aria-hidden="true" />}
-          doneIcon={<Check size={17} aria-hidden="true" />}
-          onHold={onDelete}
-          disabled={disabled}
-        >
-          2초 눌러 휴지통으로
-        </HoldButton>
-      )}
-      {item && canContribute && !unavailable && targets.length > 0 && (
-        <div className="task-move">
-          {!moving ? (
-            <Button
-              variant="outline"
-              size="default"
-              type="button"
-              className="text-button"
-              disabled={disabled}
-              onClick={() => {
-                setDuplicating(false);
-                setMoving(true);
-              }}
-            >
-              다른 플래너로 이동
-            </Button>
-          ) : (
-            <div className="task-move-picker" role="group" aria-label="다른 플래너로 이동">
-              <label className="field">
-                <span>이동할 공간</span>
-                <select
-                  aria-label="이동할 공간"
-                  value={targetId}
-                  disabled={disabled}
-                  onChange={(e) => setTargetId(e.target.value)}
-                >
-                  {targets.map((space) => (
-                    <option key={space.id} value={space.id}>
-                      {space.owner_id === planner.session?.user.id
-                        ? `내 플래너: ${space.name}`
-                        : space.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <p className="card-footnote">
-                날짜, 기록, 첨부를 유지하고 선택한 공간으로 이동합니다.
-              </p>
-              {(dirty || files.length > 0) && (
-                <p className="card-footnote">
-                  작성 중인 내용과 첨부를 먼저 저장한 뒤 이동해 주세요.
-                </p>
-              )}
-              <div className="note-edit-actions">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  type="button"
-                  className="text-button"
-                  disabled={disabled}
-                  onClick={() => setMoving(false)}
-                >
-                  취소
+                  이 계획 복제
                 </Button>
-                <HoldButton
-                  className="task-action-hold"
-                  aria-label="이동"
-                  title="2초 눌러 선택한 플래너로 이동"
-                  doneLabel="이동 중…"
-                  disabled={
-                    disabled ||
-                    dirty ||
-                    files.length > 0 ||
-                    !targets.some((space) => space.id === targetId)
-                  }
-                  onHold={async () => {
+              ) : (
+                <form
+                  ref={duplicationForm}
+                  className="task-duplicate-picker"
+                  aria-label="계획 복제"
+                  onSubmit={async (event) => {
+                    event.preventDefault();
+                    if (duplicationLock.current || duplicateDisabled) return;
+                    const copyDate = String(new FormData(event.currentTarget).get('copyDate'));
+                    duplicationLock.current = true;
                     setWorking(true);
                     setError('');
+                    setProgress('계획 복제 중…');
                     try {
-                      const target = targets.find((space) => space.id === targetId)!;
-                      await planner.moveTask(item.id, target.id);
-                      onMoved(
-                        target.owner_id === planner.session?.user.id ? '내 플래너' : target.name,
-                      );
-                    } catch (e) {
-                      setError((e as Error).message);
+                      const copy = await planner.duplicateTask(item.id, copyDate);
+                      onDuplicated(copy);
+                    } catch (error) {
+                      setError((error as Error).message);
                     } finally {
+                      duplicationLock.current = false;
                       setWorking(false);
+                      setProgress('');
                     }
                   }}
                 >
-                  2초 눌러 이동
-                </HoldButton>
-              </div>
+                  <label className="field">
+                    <span>복제할 날짜</span>
+                    <input
+                      name="copyDate"
+                      type="date"
+                      required
+                      value={copyDate}
+                      onChange={(event) => setCopyDate(event.target.value)}
+                      disabled={duplicateDisabled}
+                    />
+                  </label>
+                  <p className="card-footnote">
+                    생성 공간: <strong>{planner.workspace?.name}</strong>
+                    <br />
+                    저장된 제목과 세부 항목만 복제해요. 완료 상태와 기록, 첨부는 가져오지 않아요.
+                  </p>
+                  {(dirty || files.length > 0) && (
+                    <p className="card-footnote">
+                      작성 중인 변경과 첨부는 복제에 포함되지 않아요. 반영하려면 먼저 저장해 주세요.
+                    </p>
+                  )}
+                  {error && (
+                    <p className="form-error" role="alert">
+                      {error}
+                    </p>
+                  )}
+                  <div className="note-edit-actions">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      type="button"
+                      className="text-button"
+                      disabled={duplicateDisabled}
+                      onClick={() => setDuplicating(false)}
+                    >
+                      취소
+                    </Button>
+                    <Button type="submit" disabled={duplicateDisabled} aria-label="계획 복제">
+                      {working
+                        ? '복제 중…'
+                        : `${Number(copyDate.slice(5, 7))}월 ${Number(copyDate.slice(8))}일에 복제`}
+                    </Button>
+                  </div>
+                </form>
+              )}
             </div>
           )}
-        </div>
+          {item && canContribute && !unavailable && targets.length > 0 && (
+            <div className="task-move">
+              {!moving ? (
+                <Button
+                  variant="outline"
+                  size="default"
+                  type="button"
+                  className="text-button"
+                  disabled={disabled}
+                  onClick={() => {
+                    setDuplicating(false);
+                    setMoving(true);
+                  }}
+                >
+                  다른 플래너로 이동
+                </Button>
+              ) : (
+                <div className="task-move-picker" role="group" aria-label="다른 플래너로 이동">
+                  <label className="field">
+                    <span>이동할 공간</span>
+                    <select
+                      aria-label="이동할 공간"
+                      value={targetId}
+                      disabled={disabled}
+                      onChange={(e) => setTargetId(e.target.value)}
+                    >
+                      {targets.map((space) => (
+                        <option key={space.id} value={space.id}>
+                          {space.owner_id === planner.session?.user.id
+                            ? `내 플래너: ${space.name}`
+                            : space.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="card-footnote">
+                    날짜, 기록, 첨부를 유지하고 선택한 공간으로 이동합니다.
+                  </p>
+                  {(dirty || files.length > 0) && (
+                    <p className="card-footnote">
+                      작성 중인 내용과 첨부를 먼저 저장한 뒤 이동해 주세요.
+                    </p>
+                  )}
+                  <div className="note-edit-actions">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      type="button"
+                      className="text-button"
+                      disabled={disabled}
+                      onClick={() => setMoving(false)}
+                    >
+                      취소
+                    </Button>
+                    <Button
+                      type="button"
+                      aria-label="이동"
+                      disabled={
+                        disabled ||
+                        dirty ||
+                        files.length > 0 ||
+                        !targets.some((space) => space.id === targetId)
+                      }
+                      onClick={async () => {
+                        setWorking(true);
+                        setError('');
+                        try {
+                          const target = targets.find((space) => space.id === targetId)!;
+                          await planner.moveTask(item.id, target.id);
+                          onMoved(
+                            target.owner_id === planner.session?.user.id
+                              ? '내 플래너'
+                              : target.name,
+                          );
+                        } catch (e) {
+                          setError((e as Error).message);
+                        } finally {
+                          setWorking(false);
+                        }
+                      }}
+                    >
+                      {working
+                        ? '이동 중…'
+                        : `${targets.find((target) => target.id === targetId)?.name || '선택한 공간'}으로 이동`}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {item && onDelete && (
+            <Button
+              variant="ghost"
+              className="delete-button danger-text"
+              onClick={onDelete}
+              disabled={disabled}
+              aria-label="이 할 일 삭제"
+            >
+              <Trash2 size={17} />
+              휴지통으로 이동
+            </Button>
+          )}
+        </details>
       )}
     </div>
   );

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { mockCloud } from './cloud-fixture';
 
-test('the single clock switch stretches, saves the theme and has no duplicate controls', async ({
+test('the single clock switch slides, saves the theme and has no duplicate controls', async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -34,7 +34,7 @@ test('the single clock switch stretches, saves the theme and has no duplicate co
     await page.evaluate(
       () => (window as unknown as { squishSamples: Set<string> }).squishSamples.size,
     ),
-  ).toBeGreaterThan(3);
+  ).toBeGreaterThan(1);
   await page.getByRole('button', { name: '설정', exact: true }).click();
   await expect(page.getByRole('switch')).toHaveCount(0);
   await expect(page.locator('.atmosphere-settings')).toHaveCount(0);
@@ -57,6 +57,7 @@ test('mobile touch toggles once; drag cancellation and keyboard use preserve the
   const toggle = page.locator('.planner-moment').getByRole('switch');
   const cdp = await context.newCDPSession(page);
   await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true });
+  await toggle.scrollIntoViewIfNeeded();
   const box = (await toggle.boundingBox())!;
   const x = box.x + box.width / 2,
     y = box.y + box.height / 2;

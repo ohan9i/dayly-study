@@ -154,103 +154,106 @@ export default function DataProtection({
           {error}
         </p>
       )}
-      <h3 className="deletion-heading">삭제한 계획 복원</h3>
-      <p className="card-footnote">
-        계획을 삭제해도 기록과 첨부 원본을 보관합니다. 원래 공간과 날짜로 복원할 수 있어요.
-      </p>
-      {!loading && !error && trash.length === 0 && (
-        <p className="setting-description">휴지통이 비어 있어요.</p>
-      )}
-      <ul className="deletion-list trash-list">
-        {trash.map((plan) => (
-          <li key={plan.id}>
-            <div>
-              <strong>{plan.title}</strong>
-              <small>
-                계획 날짜: {plan.date}, 삭제: {format(plan.deleted_at)}
-              </small>
-            </div>
-            <Button
-              variant="secondary"
-              size="default"
-              className="soft-button"
-              disabled={Boolean(restoring) || planner.busy}
-              aria-label={`${plan.title} 복원`}
-              onClick={async () => {
-                setRestoring(plan.id);
-                setError('');
-                try {
-                  await planner.restoreTask(plan.id);
-                  await refresh();
-                } catch (e) {
-                  setError((e as Error).message);
-                } finally {
-                  setRestoring('');
-                }
-              }}
-            >
-              {restoring === plan.id ? '복원 중…' : '복원'}
-            </Button>
-          </li>
-        ))}
-      </ul>
-      <h3 className="deletion-heading">계획 변경 이력</h3>
-      <p className="card-footnote">계획의 생성과 수정, 이동 내역을 필요할 때 확인하세요.</p>
-      <Button
-        variant="secondary"
-        size="default"
-        className="soft-button"
-        aria-haspopup="dialog"
-        onClick={onOpenHistory}
-      >
-        <History size={16} />
-        계획 변경 이력 보기
-      </Button>
-      <h3 className="deletion-heading">
-        <History size={16} />
-        삭제 이력
-      </h3>
-      <p className="card-footnote">
-        현재 공간에서 열람할 수 있는 최근 삭제 50건입니다. 새 삭제는 휴지통에 보관합니다. 이전
-        버전에서 이미 삭제된 파일 원본은 삭제 전 백업이 필요합니다.
-      </p>
-      {!loading && !error && events.length === 0 && (
-        <p className="setting-description">보호 기능 적용 후 기록된 삭제 이력이 없어요.</p>
-      )}
-      <ul className="deletion-list">
-        {events.map((event) => (
-          <li key={event.id}>
-            <div>
-              <strong>{event.task_title}</strong>
-              <small>
-                {{ task: '계획', note: '수행 기록', attachment: '첨부' }[event.entity_type]},{' '}
-                {format(event.deleted_at)}
-              </small>
-              <small title={event.deleted_by || event.actor_role}>
-                삭제:{' '}
-                {event.deleted_by === user
-                  ? '나'
-                  : event.deleted_by === planner.workspace?.owner_id
-                    ? '공간 관리자'
-                    : event.deleted_by
-                      ? '다른 참여자'
-                      : '서버 관리 작업'}
-              </small>
-            </div>
-            <Button
-              variant="secondary"
-              size="default"
-              className="soft-button"
-              aria-label={`${event.task_title} 삭제 이력 내려받기`}
-              disabled={Boolean(downloading)}
-              onClick={() => void download(event)}
-            >
-              <Download size={15} />
-              {downloading === event.id ? '내려받는 중…' : '이력 내려받기'}
-            </Button>
-          </li>
-        ))}
-      </ul>
+      <details className="protection-section">
+        <summary>휴지통 · 삭제한 계획 복원</summary>
+        <p className="card-footnote">
+          계획을 삭제해도 기록과 첨부 원본을 보관합니다. 원래 공간과 날짜로 복원할 수 있어요.
+        </p>
+        {!loading && !error && trash.length === 0 && (
+          <p className="setting-description">휴지통이 비어 있어요.</p>
+        )}
+        <ul className="deletion-list trash-list">
+          {trash.map((plan) => (
+            <li key={plan.id}>
+              <div>
+                <strong>{plan.title}</strong>
+                <small>
+                  계획 날짜: {plan.date}, 삭제: {format(plan.deleted_at)}
+                </small>
+              </div>
+              <Button
+                variant="secondary"
+                size="default"
+                className="soft-button"
+                disabled={Boolean(restoring) || planner.busy}
+                aria-label={`${plan.title} 복원`}
+                onClick={async () => {
+                  setRestoring(plan.id);
+                  setError('');
+                  try {
+                    await planner.restoreTask(plan.id);
+                    await refresh();
+                  } catch (e) {
+                    setError((e as Error).message);
+                  } finally {
+                    setRestoring('');
+                  }
+                }}
+              >
+                {restoring === plan.id ? '복원 중…' : '복원'}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      </details>
+      <details className="protection-section">
+        <summary>계획 변경 이력</summary>
+        <p className="card-footnote">계획의 생성과 수정, 이동 내역을 필요할 때 확인하세요.</p>
+        <Button
+          variant="secondary"
+          size="default"
+          className="soft-button"
+          aria-haspopup="dialog"
+          onClick={onOpenHistory}
+        >
+          <History size={16} />
+          계획 변경 이력 보기
+        </Button>
+      </details>
+      <details className="protection-section">
+        <summary>삭제 이력 · 백업 내려받기</summary>
+        <p className="card-footnote">
+          현재 공간에서 열람할 수 있는 최근 삭제 50건입니다. 새 삭제는 휴지통에 보관합니다. 이전
+          버전에서 이미 삭제된 파일 원본은 삭제 전 백업이 필요합니다.
+        </p>
+        {!loading && !error && events.length === 0 && (
+          <p className="setting-description">보호 기능 적용 후 기록된 삭제 이력이 없어요.</p>
+        )}
+        <ul className="deletion-list">
+          {events.map((event) => (
+            <li key={event.id}>
+              <div>
+                <strong>{event.task_title}</strong>
+                <small>
+                  {{ task: '계획', note: '수행 기록', attachment: '첨부' }[event.entity_type]},{' '}
+                  {format(event.deleted_at)}
+                </small>
+                <small title={event.deleted_by || event.actor_role}>
+                  삭제:{' '}
+                  {event.deleted_by === user
+                    ? '나'
+                    : event.deleted_by === planner.workspace?.owner_id
+                      ? '공간 관리자'
+                      : event.deleted_by
+                        ? '다른 참여자'
+                        : '서버 관리 작업'}
+                </small>
+              </div>
+              <Button
+                variant="secondary"
+                size="default"
+                className="soft-button"
+                aria-label={`${event.task_title} 삭제 이력 내려받기`}
+                disabled={Boolean(downloading)}
+                onClick={() => void download(event)}
+              >
+                <Download size={15} />
+                {downloading === event.id ? '내려받는 중…' : '이력 내려받기'}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      </details>
     </section>
   );
 }

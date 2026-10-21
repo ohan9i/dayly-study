@@ -12,7 +12,7 @@ export function TaskProgress({ progress, label }: { progress: Progress; label: s
         aria-valuemax={100}
         aria-valuetext={`${progress.total}개 중 ${progress.done}개 완료, ${progress.percent}%`}
       >
-        <i style={{ width: `${progress.percent}%` }} />
+        <i style={{ transform: `scaleX(${progress.percent / 100})` }} />
       </div>
       <span aria-hidden="true">
         {progress.done}/{progress.total}

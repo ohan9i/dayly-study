@@ -10,13 +10,17 @@ test('detail records stay inline, independent, and separate from progress', asyn
   await page.getByRole('button', { name: '할 일 추가' }).click();
   await page.getByLabel('할 일', { exact: true }).fill('수학 공부');
   await page.getByLabel('세부 항목 1', { exact: true }).fill('확률 문제 풀기');
-  await page.getByRole('button', { name: '한 줄 추가' }).click();
+  await page.getByRole('button', { name: '세부 항목 추가' }).click();
   await page.getByLabel('세부 항목 2', { exact: true }).fill('오답 정리');
   await page.getByRole('button', { name: '할 일 저장' }).click();
 
   await page.getByRole('button', { name: '확률 문제 풀기 기록 열기' }).click();
+  if (await page.getByRole('button', { name: '기록 작성', exact: true }).last().isVisible())
+    await page.getByRole('button', { name: '기록 작성', exact: true }).last().click();
   await page.getByLabel('수학 공부 확률 문제 풀기 수행 내용').fill('1번부터 20번까지 풀었어요.');
   await page.getByRole('button', { name: '오답 정리 기록 열기' }).click();
+  if (await page.getByRole('button', { name: '기록 작성', exact: true }).last().isVisible())
+    await page.getByRole('button', { name: '기록 작성', exact: true }).last().click();
   await expect(page.getByLabel('수학 공부 확률 문제 풀기 수행 내용')).toHaveValue(
     '1번부터 20번까지 풀었어요.',
   );
@@ -39,7 +43,7 @@ test('detail records stay inline, independent, and separate from progress', asyn
     '오답.png',
   );
   await expect(page.locator('.task-details > li').nth(1).getByRole('status')).toContainText(
-    '기록을 저장했어요.',
+    '저장됨',
   );
   mkdirSync('.local', { recursive: true });
   await page.screenshot({
@@ -59,10 +63,12 @@ test('detail records stay inline, independent, and separate from progress', asyn
     });
   }
   await expect(
-    page.getByRole('button', { name: '확률 문제 풀기 기록 접기' }).locator('.record-dot'),
+    page.getByRole('button', { name: '확률 문제 풀기 기록 접기' }).locator('.record-count'),
   ).toBeVisible();
   await page.reload();
   await page.getByRole('button', { name: '확률 문제 풀기 기록 열기' }).click();
+  if (await page.getByRole('button', { name: '기록 작성', exact: true }).last().isVisible())
+    await page.getByRole('button', { name: '기록 작성', exact: true }).last().click();
   await expect(page.locator('.task-details li').first()).toContainText(
     '1번부터 20번까지 풀었어요.',
   );
@@ -95,10 +101,18 @@ test('detail records stay inline, independent, and separate from progress', asyn
   });
   await page.getByRole('button', { name: '나의 하루', exact: true }).click();
   await page.getByRole('button', { name: '수학 공부 상세 보기' }).click();
+  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
+    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
+  if (await page.locator('.task-extra-actions > summary').isVisible())
+    await page.locator('.task-extra-actions > summary').click();
   await expect(page.locator('.task-notes-section')).toHaveCount(0);
   await page.getByRole('button', { name: '세부 항목 2 삭제' }).click();
   await page.getByRole('button', { name: '할 일 저장' }).click();
   await page.getByRole('button', { name: '수학 공부 상세 보기' }).click();
+  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
+    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
+  if (await page.locator('.task-extra-actions > summary').isVisible())
+    await page.locator('.task-extra-actions > summary').click();
   await expect(page.locator('.task-notes-section')).toHaveCount(0);
   await page.getByRole('button', { name: '닫기', exact: true }).click();
   await page.getByRole('button', { name: '설정', exact: true }).click();

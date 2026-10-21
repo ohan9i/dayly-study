@@ -1,5 +1,5 @@
 /* Non-layered rules bridge shadcn variants with the planner's existing CSS. */
-.ui-button:not(.hold-button) {
+.ui-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -9,9 +9,9 @@
   min-height: 40px;
   padding: 0 16px;
   border: 1px solid transparent;
-  border-radius: 6px;
-  color: var(--on-accent);
-  background: var(--accent-solid);
+  border-radius: var(--ui-radius-control);
+  color: var(--ui-on-primary);
+  background: var(--ui-primary);
   box-shadow: none;
   font-size: 13px;
   font-weight: 500;
@@ -19,41 +19,41 @@
   letter-spacing: -0.01em;
   white-space: nowrap;
   transition:
-    background-color 150ms ease,
-    border-color 150ms ease,
-    color 150ms ease;
+    background-color 110ms ease,
+    border-color 110ms ease,
+    color 110ms ease;
   transform: none;
 }
-.ui-button:not(.hold-button)[data-variant='secondary'] {
+.ui-button[data-variant='secondary'] {
   color: var(--text);
-  background: var(--surface-soft);
+  background: var(--ui-secondary);
 }
-.ui-button:not(.hold-button)[data-variant='outline'] {
+.ui-button[data-variant='outline'] {
   color: var(--text);
   border-color: var(--line);
   background: var(--surface-solid);
 }
-.ui-button:not(.hold-button)[data-variant='ghost'],
-.ui-button:not(.hold-button)[data-variant='link'] {
+.ui-button[data-variant='ghost'],
+.ui-button[data-variant='link'] {
   color: var(--text-secondary);
   background: transparent;
 }
-.ui-button:not(.hold-button)[data-variant='destructive'] {
+.ui-button[data-variant='destructive'] {
   color: #fff;
   background: var(--destructive-solid);
 }
-.ui-button:not(.hold-button)[data-size='sm'] {
+.ui-button[data-size='sm'] {
   height: 36px;
   min-height: 36px;
   padding: 0 12px;
-  font-size: 12px;
+  font-size: 13px;
 }
-.ui-button:not(.hold-button)[data-size='lg'] {
+.ui-button[data-size='lg'] {
   height: 44px;
   min-height: 44px;
   padding: 0 24px;
 }
-.ui-button:not(.hold-button)[data-size='icon'] {
+.ui-button[data-size='icon'] {
   width: 40px;
   padding: 0;
   flex: 0 0 40px;
@@ -61,7 +61,7 @@
 .ui-button.full-width {
   width: 100%;
 }
-.ui-button:not(.hold-button) > svg {
+.ui-button > svg {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
@@ -76,16 +76,14 @@
   pointer-events: none;
 }
 @media (hover: hover) {
-  .ui-button:not(.hold-button):not(:disabled):hover {
+  .ui-button:not(:disabled):hover {
     background: var(--accent-hover);
     transform: none;
   }
-  .ui-button:not(.hold-button):is(
-      [data-variant='outline'],
-      [data-variant='secondary'],
-      [data-variant='ghost']
-    ):not(:disabled):hover {
-    background: var(--surface-hover);
+  .ui-button:is([data-variant='outline'], [data-variant='secondary'], [data-variant='ghost']):not(
+      :disabled
+    ):hover {
+    background: var(--ui-hover);
     color: var(--text);
   }
   .ui-button[data-variant='link']:not(:disabled):hover {
@@ -100,12 +98,12 @@
 }
 /* Keep comfortable touch targets while the visible checks remain restrained. */
 @media (pointer: coarse), (max-width: 700px) {
-  .ui-button:not(.hold-button),
-  .ui-button:not(.hold-button)[data-size='sm'] {
+  .ui-button,
+  .ui-button[data-size='sm'] {
     height: 44px;
     min-height: 44px;
   }
-  .ui-button:not(.hold-button)[data-size='icon'] {
+  .ui-button[data-size='icon'] {
     width: 44px;
     flex-basis: 44px;
   }
@@ -114,4 +112,8 @@
   .ui-button {
     transition: none;
   }
+}
+
+.ui-button:not(:disabled):active {
+  filter: brightness(0.94);
 }

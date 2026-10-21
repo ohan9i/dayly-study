@@ -108,6 +108,8 @@ test('signed-in drafts, restored side clock and theme survive scrolling and menu
     .click();
   await expect(page.locator('html')).toHaveAttribute('data-atmosphere', 'night');
   await page.getByRole('button', { name: '부정정 보의 처짐 계산 기록 열기' }).click();
+  if (await page.getByRole('button', { name: '기록 작성', exact: true }).last().isVisible())
+    await page.getByRole('button', { name: '기록 작성', exact: true }).last().click();
   await page.locator('.detail-record-form textarea').fill('작성 중인 풀이 과정');
   await page.mouse.wheel(0, 600);
   await page.mouse.wheel(0, -1500);
@@ -116,7 +118,7 @@ test('signed-in drafts, restored side clock and theme survive scrolling and menu
   await page.getByRole('button', { name: '달력', exact: true }).click();
   expect(
     await page.locator('.wide-page').evaluate((el) => getComputedStyle(el).animationName),
-  ).toBe('page-enter');
+  ).toBe('none');
   await page.getByRole('button', { name: '나의 하루', exact: true }).click();
   await expect(page.locator('.planner-moment .atmosphere-picker')).toBeVisible();
   await expect(page.locator('blockquote')).toHaveCount(0);
@@ -210,7 +212,7 @@ test('HoloCard draws the foil and stops rendering after the planner opens', asyn
     state.holoDraws = 0;
     const draw = WebGL2RenderingContext.prototype.drawArrays;
     WebGL2RenderingContext.prototype.drawArrays = function (...args: Parameters<typeof draw>) {
-      state.holoDraws++;
+      if ((this.canvas as HTMLCanvasElement).closest('.planner-cover-holo')) state.holoDraws++;
       return draw.apply(this, args);
     };
   });

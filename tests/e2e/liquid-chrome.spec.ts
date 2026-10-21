@@ -41,6 +41,10 @@ test('chrome starts after the book opens, replaces the video, and leaves control
   await expect(page.locator('.planner-background video, .planner-background img')).toHaveCount(0);
   await expect(page.locator('.planner-background')).toHaveCSS('pointer-events', 'none');
   await page.getByRole('button', { name: '수학 공부 상세 보기', exact: true }).click();
+  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
+    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
+  if (await page.locator('.task-extra-actions > summary').isVisible())
+    await page.locator('.task-extra-actions > summary').click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.locator('.liquid-chrome')).toHaveAttribute('data-motion', 'paused');
   const paused = await draws(page);
@@ -135,6 +139,10 @@ test('unavailable WebGL retains a static fallback and working planner controls',
   await page.locator('.planner-moment').getByRole('switch').click();
   await expect(page.locator('html')).toHaveAttribute('data-atmosphere', 'night');
   await page.getByRole('button', { name: '수학 공부 상세 보기', exact: true }).click();
+  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
+    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
+  if (await page.locator('.task-extra-actions > summary').isVisible())
+    await page.locator('.task-extra-actions > summary').click();
   await expect(page.getByRole('dialog')).toBeVisible();
 });
 

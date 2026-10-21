@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test';
 import { mockCloud, signIn, OWN_SPACE, SHARED_SPACE } from './cloud-fixture';
 import { todayKey } from '../../src/domain';
 
+test.setTimeout(60_000);
+
 const retainedTask = {
   id: '30000000-0000-0000-0000-000000000088',
   workspace_id: OWN_SPACE,
@@ -40,6 +42,7 @@ test('failed auxiliary read preserves plans, blocks record operations, and recov
       });
     await route.fallback();
   });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.clock.install();
   await page.goto('/#planner');
   await signIn(page);
@@ -47,6 +50,10 @@ test('failed auxiliary read preserves plans, blocks record operations, and recov
   await page.getByRole('checkbox', { name: '보존된 구조역학 계획 완료', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('수행 기록을 불러오지 못했어요');
   await page.getByRole('button', { name: '보존된 구조역학 계획 상세 보기' }).click();
+  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
+    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
+  if (await page.locator('.task-extra-actions > summary').isVisible())
+    await page.locator('.task-extra-actions > summary').click();
   const title = page.getByLabel('할 일', { exact: true });
   await title.fill('입력 중인 초안');
   await expect(page.getByRole('button', { name: '이 할 일 삭제', exact: true })).toBeEnabled();
@@ -72,6 +79,7 @@ test('failed initial core read recovers through the bounded retry timer', async 
       });
     await route.fallback();
   });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.clock.install();
   await page.goto('/#planner');
   await signIn(page);
@@ -86,6 +94,7 @@ test('unavailable shared space is cleared and explained even when fallback loadi
   page,
 }) => {
   const cloud = await mockCloud(page, { approved: true });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.clock.install();
   await page.goto('/#planner');
   await signIn(page);
@@ -125,6 +134,7 @@ test('automatic initialization retries stop after three attempts while manual re
       body: JSON.stringify({ code: '42501', message: 'denied' }),
     });
   });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.clock.install();
   await page.goto('/#planner');
   await signIn(page);

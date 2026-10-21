@@ -139,12 +139,8 @@ const SquishSwitch: React.FC<SquishSwitchProps> = ({
       return undefined;
     }
     const controls = animate(x, target, {
-      type: 'spring',
-      stiffness: 170 - (50 - clamp(speed, 0, 100)) * 1.1,
-      damping: 21.5,
-      mass: 0.9,
-      restDelta: 0.001,
-      restSpeed: 0.01,
+      duration: 0.2 - clamp(speed, 0, 100) * 0.0004,
+      ease: [0.22, 1, 0.36, 1],
     });
     return () => controls.stop();
   }, [on, dragging, min, max, speed, reduce, x]);

@@ -25,6 +25,7 @@ import {
   X,
   ChartNoAxesColumnIncreasing,
   Copy,
+  CircleAlert,
 } from 'lucide-react';
 import {
   addDays,
@@ -51,14 +52,20 @@ import TaskHistory from './TaskHistory';
 import { AtmospherePicker, CompletionSparkles, useAtmosphere } from './Atmosphere';
 import WelcomeScreen from './WelcomeScreen';
 import { readEntryNavigation, saveEntryNavigation } from './entryNavigation';
-import SwipeRow from './SwipeRow';
+import PlanActions from './PlanActions';
+import { useDraftUnloadGuard } from './recordDrafts';
 import LoadingStatus from './LoadingStatus';
 import PlannerBackground from './PlannerBackground';
 import SpringCheck, { SpringCheckLabel } from './SpringCheck';
 
 type View = 'home' | 'calendar' | 'stats' | 'settings';
 type ModalState =
-  | { kind: 'task'; item?: Task; addDetailAfter?: string }
+  | {
+      kind: 'task';
+      item?: Task;
+      addDetailAfter?: string;
+      initialAction?: 'edit' | 'duplicate' | 'move';
+    }
   | { kind: 'search' }
   | { kind: 'account' }
   | { kind: 'history' }
@@ -89,6 +96,7 @@ function Modal({
     const el = ref.current!;
     const previousFocus = document.activeElement;
     el.showModal();
+    el.querySelector<HTMLInputElement>('[autofocus], input[type=search]')?.focus();
     return () => {
       if (el.open) el.close();
       if (previousFocus instanceof HTMLElement && previousFocus.isConnected)
@@ -149,14 +157,20 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export default function App() {
+  useDraftUnloadGuard();
   const [atmosphere, setAtmosphere] = useAtmosphere();
   const planner = usePlanner();
-  const livePlanner = useRef(planner);
-  livePlanner.current = planner;
   const { data, isOwner, canWrite, busy, loading } = planner;
   const [view, setView] = useState<View>(() => readEntryNavigation().view || 'home');
   const [date, setDate] = useState(() => readEntryNavigation().date || todayKey());
-  const [swipeMenu, setSwipeMenu] = useState<{ id: string; side: 'add' | 'delete' } | null>(null);
+  const [taskDetailDirty, setTaskDetailDirty] = useState(false);
+  const [actionError, setActionError] = useState('');
+  const retryAction = useRef<(() => Promise<unknown>) | null>(null);
+  const closePlanMenus = () => {
+    document.querySelectorAll<HTMLDetailsElement>('.plan-actions[open]').forEach((menu) => {
+      menu.open = false;
+    });
+  };
   const [month, setMonth] = useState(
     () => readEntryNavigation().month || todayKey().slice(0, 7) + '-01',
   );
@@ -178,9 +192,14 @@ export default function App() {
   const [search, setSearch] = useState('');
   const [confirmation, setConfirmation] = useState<{
     title: string;
+    label?: string;
+    success?: string;
+    cancelLabel?: string;
     message: string;
     action: () => Promise<void>;
   } | null>(null);
+  const [confirmationError, setConfirmationError] = useState('');
+  useEffect(() => setConfirmationError(''), [confirmation]);
   const [confirmBusy, setConfirmBusy] = useState(false);
   useEffect(() => {
     if (planner.passwordRecovery) setModal({ kind: 'account' });
@@ -221,60 +240,41 @@ export default function App() {
   const act = async (action: () => Promise<unknown>, success?: string) => {
     try {
       await action();
+      setActionError('');
+      retryAction.current = null;
       if (success) setToast(success);
     } catch (e) {
-      setToast((e as Error).message || '저장하지 못했습니다. 다시 시도해 주세요.');
+      retryAction.current = action;
+      setActionError((e as Error).message || '저장하지 못했습니다. 다시 시도해 주세요.');
     }
   };
   const goDate = (next: string) => {
-    setSwipeMenu(null);
+    closePlanMenus();
     setDate(next);
-    setView('home');
+    if (view === 'calendar') setView('home');
     setModal(null);
   };
   const goView = (next: View) => {
-    setSwipeMenu(null);
+    closePlanMenus();
     setView(next);
     if (next === 'calendar') setMonth(date.slice(0, 7) + '-01');
+    requestAnimationFrame(() => {
+      const heading = document.getElementById('planner');
+      heading?.scrollIntoView({ block: 'start', behavior: 'instant' });
+      heading?.focus({ preventScroll: true });
+    });
   };
   const requestDelete = (item: Task) =>
     setConfirmation({
-      title: '할 일을 휴지통으로 보낼까요?',
+      title: '계획을 휴지통으로 보낼까요?',
+      label: '휴지통으로 이동',
+      success: '계획을 휴지통으로 옮겼어요.',
       message:
         '“' +
         item.title +
         '”을 현재 목록에서 삭제합니다. 내용과 기록, 첨부 원본은 보관되며 설정의 휴지통에서 복원할 수 있어요.',
       action: () => planner.deleteTask(item.id),
     });
-  const requestDeleteDetail = (task: Task, detailId: string, text: string) => {
-    setSwipeMenu(null);
-    const spaceId = planner.workspace?.id;
-    setConfirmation({
-      title: '세부 항목을 삭제할까요?',
-      message: `“${text}”만 계획에서 제외합니다. 다른 세부 항목과 완료 상태는 유지됩니다.`,
-      action: async () => {
-        const currentPlanner = livePlanner.current;
-        const current = currentPlanner.data.tasks.find((item) => item.id === task.id);
-        if (!current || currentPlanner.workspace?.id !== spaceId)
-          throw new Error('계획이 이동되었거나 현재 공간이 바뀌었어요. 다시 확인해 주세요.');
-        const index = current.detailChecks?.findIndex((detail) => detail.id === detailId) ?? -1;
-        if (index < 0) throw new Error('이미 삭제되었거나 변경된 세부 항목이에요.');
-        await currentPlanner.saveTask(
-          {
-            ...current,
-            details: current.details.filter((_, i) => i !== index),
-            detailChecks: current.detailChecks?.filter((_, i) => i !== index),
-          },
-          true,
-        );
-        setOpenRecords((previous) => {
-          const next = new Set(previous);
-          next.delete(`${task.id}:${detailId}`);
-          return next;
-        });
-      },
-    });
-  };
   function exportData() {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob),
@@ -344,7 +344,7 @@ export default function App() {
         {tasks.length > 0 && (
           <div className="task-progress">
             <span className="progress-copy" aria-live="polite" aria-atomic="true">
-              <b key={totalProgress.done}>{totalProgress.done}</b> / {totalProgress.total} 완료
+              실행 항목 <b>{totalProgress.done}</b> / {totalProgress.total} 완료
             </span>
             <DayProgressRing
               progress={totalProgress}
@@ -357,6 +357,7 @@ export default function App() {
           size="icon"
           className="add-button"
           aria-label="할 일 추가"
+          title="계획 추가"
           disabled={busy || loading}
           onClick={() => setModal({ kind: canWrite ? 'task' : 'account' })}
         >
@@ -367,26 +368,9 @@ export default function App() {
         <ul className="task-list">
           {tasks.map((task) => (
             <li key={task.id} className="task-swipe-item">
-              <SwipeRow
-                title={task.title}
-                contentClassName={`task-row ${completed.has(task.id) ? 'is-complete' : ''}`}
-                open={swipeMenu?.id === task.id ? swipeMenu.side : null}
-                disabled={!canWrite || busy || loading}
-                onOpenChange={(side) =>
-                  setSwipeMenu(
-                    side
-                      ? { id: task.id, side }
-                      : (current) => (current?.id === task.id ? null : current),
-                  )
-                }
-                onAdd={() => {
-                  setSwipeMenu(null);
-                  setModal({ kind: 'task' });
-                }}
-                onDelete={() => {
-                  setSwipeMenu(null);
-                  requestDelete(task);
-                }}
+              <div
+                data-task-id={task.id}
+                className={`task-row ${completed.has(task.id) ? 'is-complete' : ''}`}
               >
                 <SpringCheck
                   className="task-checkbox"
@@ -426,6 +410,14 @@ export default function App() {
                         }
                       </span>
                     )}
+                    <PlanActions
+                      title={task.title}
+                      disabled={!canWrite || busy || loading}
+                      onAction={(initialAction) =>
+                        setModal({ kind: 'task', item: task, initialAction })
+                      }
+                      onDelete={() => requestDelete(task)}
+                    />
                   </div>
                   {task.details.length > 0 && (
                     <ul className="task-details" aria-label={`${task.title} 세부 항목`}>
@@ -434,36 +426,17 @@ export default function App() {
                           task.detailChecks?.[index]?.id || `${task.id}-detail-${index}`;
                         const recordKey = `${task.id}:${detailId}`;
                         const expanded = openRecords.has(recordKey);
-                        const hasRecord = (data.taskNotes || []).some(
+                        const recordCount = (data.taskNotes || []).filter(
                           (note) =>
                             note.task_id === task.id &&
                             readDetailNote(note.body).detailId === detailId,
-                        );
+                        ).length;
                         return (
                           <li
                             key={detailId}
                             className={`${task.detailChecks?.[index]?.completed ? 'detail-is-complete' : ''} ${expanded ? 'detail-is-expanded' : ''}`}
                           >
-                            <SwipeRow
-                              title={`${task.title} 세부 항목 ${index + 1}`}
-                              contentClassName="detail-row-main"
-                              addLabel={`${detail} 다음에 세부 항목 추가`}
-                              deleteLabel={`${detail} 세부 항목 삭제`}
-                              open={swipeMenu?.id === recordKey ? swipeMenu.side : null}
-                              disabled={!canWrite || !canManageTask(task) || busy || loading}
-                              onOpenChange={(side) =>
-                                setSwipeMenu(
-                                  side
-                                    ? { id: recordKey, side }
-                                    : (current) => (current?.id === recordKey ? null : current),
-                                )
-                              }
-                              onAdd={() => {
-                                setSwipeMenu(null);
-                                setModal({ kind: 'task', item: task, addDetailAfter: detailId });
-                              }}
-                              onDelete={() => requestDeleteDetail(task, detailId, detail)}
-                            >
+                            <div className="detail-row-main">
                               <SpringCheck
                                 className="detail-checkbox"
                                 ariaLabel={`${task.title} 세부 항목 ${index + 1} 완료`}
@@ -500,15 +473,17 @@ export default function App() {
                                   })
                                 }
                               >
-                                기록
-                                {hasRecord && (
-                                  <span className="record-dot" aria-label="기록 있음" />
-                                )}
+                                기록 <span className="record-count">{recordCount}</span>
                                 <ChevronRight size={14} />
                               </Button>
-                            </SwipeRow>
+                            </div>
                             {expanded && (
-                              <DetailRecord task={task} detailId={detailId} planner={planner} />
+                              <DetailRecord
+                                task={task}
+                                detailId={detailId}
+                                planner={planner}
+                                onLogin={() => setModal({ kind: 'account' })}
+                              />
                             )}
                           </li>
                         );
@@ -522,7 +497,7 @@ export default function App() {
                     />
                   )}
                 </div>
-              </SwipeRow>
+              </div>
             </li>
           ))}
         </ul>
@@ -715,7 +690,7 @@ export default function App() {
             >
               {clock}
             </time>
-            <p>{formatDate(today, true)}</p>
+            <p>현재 시각 · 서울</p>
             <AtmospherePicker value={atmosphere} onChange={setAtmosphere} compact />
           </aside>
         </div>
@@ -724,7 +699,7 @@ export default function App() {
             <div className="page-heading">
               <p className="eyebrow">MY DAYS</p>
               <h1 id="planner" tabIndex={-1}>
-                하루하루, 쌓이는 나의 기록.
+                달력
               </h1>
               <p className="page-description">날짜를 누르면 그날의 할 일을 볼 수 있어요.</p>
             </div>
@@ -792,6 +767,9 @@ export default function App() {
                   );
                 })}
               </div>
+              <p className="calendar-selection-summary">
+                {formatDate(date)} · 남은 실행 항목 {totalProgress.total - totalProgress.done}개
+              </p>
               <p className="card-footnote">
                 <span className="legend-dot" />
                 오늘 <span className="legend-square" />
@@ -805,7 +783,7 @@ export default function App() {
             <div className="page-heading">
               <p className="eyebrow">YOUR LITTLE PROGRESS</p>
               <h1 id="planner" tabIndex={-1}>
-                꾸준함이 보여요.
+                학습 흐름
               </h1>
               <p className="page-description">작은 계획을 얼마나 꾸준히 실천했는지 살펴봐요.</p>
             </div>
@@ -822,7 +800,7 @@ export default function App() {
             <div className="page-heading">
               <p className="eyebrow">MAKE IT YOURS</p>
               <h1 id="planner" tabIndex={-1}>
-                나에게 맞는 공부 공간.
+                설정
               </h1>
               <p className="page-description">기록을 보관하고, 함께 공부할 사람을 관리해요.</p>
             </div>
@@ -844,7 +822,7 @@ export default function App() {
                     setDisplayName(value);
                     setToast('인사말에 사용할 이름을 저장했어요.');
                   } catch {
-                    setToast('이름을 저장하지 못했어요. 브라우저 저장 권한을 확인해 주세요.');
+                    setActionError('이름을 저장하지 못했어요. 브라우저 저장 권한을 확인해 주세요.');
                   }
                 }}
               >
@@ -928,6 +906,8 @@ export default function App() {
                               onClick={() =>
                                 setConfirmation({
                                   title: '작성 권한을 해제할까요?',
+                                  label: '참여 권한 해제',
+                                  success: '이 공간의 참여 권한을 해제했어요.',
                                   message: `${member.email}의 이 공간 접근 권한을 해제합니다. 작성한 기록은 유지됩니다.`,
                                   action: () => planner.revokeMember(member.id),
                                 })
@@ -1011,6 +991,28 @@ export default function App() {
           </div>
         )}
       </main>
+      {actionError && (
+        <div className="action-error" role="alert">
+          <CircleAlert size={18} />
+          <span>{actionError}</span>
+          {retryAction.current && (
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={busy}
+              onClick={() => {
+                const retry = retryAction.current;
+                if (retry) void act(retry);
+              }}
+            >
+              다시 시도
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={() => setActionError('')}>
+            닫기
+          </Button>
+        </div>
+      )}
       <div className={`toast ${toast ? 'visible' : ''}`} role="status" aria-live="polite">
         {toast && (
           <>
@@ -1030,10 +1032,25 @@ export default function App() {
       )}
       {modal?.kind === 'task' && (
         <Modal
-          title={modal.item ? '할 일 살펴보기' : '하나씩, 오늘 할 일'}
+          title={modal.item ? '계획 상세' : '계획 추가'}
           subtitle="작은 계획 하나가 하루의 방향을 만들어 줘요."
           onClose={() => {
-            if (!busy && !taskDetailBusy) setModal(null);
+            if (busy || taskDetailBusy) return;
+            if (!taskDetailDirty) {
+              setModal(null);
+              return;
+            }
+            setConfirmation({
+              title: '작성 중인 변경이 있어요',
+              message:
+                '아직 저장하지 않은 내용과 선택 파일이 있어요. 계속 편집하거나 변경을 버릴 수 있어요.',
+              label: '변경 버리기',
+              cancelLabel: '계속 편집',
+              action: async () => {
+                setTaskDetailDirty(false);
+                setModal(null);
+              },
+            });
           }}
         >
           <TaskDetail
@@ -1047,6 +1064,8 @@ export default function App() {
             addDetailAfter={modal.addDetailAfter}
             planner={planner}
             onBusyChange={setTaskDetailBusy}
+            onDirtyChange={setTaskDetailDirty}
+            initialAction={modal.initialAction}
             editable={canManageTask(modal.item)}
             onLogin={
               !planner.session || planner.passwordRecovery
@@ -1060,6 +1079,11 @@ export default function App() {
             onDelete={
               modal.item && planner.canWrite
                 ? () => {
+                    if (
+                      taskDetailDirty &&
+                      !window.confirm('저장하지 않은 변경을 버리고 휴지통 이동을 진행할까요?')
+                    )
+                      return;
                     const item = modal.item!;
                     setModal(null);
                     requestDelete(item);
@@ -1122,12 +1146,41 @@ export default function App() {
                   key={task.id}
                   onClick={() => {
                     setDate(task.date);
-                    setModal({ kind: 'task', item: task });
+                    setView('home');
+                    const index = task.details.findIndex((detail) =>
+                      detail.toLowerCase().includes(search.trim().toLowerCase()),
+                    );
+                    if (index >= 0)
+                      setOpenRecords(
+                        (current) =>
+                          new Set([
+                            ...current,
+                            `${task.id}:${task.detailChecks?.[index]?.id || `${task.id}-detail-${index}`}`,
+                          ]),
+                      );
+                    setModal(null);
+                    requestAnimationFrame(() => {
+                      document
+                        .querySelector<HTMLElement>(`[data-task-id="${task.id}"]`)
+                        ?.scrollIntoView({ block: 'center', behavior: 'instant' });
+                    });
                   }}
                 >
                   <span>
                     <small>{task.date}</small>
-                    <strong>{task.title}</strong>
+                    <strong>
+                      <SearchHighlight text={task.title} query={search} />
+                    </strong>
+                    {task.details
+                      .filter((detail) =>
+                        detail.toLowerCase().includes(search.trim().toLowerCase()),
+                      )
+                      .slice(0, 1)
+                      .map((detail) => (
+                        <span className="search-match" key={detail}>
+                          <SearchHighlight text={detail} query={search} />
+                        </span>
+                      ))}
                   </span>
                   <ChevronRight size={18} />
                 </button>
@@ -1155,6 +1208,11 @@ export default function App() {
           }}
         >
           <p className="confirm-message">{confirmation.message}</p>
+          {confirmationError && (
+            <p className="form-error" role="alert">
+              {confirmationError} 다시 시도할 수 있어요.
+            </p>
+          )}
           <div className="form-actions">
             <Button
               variant="secondary"
@@ -1163,7 +1221,7 @@ export default function App() {
               disabled={confirmBusy}
               onClick={() => setConfirmation(null)}
             >
-              취소
+              {confirmation.cancelLabel || '취소'}
             </Button>
             <Button
               variant="destructive"
@@ -1175,15 +1233,15 @@ export default function App() {
                 try {
                   await confirmation.action();
                   setConfirmation(null);
-                  setToast('변경을 적용했어요.');
+                  if (confirmation.success) setToast(confirmation.success);
                 } catch (e) {
-                  setToast((e as Error).message);
+                  setConfirmationError((e as Error).message);
                 } finally {
                   setConfirmBusy(false);
                 }
               }}
             >
-              {confirmBusy ? '처리 중…' : '확인'}
+              {confirmBusy ? '처리 중…' : confirmation.label || '참여 권한 해제'}
             </Button>
           </div>
         </Modal>
@@ -1263,6 +1321,9 @@ function Stats({ data, date }: { data: Snapshot; date: string }) {
     max = Math.max(1, ...week.map((day) => day.total));
   return (
     <>
+      <p className="stats-range">
+        {addDays(date, -6).slice(5).replace('-', '.')}–{date.slice(5).replace('-', '.')} · 최근 7일
+      </p>
       <div className="glass-card stats-summary">
         <div className="stat-tile">
           <span>
@@ -1295,12 +1356,12 @@ function Stats({ data, date }: { data: Snapshot; date: string }) {
             {week.filter((day) => day.completed > 0).length}
             <small> / 7일</small>
           </strong>
-          <p>작은 꾸준함의 힘.</p>
+          <p>실행 항목을 1개 이상 완료한 날</p>
         </div>
       </div>
       {selectedTasks.length > 0 && (
         <section className="study-flow" aria-label="선택한 날의 학습 흐름">
-          <h2>{formatDate(date)}의 학습 흐름</h2>
+          <h2>{formatDate(date)} · 선택한 날</h2>
           {selectedTasks.map((task) => {
             const progress = taskProgress(task, completed);
             return (
@@ -1366,6 +1427,19 @@ function Stats({ data, date }: { data: Snapshot; date: string }) {
           />
         )}
       </section>
+    </>
+  );
+}
+
+function SearchHighlight({ text, query }: { text: string; query: string }) {
+  const index = text.toLowerCase().indexOf(query.trim().toLowerCase());
+  if (index < 0 || !query.trim()) return <>{text}</>;
+  const end = index + query.trim().length;
+  return (
+    <>
+      {text.slice(0, index)}
+      <mark>{text.slice(index, end)}</mark>
+      {text.slice(end)}
     </>
   );
 }

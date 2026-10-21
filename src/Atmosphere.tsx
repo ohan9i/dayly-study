@@ -64,17 +64,17 @@ export function AtmosphereSwitch({
       onChange={(night) => onChange(night ? 'night' : 'morning')}
       ariaLabel="밤 공부"
       className="atmosphere-switch"
-      trackColor="#27272a"
-      trackOnColor="#f5f5f5"
-      thumbColor="#f5f5f5"
-      thumbOnColor="#27272a"
+      trackColor="var(--ui-secondary)"
+      trackOnColor="var(--ui-primary)"
+      thumbColor="var(--ui-primary)"
+      thumbOnColor="var(--ui-on-primary)"
       width={76}
       height={38}
       radius={19}
       speed={50}
-      stretch={36}
-      hoverScale={1.035}
-      colorDuration={320}
+      stretch={0}
+      hoverScale={1}
+      colorDuration={180}
       thumbContent={value === 'night' ? <Moon size={15} /> : <Sun size={15} />}
     />
   );

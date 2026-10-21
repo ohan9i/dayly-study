@@ -87,6 +87,8 @@ for (const [width, height] of [
     await capture('home');
     if (stage !== 'before' && width <= 700) {
       await page.getByRole('button', { name: '순열 문제 풀기 기록 열기', exact: true }).click();
+      if (await page.getByRole('button', { name: '기록 작성', exact: true }).last().isVisible())
+        await page.getByRole('button', { name: '기록 작성', exact: true }).last().click();
       const record = page.locator('.detail-record-form textarea');
       await expect(record).toBeVisible();
       const input = await record.evaluate((el) => ({
@@ -227,6 +229,10 @@ for (const [width, height] of [
     await capture('calendar');
     await page.locator('.calendar-day.is-today').click();
     await page.getByRole('button', { name: '수학 공부 상세 보기' }).click();
+    if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
+      await page.getByRole('button', { name: '계획 편집', exact: true }).click();
+    if (await page.locator('.task-extra-actions > summary').isVisible())
+      await page.locator('.task-extra-actions > summary').click();
     expect(await page.getByRole('dialog').evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
       true,
     );

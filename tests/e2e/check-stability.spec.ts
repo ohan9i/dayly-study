@@ -72,7 +72,7 @@ for (const width of [1440, 390]) {
     await page.getByRole('button', { name: '할 일 추가', exact: true }).click();
     await page.getByLabel('할 일', { exact: true }).fill('안정적인 체크');
     await page.getByLabel('세부 항목 1', { exact: true }).fill('확률 문제');
-    await page.getByRole('button', { name: '한 줄 추가', exact: true }).click();
+    await page.getByRole('button', { name: '세부 항목 추가', exact: true }).click();
     await page.getByLabel('세부 항목 2', { exact: true }).fill('오답 정리');
     await page.getByRole('button', { name: '할 일 저장', exact: true }).click();
     await expect(page.getByRole('dialog')).not.toBeVisible();
@@ -107,6 +107,10 @@ for (const width of [1440, 390]) {
     expect(reads()).toBe(before);
 
     await page.getByRole('button', { name: '안정적인 체크 상세 보기', exact: true }).click();
+    if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
+      await page.getByRole('button', { name: '계획 편집', exact: true }).click();
+    if (await page.locator('.task-extra-actions > summary').isVisible())
+      await page.locator('.task-extra-actions > summary').click();
     await page.getByLabel('세부 항목 1', { exact: true }).fill('저장 전 수정 내용');
     const detailCheck = page
       .getByRole('dialog')

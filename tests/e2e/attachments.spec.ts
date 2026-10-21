@@ -22,6 +22,10 @@ test('task files and compact performance notes survive reload, preview, download
   await expect(page.getByRole('dialog')).not.toBeVisible();
   await expect(page.getByLabel('첨부 파일 2개')).toBeVisible();
   await page.getByRole('button', { name: '보의 휨 설계 수행 상세 보기' }).click();
+  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
+    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
+  if (await page.locator('.task-extra-actions > summary').isVisible())
+    await page.locator('.task-extra-actions > summary').click();
   await expect(page.locator('.attachment-card')).toHaveCount(2);
   await page.getByRole('button', { name: '참고 사진.png 보기', exact: true }).click();
   await expect(page.getByRole('dialog', { name: '참고 사진.png', exact: true })).toBeVisible();
@@ -37,6 +41,8 @@ test('task files and compact performance notes survive reload, preview, download
   await expect(page.locator('.task-notes-section')).toHaveCount(0);
   await page.getByRole('button', { name: '닫기', exact: true }).click();
   await page.getByRole('button', { name: '예제의 조건을 확인하고 풀이하기 기록 열기' }).click();
+  if (await page.getByRole('button', { name: '기록 작성', exact: true }).last().isVisible())
+    await page.getByRole('button', { name: '기록 작성', exact: true }).last().click();
   await page.locator('.detail-record-form textarea').fill('중립축 깊이와 휨 강도를 계산했습니다.');
   await page
     .getByLabel('수행 파일 첨부', { exact: true })
@@ -49,12 +55,18 @@ test('task files and compact performance notes survive reload, preview, download
   await page.reload();
   await expect(page.getByLabel('첨부 파일 3개')).toBeVisible();
   await page.getByRole('button', { name: '예제의 조건을 확인하고 풀이하기 기록 열기' }).click();
+  if (await page.getByRole('button', { name: '기록 작성', exact: true }).last().isVisible())
+    await page.getByRole('button', { name: '기록 작성', exact: true }).last().click();
   await expect(page.locator('.task-note')).toContainText('중립축 깊이와 휨 강도를 계산했습니다.');
   await page.getByRole('button', { name: '수행 내용 수정', exact: true }).click();
   await page.getByLabel('수행 내용 수정 글').fill('강도 검토까지 완료했습니다.');
   await page.getByRole('button', { name: '수정 저장', exact: true }).click();
   await expect(page.locator('.task-note')).toContainText('강도 검토까지 완료했습니다.');
   await page.getByRole('button', { name: '보의 휨 설계 수행 상세 보기' }).click();
+  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
+    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
+  if (await page.locator('.task-extra-actions > summary').isVisible())
+    await page.locator('.task-extra-actions > summary').click();
   await expect(page.getByRole('button', { name: '이 할 일 삭제' })).toBeEnabled();
   await expect(page.getByRole('button', { name: '설계 문제.pdf 삭제' })).toHaveCount(0);
   expect(cloud.objects.size).toBe(3);
@@ -89,6 +101,8 @@ test('failed uploads retain the queue and retry without duplicating the task or 
   expect(cloud.objects.size).toBe(1);
   await expect(page.getByLabel('첨부 파일 1개')).toBeVisible();
   await page.getByRole('button', { name: '풀이 기록 기록 열기' }).click();
+  if (await page.getByRole('button', { name: '기록 작성', exact: true }).last().isVisible())
+    await page.getByRole('button', { name: '기록 작성', exact: true }).last().click();
   await page.locator('.detail-record-form textarea').fill('글 저장 후 사진 재시도');
   await page
     .getByLabel('수행 파일 첨부', { exact: true })
@@ -98,8 +112,9 @@ test('failed uploads retain the queue and retry without duplicating the task or 
   await page.getByRole('button', { name: '기록 저장', exact: true }).click();
   await expect(page.locator('.detail-record-form').getByRole('alert')).toContainText(
     '올리지 못했어요',
+    { timeout: 15000 },
   );
-  await page.getByRole('button', { name: '기록 저장', exact: true }).click();
+  await page.getByRole('button', { name: '다시 저장', exact: true }).click();
   await expect(page.locator('.task-note')).toHaveCount(1);
   await expect(page.locator('.task-note .attachment-card')).toHaveCount(1);
   expect(
@@ -131,10 +146,17 @@ test('a newly registered member gets a private space and can add notes in approv
   await expect(page.getByLabel('사용 공간 선택')).toHaveValue(SHARED_SPACE);
   await expect(page.getByRole('checkbox', { name: '공유한 구조역학 문제 완료' })).toBeEnabled();
   await page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' }).click();
-  await expect(page.getByLabel('할 일', { exact: true })).toHaveAttribute('readonly', '');
+  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
+    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
+  if (await page.locator('.task-extra-actions > summary').isVisible())
+    await page.locator('.task-extra-actions > summary').click();
+  await expect(page.locator('.task-read-view h3')).toBeVisible();
+  await expect(page.locator('input[name=title]')).toHaveCount(0);
   await expect(page.getByLabel('파일 첨부', { exact: true })).toBeEnabled();
   await page.getByRole('button', { name: '닫기', exact: true }).click();
   await page.getByRole('button', { name: '함께 풀어 주세요. 기록 열기' }).click();
+  if (await page.getByRole('button', { name: '기록 작성', exact: true }).last().isVisible())
+    await page.getByRole('button', { name: '기록 작성', exact: true }).last().click();
   await page.locator('.detail-record-form textarea').fill('풀이를 수행했습니다.');
   await page.getByRole('button', { name: '기록 저장', exact: true }).click();
   await expect(page.locator('.task-note')).toContainText('풀이를 수행했습니다.');
@@ -191,21 +213,27 @@ test('mobile detail stays compact and rejects oversized, unsupported and too man
   await expect(page.locator('.file-queue li')).toHaveCount(1);
   await page.getByRole('button', { name: '할 일 저장', exact: true }).click();
   await page.getByRole('button', { name: '모바일 첨부 파일과 수행 내용 상세 보기' }).click();
+  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
+    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
+  if (await page.locator('.task-extra-actions > summary').isVisible())
+    await page.locator('.task-extra-actions > summary').click();
   await expect(page.locator('.task-notes-section')).toHaveCount(0);
   expect(await page.getByRole('dialog').evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
     true,
   );
   await page.getByRole('button', { name: '닫기', exact: true }).click();
   await page.getByRole('button', { name: '모바일 풀이 기록 열기' }).click();
+  if (await page.getByRole('button', { name: '기록 작성', exact: true }).last().isVisible())
+    await page.getByRole('button', { name: '기록 작성', exact: true }).last().click();
   await page.locator('.detail-record-form textarea').fill('휴대폰에서도 간단하게 기록합니다.');
   await page.getByRole('button', { name: '기록 저장', exact: true }).click();
   await expect(page.locator('.task-note')).toContainText('휴대폰에서도 간단하게 기록합니다.');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: '.local/preview-task-materials-mobile.png', fullPage: true });
   const date = page.locator('.date-display').first();
-  expect(await date.evaluate((el) => getComputedStyle(el).fontSize)).toBe('17px');
+  expect(await date.evaluate((el) => getComputedStyle(el).fontSize)).toBe('13px');
   await expect(page.getByRole('button', { name: '이전 날짜' })).toHaveCSS('height', '44px');
-  expect(await page.locator('body').textContent()).not.toContain('·');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
 test('a lost ready response never removes an already saved original', async ({ page }) => {

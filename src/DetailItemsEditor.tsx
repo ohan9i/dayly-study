@@ -194,7 +194,7 @@ export default function DetailItemsEditor({
           type="button"
           onClick={() => addAfter(rows.length - 1)}
         >
-          <Plus size={16} /> 한 줄 추가
+          <Plus size={16} /> 세부 항목 추가
         </Button>
       )}
     </div>

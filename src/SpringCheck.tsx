@@ -39,7 +39,7 @@ export interface SpringCheckProps {
   labelSelector?: string;
 }
 
-const VISUAL_DURATION = 0.2;
+const VISUAL_DURATION = 0.16;
 const motionPreference =
   typeof window === 'undefined' ? null : window.matchMedia('(prefers-reduced-motion: reduce)');
 const subscribeMotion = (notify: () => void) => {
@@ -100,7 +100,7 @@ const SpringCheck: React.FC<SpringCheckProps> = ({
   boxSize = 22,
   boxRadius = 5,
   fontSize = 18,
-  bounce = 0.2,
+  bounce = 0,
   strikeLag = 0.12,
   doneOpacity = 0.42,
   strike = 'left',

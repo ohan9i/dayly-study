@@ -671,14 +671,6 @@ svg {
   border-radius: var(--radius-sm);
   transition: background var(--duration) var(--ease);
 }
-@media (hover: hover) {
-  .task-details li:hover {
-    background: var(--surface-hover);
-  }
-}
-.task-details li.detail-is-expanded {
-  background: var(--surface-hover);
-}
 .detail-row-main {
   display: flex;
   align-items: flex-start;
@@ -706,10 +698,6 @@ svg {
   font-size: var(--type-meta);
   white-space: nowrap;
   transition: color var(--duration) var(--ease);
-}
-.detail-record-toggle:hover,
-.detail-record-toggle:focus-visible {
-  color: var(--sky-600);
 }
 .detail-record-toggle svg {
   transition: transform var(--duration) var(--ease);
@@ -770,41 +758,12 @@ svg {
 .detail-record-panel .attachment-toolbar {
   gap: var(--space-1);
 }
-.detail-record-panel .attachment-toolbar > span {
-  display: none;
-}
 .detail-record-panel .attachment-add {
   padding: var(--space-1) var(--space-2);
   font-size: var(--type-meta);
 }
 .detail-record-panel .attachment-add svg {
   width: 14px;
-}
-.detail-record-save {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  min-height: 36px;
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--sky-600);
-  font-size: var(--type-meta);
-}
-.detail-record-save:hover,
-.detail-record-save:focus-visible {
-  background: var(--surface-hover);
-}
-.detail-record-add {
-  min-height: 32px;
-  padding: 0 var(--space-2);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: var(--type-meta);
-}
-.detail-record-add:hover,
-.detail-record-add:focus-visible {
-  color: var(--sky-600);
 }
 .detail-record-message,
 .detail-record-empty {

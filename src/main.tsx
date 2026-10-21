@@ -7,6 +7,7 @@ import './tailwind.css';
 import './styles.css';
 import './studio.css';
 import './components/ui/button.css';
+import './planner-ui.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

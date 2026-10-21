@@ -6,7 +6,7 @@ async function create(page: Page, title: string, items: string[]) {
   await page.getByRole('button', { name: '할 일 추가', exact: true }).click();
   await page.getByLabel('할 일', { exact: true }).fill(title);
   for (let i = 0; i < items.length; i++) {
-    if (i) await page.getByRole('button', { name: '한 줄 추가', exact: true }).click();
+    if (i) await page.getByRole('button', { name: '세부 항목 추가', exact: true }).click();
     await page.getByLabel(`세부 항목 ${i + 1}`, { exact: true }).fill(items[i]);
   }
   await page.getByRole('button', { name: '할 일 저장', exact: true }).click();
@@ -75,6 +75,10 @@ test('partial checks, parent completion and the weighted day ring update immedia
   await expect(ring(page)).toHaveAttribute('aria-valuenow', '20');
 
   await page.getByRole('button', { name: '수학 공부 상세 보기' }).click();
+  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
+    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
+  if (await page.locator('.task-extra-actions > summary').isVisible())
+    await page.locator('.task-extra-actions > summary').click();
   await page
     .getByRole('dialog')
     .getByRole('checkbox', { name: '세부 항목 1 완료', exact: true })
@@ -106,9 +110,13 @@ test('duplicate texts have independent checks and edit/remove keeps completion w
   await expect(child(page, 1, '복습')).toHaveAttribute('aria-checked', 'false');
   await expect(bar(page, '복습')).toHaveAttribute('aria-valuenow', '50');
   await page.getByRole('button', { name: '복습 상세 보기' }).click();
+  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
+    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
+  if (await page.locator('.task-extra-actions > summary').isVisible())
+    await page.locator('.task-extra-actions > summary').click();
   await page.getByRole('button', { name: '세부 항목 1 삭제', exact: true }).click();
   await page.getByLabel('세부 항목 1', { exact: true }).fill('내용을 수정해도 완료 유지');
-  await page.getByRole('button', { name: '한 줄 추가', exact: true }).click();
+  await page.getByRole('button', { name: '세부 항목 추가', exact: true }).click();
   await page.getByLabel('세부 항목 2', { exact: true }).fill('새 항목');
   await page.getByRole('button', { name: '할 일 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
@@ -118,6 +126,10 @@ test('duplicate texts have independent checks and edit/remove keeps completion w
   await check(page, 2, '복습');
   await expect(parent(page, '복습')).toHaveAttribute('aria-checked', 'true');
   await page.getByRole('button', { name: '복습 상세 보기' }).click();
+  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
+    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
+  if (await page.locator('.task-extra-actions > summary').isVisible())
+    await page.locator('.task-extra-actions > summary').click();
   await page.getByRole('button', { name: '세부 항목 2 삭제', exact: true }).click();
   await page.getByRole('button', { name: '세부 항목 1 삭제', exact: true }).click();
   await page.getByRole('button', { name: '할 일 저장', exact: true }).click();
@@ -147,11 +159,18 @@ test('failed progress saves roll back the optimistic checkbox and all aggregate 
   });
   await child(page, 1).click();
   await expect(bar(page)).toHaveAttribute('aria-valuenow', '50');
-  await expect(page.getByRole('status')).toContainText('체크 저장 권한');
+  await expect(page.locator('.action-error')).toContainText('체크 저장 권한');
   await expect(bar(page)).toHaveAttribute('aria-valuenow', '0');
   await expect(ring(page)).toHaveAttribute('aria-valuenow', '0');
   await expect(child(page, 1)).toHaveAttribute('aria-checked', 'false');
   await expect(parent(page)).toHaveAttribute('aria-checked', 'false');
+  await page.unroute('https://*.supabase.co/rest/v1/rpc/set_task_completion');
+  await page
+    .locator('.action-error')
+    .getByRole('button', { name: '다시 시도', exact: true })
+    .click();
+  await expect(bar(page)).toHaveAttribute('aria-valuenow', '50');
+  await expect(page.locator('.action-error')).toHaveCount(0);
 });
 
 for (const width of [1440, 1280, 800, 390, 360]) {
@@ -173,7 +192,8 @@ for (const width of [1440, 1280, 800, 390, 360]) {
       true,
     );
     expect(await bar(page).evaluate((el) => el.getBoundingClientRect().height)).toBe(4);
-    expect(await ring(page).evaluate((el) => el.getBoundingClientRect().width)).toBe(44);
+    if (width <= 360) await expect(page.locator('.day-progress-ring')).toBeHidden();
+    else expect(await ring(page).evaluate((el) => el.getBoundingClientRect().width)).toBe(44);
     mkdirSync('.local', { recursive: true });
     await page.screenshot({
       path: `.local/progress-${width}-home.png`,
@@ -181,6 +201,10 @@ for (const width of [1440, 1280, 800, 390, 360]) {
       animations: 'disabled',
     });
     await page.getByRole('button', { name: '수학 공부 상세 보기' }).click();
+    if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
+      await page.getByRole('button', { name: '계획 편집', exact: true }).click();
+    if (await page.locator('.task-extra-actions > summary').isVisible())
+      await page.locator('.task-extra-actions > summary').click();
     expect(await page.getByRole('dialog').evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
       true,
     );
