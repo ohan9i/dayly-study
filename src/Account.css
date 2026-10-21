@@ -1,0 +1,58 @@
+.modal.account-modal {
+  max-width: 420px;
+  border: 0;
+  border-radius: 20px;
+  backdrop-filter: none;
+}
+.account-modal > .modal-inner {
+  padding: 0;
+}
+.account-modal .modal-close {
+  z-index: 2;
+}
+.account-modal .auth-card {
+  border: 0;
+}
+.auth-card .ui-card-header {
+  padding-right: 64px;
+}
+.auth-card .auth-tabs {
+  margin-bottom: 20px;
+}
+.auth-card .field {
+  margin-bottom: 16px;
+}
+.auth-card .field:last-child {
+  margin-bottom: 0;
+}
+.auth-card .card-footnote {
+  margin: 14px 0 0;
+  padding: 0;
+  border: 0;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.auth-card .ui-card-footer > .ui-button {
+  width: 100%;
+}
+.auth-card .auth-reset {
+  min-height: 36px;
+  margin: 0;
+}
+.auth-card .account-status {
+  padding: 4px 0 8px;
+}
+.auth-card .account-status > svg {
+  color: var(--text-secondary);
+}
+@media (max-width: 700px) {
+  .auth-card .ui-card-header {
+    padding: 22px 58px 20px 20px;
+  }
+  .auth-card .ui-card-content {
+    padding: 0 20px;
+  }
+  .auth-card .ui-card-footer {
+    padding: 18px 20px 20px;
+  }
+}

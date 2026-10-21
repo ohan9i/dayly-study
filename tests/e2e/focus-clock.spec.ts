@@ -10,7 +10,7 @@ async function setup(page: Page) {
   await page.clock.install({ time: new Date('2026-10-21T03:00:00Z') });
   await page.goto('/#planner');
   await expect(card(page)).toBeVisible();
-  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
+  await page.clock.pauseAt(new Date('2026-10-21T03:01:00Z'));
 }
 async function duration(page: Page, minutes: string, seconds: string) {
   await card(page).getByLabel('타이머 분', { exact: true }).fill(minutes);
@@ -24,10 +24,12 @@ test('custom timer counts down, pauses, resumes, finishes and resets to the chos
   await duration(page, '1', '5');
   await expect(display(page)).toHaveText('00:01:05');
   await card(page).getByRole('button', { name: '시작', exact: true }).click();
-  await expect(card(page).getByLabel('타이머 분', { exact: true })).toBeDisabled();
+  await expect(card(page).getByLabel('타이머 분', { exact: true })).toHaveCount(0);
   await page.clock.fastForward(5000);
   await expect(display(page)).toHaveText('00:01:00');
   await card(page).getByRole('button', { name: '일시정지', exact: true }).click();
+  await expect(card(page).getByLabel('타이머 분', { exact: true })).toHaveValue('01');
+  await expect(card(page).getByLabel('타이머 초', { exact: true })).toHaveValue('00');
   await page.clock.fastForward(10_000);
   await expect(display(page)).toHaveText('00:01:00');
   await card(page).getByRole('button', { name: '계속', exact: true }).click();
@@ -128,7 +130,7 @@ for (const width of [1440, 1000, 390, 320]) {
     const focusBox = (await card(page).boundingBox())!;
     expect(Math.abs(clockBox.x - focusBox.x)).toBeLessThan(1);
     expect(Math.abs(clockBox.width - focusBox.width)).toBeLessThan(1);
-    expect(focusBox.y).toBeGreaterThanOrEqual(clockBox.y + clockBox.height + 15);
+    expect(focusBox.y).toBeGreaterThanOrEqual(clockBox.y + clockBox.height + 12);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );

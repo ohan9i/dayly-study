@@ -86,11 +86,15 @@ function Modal({
   subtitle,
   children,
   onClose,
+  className = '',
+  showHeader = true,
 }: {
   title: string;
   subtitle?: string;
   children: ReactNode;
   onClose: () => void;
+  className?: string;
+  showHeader?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -108,7 +112,7 @@ function Modal({
   return (
     <dialog
       ref={ref}
-      className="modal"
+      className={`modal ${className}`}
       onCancel={(e) => {
         e.preventDefault();
         onClose();
@@ -122,8 +126,10 @@ function Modal({
         <button className="icon-button modal-close" aria-label="닫기" onClick={onClose}>
           <X size={21} />
         </button>
-        <h2 id={titleId}>{title}</h2>
-        {subtitle && <p className="modal-subtitle">{subtitle}</p>}
+        <h2 id={titleId} className={showHeader ? undefined : 'sr-only'}>
+          {title}
+        </h2>
+        {showHeader && subtitle && <p className="modal-subtitle">{subtitle}</p>}
         {children}
       </div>
     </dialog>
@@ -738,7 +744,6 @@ export default function App() {
               >
                 {clock}
               </time>
-              <p>현재 시각, 서울</p>
               <AtmospherePicker value={atmosphere} onChange={setAtmosphere} compact />
             </aside>
             <FocusClock visible={view === 'home'} />
@@ -1153,6 +1158,8 @@ export default function App() {
       )}
       {modal?.kind === 'account' && (
         <Modal
+          className="account-modal"
+          showHeader={false}
           title={planner.session ? '나의 계정' : '공부를 이어 가는 계정'}
           subtitle={
             planner.session

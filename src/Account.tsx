@@ -1,15 +1,34 @@
 import { Button } from '@/components/ui/button';
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useId, useState, type FormEvent, type ReactNode } from 'react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Check, Eye, EyeOff, LockKeyhole, LogIn, LogOut, Mail, ShieldCheck } from 'lucide-react';
 import { supabase } from './planner';
+import './Account.css';
 
 type Mode = 'login' | 'signup' | 'reset' | 'password';
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  children: ReactNode;
+}) {
   return (
-    <label className="field">
-      <span>{label}</span>
+    <div className="field">
+      <Label htmlFor={htmlFor}>{label}</Label>
       {children}
-    </label>
+    </div>
   );
 }
 function PasswordField({
@@ -22,10 +41,12 @@ function PasswordField({
   fresh?: boolean;
 }) {
   const [visible, setVisible] = useState(false);
+  const id = useId();
   return (
-    <Field label={label}>
+    <Field label={label} htmlFor={id}>
       <div className="password-input">
-        <input
+        <Input
+          id={id}
           aria-label={label}
           name={name}
           type={visible ? 'text' : 'password'}
@@ -60,6 +81,26 @@ function authMessage(error: unknown) {
 }
 const returnUrl = () => window.location.origin + window.location.pathname;
 
+function AccountCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <Card className="auth-card">
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      {children}
+    </Card>
+  );
+}
+
 export default function Account({
   sessionEmail,
   recovery,
@@ -78,6 +119,7 @@ export default function Account({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [sent, setSent] = useState<'signup' | 'reset' | null>(null);
+  const emailId = useId();
   function switchMode(next: Mode) {
     setMode(next);
     setError('');
@@ -153,39 +195,39 @@ export default function Account({
   }
   if (!supabase)
     return (
-      <>
-        <div className="account-status">
-          <LockKeyhole size={30} />
-          <strong>계정 연결을 준비하고 있어요.</strong>
-          <p>
-            Supabase를 연결하면 이메일과 비밀번호로 로그인할 수 있어요.
-            <br />
-            지금은 조회만 가능하며, 로그인 후 할 일을 편집합니다.
-          </p>
-        </div>
-        <Button
-          variant="default"
-          size="default"
-          className="primary-button full-width"
-          onClick={onDone}
-        >
-          나의 하루로 돌아가기
-        </Button>
-      </>
+      <AccountCard title="계정 연결 준비 중" description="지금은 계획을 조회할 수 있어요.">
+        <CardContent>
+          <div className="account-status">
+            <LockKeyhole size={30} />
+            <p>계정 연결이 준비되면 이메일과 비밀번호로 로그인하고 나의 계획을 편집할 수 있어요.</p>
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button className="full-width" onClick={onDone}>
+            나의 하루로 돌아가기
+          </Button>
+        </CardFooter>
+      </AccountCard>
     );
   if (sessionEmail && mode !== 'password')
     return (
-      <>
-        <div className="account-status">
-          <ShieldCheck size={28} />
-          <strong>{sessionEmail}</strong>
-          <p>로그인되어 있어요. 승인된 공간을 편집할 수 있습니다.</p>
-        </div>
-        <div className="account-actions">
+      <AccountCard title="나의 계정" description="같은 계정으로 다른 기기에서도 기록을 이어가세요.">
+        <CardContent>
+          <div className="account-status">
+            <ShieldCheck size={28} />
+            <strong>{sessionEmail}</strong>
+            <p>로그인되어 있어요. 승인된 공간을 편집할 수 있습니다.</p>
+          </div>
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
+        </CardContent>
+        <CardFooter>
           <Button
-            variant="secondary"
-            size="default"
-            className="soft-button full-width"
+            variant="outline"
+            className="full-width"
             disabled={busy}
             onClick={() => switchMode('password')}
           >
@@ -193,177 +235,198 @@ export default function Account({
             비밀번호 변경
           </Button>
           <Button
-            variant="secondary"
-            size="default"
-            className="soft-button full-width"
+            variant="outline"
+            className="full-width"
             disabled={busy}
             onClick={() => void signOut()}
           >
             <LogOut size={17} />
             로그아웃
           </Button>
-        </div>
-        {error && (
-          <p className="form-error" role="alert">
-            {error}
-          </p>
-        )}
-      </>
+        </CardFooter>
+      </AccountCard>
     );
   if (sent)
     return (
-      <div className="account-status">
-        <Mail size={32} />
-        <strong>이메일을 확인해 주세요.</strong>
-        <p>
-          {sent === 'signup'
-            ? '가입 확인 메일의 링크를 누른 뒤, 이메일과 비밀번호로 로그인해 주세요.'
-            : '이 이메일로 가입한 계정이 있다면 재설정 메일이 전송됩니다. 메일의 링크에서 새 비밀번호를 정해 주세요.'}
-        </p>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-button"
-          onClick={() => switchMode('login')}
-        >
-          로그인으로 돌아가기
-        </Button>
-      </div>
-    );
-  const changing = mode === 'password';
-  return (
-    <>
-      {!changing && (
-        <div className="auth-tabs" role="group" aria-label="계정 기능">
-          <button
-            type="button"
-            className={mode !== 'signup' ? 'active' : ''}
-            aria-pressed={mode !== 'signup'}
-            disabled={busy}
-            onClick={() => switchMode('login')}
-          >
-            로그인
-          </button>
-          <button
-            type="button"
-            className={mode === 'signup' ? 'active' : ''}
-            aria-pressed={mode === 'signup'}
-            disabled={busy}
-            onClick={() => switchMode('signup')}
-          >
-            회원가입
-          </button>
-        </div>
-      )}
-      <form className="editor-form" key={mode} onSubmit={submit}>
-        <fieldset disabled={busy}>
-          {changing ? (
-            <p className="setting-description">
-              새 비밀번호를 입력해 주세요. 변경 후에는 새 비밀번호로 로그인합니다.
+      <AccountCard
+        title="이메일을 확인해 주세요."
+        description={
+          sent === 'signup' ? '가입 확인 메일을 보냈어요.' : '비밀번호 재설정을 안내해 드릴게요.'
+        }
+      >
+        <CardContent>
+          <div className="account-status">
+            <Mail size={32} />
+            <p>
+              {sent === 'signup'
+                ? '가입 확인 메일의 링크를 누른 뒤, 이메일과 비밀번호로 로그인해 주세요.'
+                : '이 이메일로 가입한 계정이 있다면 재설정 메일이 전송됩니다. 메일의 링크에서 새 비밀번호를 정해 주세요.'}
             </p>
-          ) : (
-            <Field label="이메일">
-              <input
-                type="email"
-                name="email"
-                required
-                maxLength={254}
-                autoComplete="username"
-                placeholder="name@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoFocus
-              />
-            </Field>
-          )}
-          {mode !== 'reset' && (
-            <PasswordField
-              label={changing ? '새 비밀번호' : '비밀번호'}
-              name="password"
-              fresh={mode === 'signup' || changing}
-            />
-          )}
-          {(mode === 'signup' || changing) && (
-            <PasswordField label="비밀번호 확인" name="confirmation" fresh />
-          )}
-        </fieldset>
-        {mode === 'signup' && (
-          <p className="card-footnote">
-            이메일 확인 후 사용할 수 있어요. 다른 사람의 공간에 참여하려면 관리자의 이메일 승인이
-            필요합니다.
-          </p>
-        )}
-        {mode === 'login' && (
-          <p className="card-footnote">
-            본인 또는 관리자가 승인한 계정만 공유 공간을 편집할 수 있어요.
-          </p>
-        )}
-        {error && (
-          <p className="form-error" role="alert">
-            {error}
-          </p>
-        )}
-        <Button
-          variant="default"
-          size="default"
-          className="primary-button full-width"
-          disabled={busy || (changing && !sessionEmail)}
-          type="submit"
-        >
-          {changing ? (
-            <Check size={17} />
-          ) : mode === 'reset' ? (
-            <Mail size={17} />
-          ) : (
-            <LogIn size={17} />
-          )}
-          {busy
-            ? '처리 중…'
-            : changing
-              ? '새 비밀번호 저장'
-              : mode === 'signup'
-                ? '계정 만들기'
-                : mode === 'reset'
-                  ? '재설정 메일 받기'
-                  : '비밀번호로 로그인'}
-        </Button>
-        {mode === 'login' && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-button auth-reset"
-            disabled={busy}
-            type="button"
-            onClick={() => switchMode('reset')}
-          >
-            비밀번호를 잊었나요?
-          </Button>
-        )}
-        {mode === 'reset' && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-button auth-reset"
-            disabled={busy}
-            type="button"
-            onClick={() => switchMode('login')}
-          >
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button variant="outline" className="full-width" onClick={() => switchMode('login')}>
             로그인으로 돌아가기
           </Button>
-        )}
-        {changing && (
+        </CardFooter>
+      </AccountCard>
+    );
+  const changing = mode === 'password';
+  const title = changing
+    ? '비밀번호 변경'
+    : mode === 'signup'
+      ? '회원가입'
+      : mode === 'reset'
+        ? '비밀번호 재설정'
+        : '로그인';
+  const description = changing
+    ? '새 비밀번호를 입력해 주세요. 변경 후에는 새 비밀번호로 로그인합니다.'
+    : mode === 'signup'
+      ? '나의 공부와 기록을 담을 계정을 만들어요.'
+      : mode === 'reset'
+        ? '가입한 이메일로 재설정 링크를 보내 드려요.'
+        : '이메일과 비밀번호로 나의 하루를 이어가세요.';
+  return (
+    <AccountCard title={title} description={description}>
+      <form className="editor-form auth-card-form" key={mode} onSubmit={submit}>
+        <CardContent>
+          {!changing && (
+            <div className="auth-tabs" role="group" aria-label="계정 기능">
+              <button
+                type="button"
+                className={mode !== 'signup' ? 'active' : ''}
+                aria-pressed={mode !== 'signup'}
+                disabled={busy}
+                onClick={() => switchMode('login')}
+              >
+                로그인
+              </button>
+              <button
+                type="button"
+                className={mode === 'signup' ? 'active' : ''}
+                aria-pressed={mode === 'signup'}
+                disabled={busy}
+                onClick={() => switchMode('signup')}
+              >
+                회원가입
+              </button>
+            </div>
+          )}
+          <fieldset disabled={busy}>
+            {!changing && (
+              <Field label="이메일" htmlFor={emailId}>
+                <Input
+                  id={emailId}
+                  type="email"
+                  name="email"
+                  required
+                  maxLength={254}
+                  autoComplete="username"
+                  placeholder="name@example.com"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  autoFocus
+                />
+              </Field>
+            )}
+            {mode !== 'reset' && (
+              <PasswordField
+                label={changing ? '새 비밀번호' : '비밀번호'}
+                name="password"
+                fresh={mode === 'signup' || changing}
+              />
+            )}
+            {(mode === 'signup' || changing) && (
+              <PasswordField label="비밀번호 확인" name="confirmation" fresh />
+            )}
+          </fieldset>
+          {mode === 'signup' && (
+            <p className="card-footnote">
+              이메일 확인 후 사용할 수 있어요. 다른 사람의 공간에 참여하려면 관리자의 이메일 승인이
+              필요합니다.
+            </p>
+          )}
+          {mode === 'login' && (
+            <p className="card-footnote">
+              본인 또는 관리자가 승인한 계정만 공유 공간을 편집할 수 있어요.
+            </p>
+          )}
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
+        </CardContent>
+        <CardFooter>
           <Button
-            variant="ghost"
-            size="sm"
-            className="text-button auth-reset"
-            disabled={busy}
-            type="button"
-            onClick={() => (recovery ? void signOut() : switchMode('login'))}
+            className="primary-button full-width"
+            disabled={busy || (changing && !sessionEmail)}
+            type="submit"
           >
-            {recovery ? '재설정 취소하고 로그아웃' : '계정으로 돌아가기'}
+            {changing ? (
+              <Check size={17} />
+            ) : mode === 'reset' ? (
+              <Mail size={17} />
+            ) : (
+              <LogIn size={17} />
+            )}
+            {busy
+              ? '처리 중…'
+              : changing
+                ? '새 비밀번호 저장'
+                : mode === 'signup'
+                  ? '계정 만들기'
+                  : mode === 'reset'
+                    ? '재설정 메일 받기'
+                    : '비밀번호로 로그인'}
           </Button>
-        )}
+          {(mode === 'login' || mode === 'signup') && (
+            <Button
+              variant="outline"
+              className="full-width"
+              disabled={busy}
+              type="button"
+              onClick={onDone}
+            >
+              나중에
+            </Button>
+          )}
+          {mode === 'login' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-button auth-reset"
+              disabled={busy}
+              type="button"
+              onClick={() => switchMode('reset')}
+            >
+              비밀번호를 잊었나요?
+            </Button>
+          )}
+          {mode === 'reset' && (
+            <Button
+              variant="outline"
+              className="full-width"
+              disabled={busy}
+              type="button"
+              onClick={() => switchMode('login')}
+            >
+              로그인으로 돌아가기
+            </Button>
+          )}
+          {changing && (
+            <Button
+              variant="outline"
+              className="full-width"
+              disabled={busy}
+              type="button"
+              onClick={() => (recovery ? void signOut() : switchMode('login'))}
+            >
+              {recovery ? '재설정 취소하고 로그아웃' : '계정으로 돌아가기'}
+            </Button>
+          )}
+        </CardFooter>
       </form>
-    </>
+    </AccountCard>
   );
 }

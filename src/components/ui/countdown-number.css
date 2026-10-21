@@ -1,0 +1,20 @@
+.countdown-number {
+  position: relative;
+  display: inline-block;
+  min-width: 2ch;
+  height: 1.2em;
+  overflow: clip;
+  text-align: center;
+  vertical-align: middle;
+  font-variant-numeric: tabular-nums;
+}
+.countdown-number-current,
+.countdown-number-old {
+  display: block;
+  line-height: 1.2;
+}
+.countdown-number-old {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+}

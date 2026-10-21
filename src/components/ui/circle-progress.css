@@ -1,0 +1,19 @@
+.circle-progress circle {
+  fill: none;
+}
+.circle-progress-track {
+  stroke: var(--control-border);
+  opacity: 0.55;
+}
+.circle-progress-value {
+  stroke: var(--text-secondary);
+  transition: stroke-dashoffset 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.circle-progress[data-static='true'] .circle-progress-value {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .circle-progress-value {
+    transition: none;
+  }
+}

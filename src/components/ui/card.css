@@ -1,0 +1,34 @@
+.ui-card {
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  background: var(--surface-solid);
+  color: var(--text);
+}
+.ui-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 24px;
+}
+.ui-card-title {
+  margin: 0;
+  font-size: 23px;
+  font-weight: 550;
+  line-height: 1.3;
+  letter-spacing: -0.025em;
+}
+.ui-card-description {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.ui-card-content {
+  padding: 0 24px;
+}
+.ui-card-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px 24px 24px;
+}

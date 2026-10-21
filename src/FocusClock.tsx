@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Hourglass, Pause, Play, RotateCcw, Timer } from 'lucide-react';
 import { Button } from './components/ui/button';
+import { CircleProgress } from './components/ui/circle-progress';
+import { CountdownNumber } from './components/ui/countdown-number';
 import SquishSwitch from './SquishSwitch';
 import './FocusClock.css';
 
@@ -81,7 +83,7 @@ function readClock(): ClockState {
 
 export default function FocusClock({ visible }: { visible: boolean }) {
   const [state, setState] = useState(readClock);
-  const [fields, setFields] = useState(() => toFields(state.duration));
+  const [fields, setFields] = useState(() => toFields(Math.ceil(state.remaining / 1000) * 1000));
   const [now, setNow] = useState(Date.now);
   const timer = state.mode === 'timer';
   const running = timer ? state.deadline !== null : state.startedAt !== null;
@@ -101,6 +103,7 @@ export default function FocusClock({ visible }: { visible: boolean }) {
     const tick = () => {
       const time = Date.now();
       if (state.deadline !== null && time >= state.deadline) {
+        setFields(toFields(0));
         setState((current) =>
           current.deadline === state.deadline
             ? { ...current, deadline: null, remaining: 0, finished: true }
@@ -161,6 +164,8 @@ export default function FocusClock({ visible }: { visible: boolean }) {
   const toggleRunning = () => {
     const time = Date.now();
     setNow(time);
+    if (timer && state.deadline !== null)
+      setFields(toFields(Math.ceil(remainingAt(state, time) / 1000) * 1000));
     setState((current) => {
       if (current.mode === 'stopwatch') {
         return current.startedAt === null
@@ -171,14 +176,15 @@ export default function FocusClock({ visible }: { visible: boolean }) {
         const remaining = remainingAt(current, time);
         return { ...current, remaining, deadline: null, finished: remaining === 0 };
       }
-      if (duration === null || duration === 0) return current;
+      if (duration === null || (current.finished ? current.duration === 0 : duration === 0))
+        return current;
       const remaining = current.finished ? current.duration : current.remaining;
       return { ...current, remaining, deadline: time + remaining, finished: false };
     });
   };
   const reset = () => {
     setNow(Date.now());
-    setFields(toFields(state.duration));
+    if (timer) setFields(toFields(state.duration));
     setState((current) =>
       current.mode === 'timer'
         ? { ...current, remaining: current.duration, deadline: null, finished: false }
@@ -201,60 +207,95 @@ export default function FocusClock({ visible }: { visible: boolean }) {
           : progress
             ? '일시정지됨'
             : timer
-              ? '시간을 직접 설정해 주세요.'
+              ? '숫자를 눌러 시간을 설정하세요.'
               : '시작을 눌러 시간을 기록하세요.';
 
   return (
     <section className="focus-clock-card" aria-label="타이머와 스톱워치">
       <span className="focus-clock-label">FOCUS / TIME</span>
-      <output
-        className="focus-clock-display"
-        role="timer"
-        aria-live="off"
-        aria-label={timer ? '타이머 남은 시간' : '스톱워치 경과 시간'}
-      >
-        {formatTime(timer ? remainingSeconds : elapsedSeconds)}
-      </output>
-      <span className="focus-clock-caption">{timer ? '남은 시간' : '경과 시간'}</span>
-      <div className="focus-clock-settings">
-        {timer ? (
-          <div className="focus-duration" role="group" aria-label="타이머 시간 설정">
+      <div className="focus-clock-face" data-mode={state.mode}>
+        <CircleProgress
+          className="focus-clock-ring"
+          value={timer ? remainingSeconds : 0}
+          maxValue={state.duration / 1000}
+          size={136}
+          strokeWidth={3}
+          counterClockwise
+          aria-hidden="true"
+          disableAnimation={!running || !visible}
+        />
+        <div className="focus-clock-center">
+          <output
+            className="sr-only"
+            role="timer"
+            aria-live="off"
+            aria-label={timer ? '타이머 남은 시간' : '스톱워치 경과 시간'}
+          >
+            {formatTime(timer ? remainingSeconds : elapsedSeconds)}
+          </output>
+          <div
+            className="focus-clock-display"
+            role={timer && !running ? 'group' : undefined}
+            aria-label={timer && !running ? '타이머 시간 설정' : undefined}
+          >
             {(['hours', 'minutes', 'seconds'] as const).map((key, index) => (
-              <label key={key}>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  max={index === 0 ? 99 : 59}
-                  step={1}
-                  aria-label={`타이머 ${['시간', '분', '초'][index]}`}
-                  aria-invalid={
-                    duration === null &&
-                    (!Number.isInteger(Number(fields[key])) ||
-                      Number(fields[key]) < 0 ||
-                      Number(fields[key]) > (index === 0 ? 99 : 59))
-                  }
-                  value={fields[key]}
-                  disabled={state.deadline !== null}
-                  onChange={(event) => changeFields(key, event.target.value)}
-                  onFocus={(event) => event.currentTarget.select()}
-                  onBlur={() => {
-                    if (duration !== null) setFields(toFields(duration));
-                  }}
-                />
-                <span>{['시간', '분', '초'][index]}</span>
-              </label>
+              <span className="focus-clock-part" key={`${state.mode}-${key}`}>
+                {index > 0 && (
+                  <span className="focus-clock-colon" aria-hidden="true">
+                    :
+                  </span>
+                )}
+                {timer && !running ? (
+                  <input
+                    className="focus-time-input"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={index === 0 ? 99 : 59}
+                    step={1}
+                    aria-label={`타이머 ${['시간', '분', '초'][index]}`}
+                    aria-invalid={
+                      duration === null &&
+                      (!Number.isInteger(Number(fields[key])) ||
+                        Number(fields[key]) < 0 ||
+                        Number(fields[key]) > (index === 0 ? 99 : 59))
+                    }
+                    value={fields[key]}
+                    onChange={(event) => changeFields(key, event.target.value)}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        event.currentTarget.blur();
+                        toggleRunning();
+                      }
+                    }}
+                    onBlur={() => {
+                      if (duration !== null) setFields(toFields(duration));
+                    }}
+                  />
+                ) : (
+                  <CountdownNumber
+                    value={formatTime(timer ? remainingSeconds : elapsedSeconds).split(':')[index]}
+                    direction={timer ? 'down' : 'up'}
+                    animate={running && visible && !document.hidden}
+                  />
+                )}
+              </span>
             ))}
           </div>
-        ) : (
-          <p className="focus-stopwatch-note">일시정지 후에도 이어서 기록할 수 있어요.</p>
-        )}
+          <span className="focus-clock-caption">{timer ? '남은 시간' : '경과 시간'}</span>
+        </div>
       </div>
       <div className="focus-clock-actions">
         <Button
           type="button"
           onClick={toggleRunning}
-          disabled={timer && !running && (duration === null || duration === 0)}
+          disabled={
+            timer &&
+            !running &&
+            (duration === null || (state.finished ? state.duration === 0 : duration === 0))
+          }
         >
           {running ? <Pause size={16} /> : <Play size={16} />}
           {running
