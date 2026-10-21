@@ -1,0 +1,86 @@
+.swipe-action {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 8px;
+  min-width: 0;
+}
+.swipe-action:focus-visible {
+  outline: 2px solid var(--control-border);
+  outline-offset: 2px;
+}
+.swipe-action__content {
+  position: relative;
+  background: var(--surface-solid);
+  touch-action: pan-y;
+}
+.swipe-action__rail {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 4px 8px;
+  background: var(--ui-secondary);
+  color: var(--text);
+}
+.swipe-action[data-side='delete'] > .swipe-action__rail {
+  color: var(--ui-danger);
+}
+.swipe-action__copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.swipe-action__cancel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 0 8px;
+  color: inherit;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.swipe-action__countdown {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: currentColor;
+  transform-origin: left;
+  animation: swipe-wait 1s linear both;
+  pointer-events: none;
+}
+.swipe-action[data-phase='idle'] > .swipe-action__rail {
+  visibility: hidden;
+}
+.task-copy > .swipe-action {
+  overflow: visible;
+}
+.task-copy > .swipe-action[data-phase='dragging'],
+.task-copy > .swipe-action[data-phase='settling'],
+.task-copy > .swipe-action[data-phase='waiting'],
+.task-copy > .swipe-action[data-phase='working'] {
+  overflow: hidden;
+}
+.swipe-action__content.task-heading {
+  min-height: 44px;
+}
+@keyframes swipe-wait {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .swipe-action__countdown {
+    animation: none;
+  }
+}

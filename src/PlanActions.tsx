@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Copy, MoreHorizontal, Pencil, Trash2, ArrowRightLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -13,29 +13,46 @@ export default function PlanActions({
   onAction: (action: 'edit' | 'duplicate' | 'move') => void;
   onDelete: () => void;
 }) {
-  const root = useRef<HTMLDetailsElement>(null);
+  const root = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
   useEffect(() => {
     const close = (event: PointerEvent) => {
-      if (root.current && !root.current.contains(event.target as Node)) root.current.open = false;
+      if (root.current && !root.current.contains(event.target as Node)) setOpen(false);
     };
+    const cancel = () => setOpen(false);
     document.addEventListener('pointerdown', close);
-    return () => document.removeEventListener('pointerdown', close);
+    window.addEventListener('dayly:cancel-actions', cancel);
+    return () => {
+      document.removeEventListener('pointerdown', close);
+      window.removeEventListener('dayly:cancel-actions', cancel);
+    };
   }, []);
   return (
-    <details
+    <div
       ref={root}
       className="plan-actions"
+      data-open={open}
       onKeyDown={(event) => {
         if (event.key === 'Escape') {
           event.stopPropagation();
-          root.current!.open = false;
-          root.current?.querySelector('summary')?.focus();
+          setOpen(false);
+          root.current?.querySelector('button')?.focus();
         }
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
           event.preventDefault();
-          root.current!.open = true;
+          if (!open) {
+            setOpen(true);
+            requestAnimationFrame(() =>
+              root.current
+                ?.querySelector<HTMLButtonElement>('.plan-actions-menu button:not(:disabled)')
+                ?.focus(),
+            );
+            return;
+          }
           const items = Array.from(
-            root.current!.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'),
+            root.current!.querySelectorAll<HTMLButtonElement>(
+              '.plan-actions-menu button:not(:disabled)',
+            ),
           );
           const index = items.indexOf(document.activeElement as HTMLButtonElement);
           const next =
@@ -47,50 +64,53 @@ export default function PlanActions({
           items[next]?.focus();
         }
       }}
-      onToggle={(event) => {
-        if (event.currentTarget.open)
-          document.querySelectorAll<HTMLDetailsElement>('.plan-actions[open]').forEach((other) => {
-            if (other !== root.current) other.open = false;
-          });
-      }}
     >
-      <summary aria-label={`${title} 추가 작업`} title="계획 관리">
+      <button
+        type="button"
+        className="plan-actions-trigger"
+        aria-label={`${title} 추가 작업`}
+        title="계획 관리"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
         <MoreHorizontal size={20} />
-      </summary>
-      <div className="plan-actions-menu" aria-label={`${title} 관리`}>
-        {(
-          [
-            ['edit', '계획 상세', Pencil],
-            ['duplicate', '복제', Copy],
-            ['move', '다른 공간으로 이동', ArrowRightLeft],
-          ] as const
-        ).map(([action, label, Icon]) => (
+      </button>
+      {open && (
+        <div className="plan-actions-menu" aria-label={`${title} 관리`}>
+          {(
+            [
+              ['edit', '계획 상세', Pencil],
+              ['duplicate', '복제', Copy],
+              ['move', '다른 공간으로 이동', ArrowRightLeft],
+            ] as const
+          ).map(([action, label, Icon]) => (
+            <Button
+              key={action}
+              variant="ghost"
+              disabled={action !== 'edit' && disabled}
+              onClick={() => {
+                setOpen(false);
+                onAction(action);
+              }}
+            >
+              <Icon size={16} />
+              {label}
+            </Button>
+          ))}
           <Button
-            key={action}
             variant="ghost"
-            disabled={action !== 'edit' && disabled}
+            className="danger-text"
+            disabled={disabled}
             onClick={() => {
-              root.current!.open = false;
-              onAction(action);
+              setOpen(false);
+              onDelete();
             }}
           >
-            <Icon size={16} />
-            {label}
+            <Trash2 size={16} />
+            휴지통으로 이동
           </Button>
-        ))}
-        <Button
-          variant="ghost"
-          className="danger-text"
-          disabled={disabled}
-          onClick={() => {
-            root.current!.open = false;
-            onDelete();
-          }}
-        >
-          <Trash2 size={16} />
-          휴지통으로 이동
-        </Button>
-      </div>
-    </details>
+        </div>
+      )}
+    </div>
   );
 }

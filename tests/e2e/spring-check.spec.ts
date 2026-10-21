@@ -66,10 +66,6 @@ test('a real spring fills the check and strikes the label; title and record acti
   );
   await expect(child).toBeEnabled();
   await page.getByRole('button', { name: '스프링 체크 검증 상세 보기', exact: true }).click();
-  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-  if (await page.locator('.task-extra-actions > summary').isVisible())
-    await page.locator('.task-extra-actions > summary').click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByLabel('할 일', { exact: true })).toHaveValue('스프링 체크 검증');
   await page.getByLabel('세부 항목 1', { exact: true }).fill('저장 전 편집 내용');

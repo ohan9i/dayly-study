@@ -229,10 +229,6 @@ for (const [width, height] of [
     await capture('calendar');
     await page.locator('.calendar-day.is-today').click();
     await page.getByRole('button', { name: '수학 공부 상세 보기' }).click();
-    if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-      await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-    if (await page.locator('.task-extra-actions > summary').isVisible())
-      await page.locator('.task-extra-actions > summary').click();
     expect(await page.getByRole('dialog').evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
       true,
     );

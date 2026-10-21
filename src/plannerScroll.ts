@@ -26,7 +26,6 @@ export function connectPlannerEntry({
   const fine = matchMedia('(hover: hover) and (pointer: fine)');
   const book = object.querySelector<HTMLElement>('.planner-book')!;
   const cover = object.querySelector<HTMLElement>('.book-front')!;
-  const marks = object.querySelector<HTMLElement>('.book-page-marks')!;
   const shadows = [...stage.querySelectorAll<HTMLElement>('.book-shadow, .book-contact-shadow')];
   const binding = [
     ...object.querySelectorAll<HTMLElement>('.book-spine, .book-edge, .book-back, .book-ribbon'),
@@ -150,17 +149,6 @@ export function connectPlannerEntry({
         ),
       );
       objectAnimation = animate(object, objectFrames(), duration);
-      animate(
-        marks,
-        [
-          { opacity: 0, offset: 0 },
-          { opacity: 0, offset: 0.3 },
-          { opacity: 1, offset: 0.5 },
-          { opacity: 0, offset: 0.78 },
-          { opacity: 0, offset: 1 },
-        ],
-        duration,
-      );
       binding.forEach((el) =>
         animate(
           el,

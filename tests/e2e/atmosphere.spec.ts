@@ -212,10 +212,6 @@ for (const [width, height] of [
     await page.getByRole('button', { name: '닫기', exact: true }).click();
     await page.getByRole('button', { name: '나의 하루', exact: true }).click();
     await page.getByRole('button', { name: '건축구조 복습 상세 보기', exact: true }).click();
-    if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-      await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-    if (await page.locator('.task-extra-actions > summary').isVisible())
-      await page.locator('.task-extra-actions > summary').click();
     await capture('detail');
     await contrast(
       page,

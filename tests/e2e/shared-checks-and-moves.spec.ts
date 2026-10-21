@@ -20,10 +20,6 @@ test('approved participant checks parent and subtask while content stays read-on
   await expect(parent).toBeEnabled();
   await expect(parent).toHaveAttribute('aria-checked', 'true');
   await page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' }).click();
-  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-  if (await page.locator('.task-extra-actions > summary').isVisible())
-    await page.locator('.task-extra-actions > summary').click();
   await expect(page.locator('.task-read-view h3')).toBeVisible();
   await expect(page.locator('input[name=title]')).toHaveCount(0);
   await expect(page.locator('.task-read-view li').first()).toBeVisible();
@@ -47,10 +43,6 @@ test('approved participant moves another author’s plan between spaces', async 
   await signIn(page);
   await select(page, SHARED_SPACE);
   await page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' }).click();
-  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-  if (await page.locator('.task-extra-actions > summary').isVisible())
-    await page.locator('.task-extra-actions > summary').click();
   await expect(page.locator('.task-read-view h3')).toBeVisible();
   await expect(page.locator('input[name=title]')).toHaveCount(0);
   await page.getByRole('button', { name: '다른 플래너로 이동', exact: true }).click();
@@ -72,15 +64,11 @@ test('approved participant can send another author’s plan to trash and restore
   await signIn(page);
   await select(page, SHARED_SPACE);
   await page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' }).click();
-  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-  if (await page.locator('.task-extra-actions > summary').isVisible())
-    await page.locator('.task-extra-actions > summary').click();
   await page.getByRole('button', { name: '이 할 일 삭제', exact: true }).click();
   await page.getByRole('button', { name: '휴지통으로 이동', exact: true }).click();
   await expect(page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' })).toHaveCount(0);
   await page.getByRole('button', { name: '설정', exact: true }).click();
-  await page.locator('.protection-section > summary').filter({ hasText: '휴지통' }).click();
+  await expect(page.locator('.protection-section > h3').filter({ hasText: '휴지통' })).toBeVisible();
   await page.getByRole('button', { name: '공유한 구조역학 문제 복원', exact: true }).click();
   await page.getByRole('button', { name: '나의 하루', exact: true }).click();
   await expect(page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' })).toBeVisible();
@@ -127,10 +115,6 @@ for (const width of [1440, 390])
     );
     const paths = [...cloud.objects.keys()];
     await page.getByRole('button', { name: '잘못 쓴 플래너 항목 상세 보기', exact: true }).click();
-    if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-      await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-    if (await page.locator('.task-extra-actions > summary').isVisible())
-      await page.locator('.task-extra-actions > summary').click();
     await expect(
       page.getByRole('button', { name: '다른 플래너로 이동', exact: true }),
     ).toBeEnabled();
@@ -168,10 +152,6 @@ test('remote checks synchronize without resetting draft focus; stale form save r
   await page.goto('/#planner');
   await signIn(page);
   await page.getByRole('button', { name: '함께 체크 상세 보기', exact: true }).click();
-  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-  if (await page.locator('.task-extra-actions > summary').isVisible())
-    await page.locator('.task-extra-actions > summary').click();
   const draft = page.getByLabel('세부 항목 1', { exact: true });
   await draft.fill('저장 전 초안');
   cloud.externalCheck(taskId, 1, true);

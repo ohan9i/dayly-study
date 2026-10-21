@@ -154,8 +154,8 @@ export default function DataProtection({
           {error}
         </p>
       )}
-      <details className="protection-section">
-        <summary>휴지통 · 삭제한 계획 복원</summary>
+      <div className="protection-section">
+        <h3>휴지통, 삭제한 계획 복원</h3>
         <p className="card-footnote">
           계획을 삭제해도 기록과 첨부 원본을 보관합니다. 원래 공간과 날짜로 복원할 수 있어요.
         </p>
@@ -195,9 +195,9 @@ export default function DataProtection({
             </li>
           ))}
         </ul>
-      </details>
-      <details className="protection-section">
-        <summary>계획 변경 이력</summary>
+      </div>
+      <div className="protection-section">
+        <h3>계획 변경 이력</h3>
         <p className="card-footnote">계획의 생성과 수정, 이동 내역을 필요할 때 확인하세요.</p>
         <Button
           variant="secondary"
@@ -209,9 +209,9 @@ export default function DataProtection({
           <History size={16} />
           계획 변경 이력 보기
         </Button>
-      </details>
-      <details className="protection-section">
-        <summary>삭제 이력 · 백업 내려받기</summary>
+      </div>
+      <div className="protection-section">
+        <h3>삭제 이력, 백업 내려받기</h3>
         <p className="card-footnote">
           현재 공간에서 열람할 수 있는 최근 삭제 50건입니다. 새 삭제는 휴지통에 보관합니다. 이전
           버전에서 이미 삭제된 파일 원본은 삭제 전 백업이 필요합니다.
@@ -253,7 +253,7 @@ export default function DataProtection({
             </li>
           ))}
         </ul>
-      </details>
+      </div>
     </section>
   );
 }

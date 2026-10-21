@@ -16,18 +16,7 @@ export const PlannerObject = forwardRef<HTMLDivElement>(function PlannerObject(_
         <div className="book-edge book-edge-right" />
         <div className="book-edge book-edge-top" />
         <div className="book-edge book-edge-bottom" />
-        <div className="book-paper">
-          <div className="book-page-marks">
-            <span className="book-page-date">TODAY / DAYLY</span>
-            <span className="book-page-title">오늘의 계획</span>
-            {Array.from({ length: 5 }, (_, i) => (
-              <span className="book-page-row" key={i}>
-                <i />
-                <b />
-              </span>
-            ))}
-          </div>
-        </div>
+        <div className="book-paper" />
         <div className="book-front">
           <div className="book-cover-outside">
             <div className="book-label">

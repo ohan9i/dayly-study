@@ -50,10 +50,6 @@ test('failed auxiliary read preserves plans, blocks record operations, and recov
   await page.getByRole('checkbox', { name: '보존된 구조역학 계획 완료', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('수행 기록을 불러오지 못했어요');
   await page.getByRole('button', { name: '보존된 구조역학 계획 상세 보기' }).click();
-  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-  if (await page.locator('.task-extra-actions > summary').isVisible())
-    await page.locator('.task-extra-actions > summary').click();
   const title = page.getByLabel('할 일', { exact: true });
   await title.fill('입력 중인 초안');
   await expect(page.getByRole('button', { name: '이 할 일 삭제', exact: true })).toBeEnabled();

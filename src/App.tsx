@@ -53,6 +53,7 @@ import { AtmospherePicker, CompletionSparkles, useAtmosphere } from './Atmospher
 import WelcomeScreen from './WelcomeScreen';
 import { readEntryNavigation, saveEntryNavigation } from './entryNavigation';
 import PlanActions from './PlanActions';
+import SwipeAction from './SwipeAction';
 import { useDraftUnloadGuard } from './recordDrafts';
 import LoadingStatus from './LoadingStatus';
 import PlannerBackground from './PlannerBackground';
@@ -166,11 +167,9 @@ export default function App() {
   const [taskDetailDirty, setTaskDetailDirty] = useState(false);
   const [actionError, setActionError] = useState('');
   const retryAction = useRef<(() => Promise<unknown>) | null>(null);
-  const closePlanMenus = () => {
-    document.querySelectorAll<HTMLDetailsElement>('.plan-actions[open]').forEach((menu) => {
-      menu.open = false;
-    });
-  };
+  const closePlanMenus = () => window.dispatchEvent(new Event('dayly:cancel-actions'));
+  const livePlanner = useRef(planner);
+  livePlanner.current = planner;
   const [month, setMonth] = useState(
     () => readEntryNavigation().month || todayKey().slice(0, 7) + '-01',
   );
@@ -179,6 +178,7 @@ export default function App() {
   }, [view, date, month]);
   const [now, setNow] = useState(new Date());
   const [modal, setModal] = useState<ModalState>(null);
+  const swipeScope = `${planner.session?.user.id}:${planner.workspace?.id}:${date}:${view}:${modal?.kind || ''}`;
   const [openRecords, setOpenRecords] = useState<Set<string>>(() => new Set());
   const [taskDetailBusy, setTaskDetailBusy] = useState(false);
   useEffect(() => {
@@ -275,6 +275,21 @@ export default function App() {
         '”을 현재 목록에서 삭제합니다. 내용과 기록, 첨부 원본은 보관되며 설정의 휴지통에서 복원할 수 있어요.',
       action: () => planner.deleteTask(item.id),
     });
+  const deleteDetail = async (taskId: string, detailId: string) => {
+    const current = livePlanner.current;
+    const task = current.data.tasks.find((item) => item.id === taskId);
+    const index = task?.detailChecks?.findIndex((detail) => detail.id === detailId) ?? -1;
+    if (!task || index < 0)
+      throw new Error('세부 항목이 이미 변경되었어요. 목록을 다시 확인해 주세요.');
+    await current.saveTask(
+      {
+        ...task,
+        details: task.details.filter((_, i) => i !== index),
+        detailChecks: task.detailChecks?.filter((_, i) => i !== index),
+      },
+      true,
+    );
+  };
   function exportData() {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob),
@@ -385,7 +400,19 @@ export default function App() {
                   onChange={() => void act(() => planner.toggleTask(task.id))}
                 />
                 <div className="task-copy">
-                  <div className="task-heading">
+                  <SwipeAction
+                    title={task.title}
+                    scope={swipeScope}
+                    disabled={!canWrite || busy || loading}
+                    contentClassName="task-heading"
+                    onAdd={() => setModal({ kind: 'task' })}
+                    onDelete={() =>
+                      act(
+                        () => livePlanner.current.deleteTask(task.id),
+                        '계획을 휴지통으로 옮겼어요.',
+                      )
+                    }
+                  >
                     <button
                       className="task-title"
                       aria-label={`${task.title} 상세 보기`}
@@ -418,7 +445,7 @@ export default function App() {
                       }
                       onDelete={() => requestDelete(task)}
                     />
-                  </div>
+                  </SwipeAction>
                   {task.details.length > 0 && (
                     <ul className="task-details" aria-label={`${task.title} 세부 항목`}>
                       {task.details.map((detail, index) => {
@@ -436,7 +463,26 @@ export default function App() {
                             key={detailId}
                             className={`${task.detailChecks?.[index]?.completed ? 'detail-is-complete' : ''} ${expanded ? 'detail-is-expanded' : ''}`}
                           >
-                            <div className="detail-row-main">
+                            <SwipeAction
+                              title={`${task.title} 세부 항목 ${index + 1}`}
+                              scope={swipeScope}
+                              disabled={!canWrite || !canManageTask(task) || busy || loading}
+                              contentClassName="detail-row-main"
+                              onAdd={() =>
+                                setModal({
+                                  kind: 'task',
+                                  item: task,
+                                  addDetailAfter: detailId,
+                                  initialAction: 'edit',
+                                })
+                              }
+                              onDelete={() =>
+                                act(
+                                  () => deleteDetail(task.id, detailId),
+                                  '세부 항목을 삭제했어요.',
+                                )
+                              }
+                            >
                               <SpringCheck
                                 className="detail-checkbox"
                                 ariaLabel={`${task.title} 세부 항목 ${index + 1} 완료`}
@@ -476,7 +522,7 @@ export default function App() {
                                 기록 <span className="record-count">{recordCount}</span>
                                 <ChevronRight size={14} />
                               </Button>
-                            </div>
+                            </SwipeAction>
                             {expanded && (
                               <DetailRecord
                                 task={task}
@@ -690,7 +736,7 @@ export default function App() {
             >
               {clock}
             </time>
-            <p>현재 시각 · 서울</p>
+            <p>현재 시각, 서울</p>
             <AtmospherePicker value={atmosphere} onChange={setAtmosphere} compact />
           </aside>
         </div>
@@ -768,7 +814,7 @@ export default function App() {
                 })}
               </div>
               <p className="calendar-selection-summary">
-                {formatDate(date)} · 남은 실행 항목 {totalProgress.total - totalProgress.done}개
+                {formatDate(date)}, 남은 실행 항목 {totalProgress.total - totalProgress.done}개
               </p>
               <p className="card-footnote">
                 <span className="legend-dot" />
@@ -1322,7 +1368,7 @@ function Stats({ data, date }: { data: Snapshot; date: string }) {
   return (
     <>
       <p className="stats-range">
-        {addDays(date, -6).slice(5).replace('-', '.')}–{date.slice(5).replace('-', '.')} · 최근 7일
+        {addDays(date, -6).slice(5).replace('-', '.')}–{date.slice(5).replace('-', '.')}, 최근 7일
       </p>
       <div className="glass-card stats-summary">
         <div className="stat-tile">
@@ -1361,7 +1407,7 @@ function Stats({ data, date }: { data: Snapshot; date: string }) {
       </div>
       {selectedTasks.length > 0 && (
         <section className="study-flow" aria-label="선택한 날의 학습 흐름">
-          <h2>{formatDate(date)} · 선택한 날</h2>
+          <h2>{formatDate(date)}, 선택한 날</h2>
           {selectedTasks.map((task) => {
             const progress = taskProgress(task, completed);
             return (

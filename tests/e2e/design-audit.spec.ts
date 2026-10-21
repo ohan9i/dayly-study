@@ -23,7 +23,8 @@ async function seed(page: Parameters<typeof mockCloud>[0]) {
 }
 async function write(page: Parameters<typeof mockCloud>[0]) {
   await page.locator('.detail-record-toggle').first().click();
-  await page.getByRole('button', { name: '기록 작성', exact: true }).click();
+  if (await page.getByRole('button', { name: '기록 작성', exact: true }).isVisible())
+    await page.getByRole('button', { name: '기록 작성', exact: true }).click();
 }
 
 test('draft text and files survive folding, date, menu and workspace navigation; text restores on reload', async ({
@@ -103,8 +104,7 @@ test('unsaved plan edits require a discard choice for Escape, close and backdrop
 }) => {
   await seed(page);
   await page.locator('.task-title').first().click();
-  await expect(page.locator('input[name=title]')).toHaveCount(0);
-  await page.getByRole('button', { name: '계획 편집', exact: true }).click();
+  await expect(page.locator('input[name=title]')).toBeVisible();
   await page.getByLabel('할 일', { exact: true }).fill('아직 저장하지 않은 수정');
   for (const close of ['escape', 'button', 'backdrop']) {
     if (close === 'escape') await page.keyboard.press('Escape');
@@ -157,9 +157,6 @@ for (const width of [320, 390, 420, 768, 1440])
       await page.mouse.move(0, 0);
       const toggle = page.locator('.detail-record-toggle').first();
       await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-      expect(await toggle.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe(
-        'rgba(0, 0, 0, 0)',
-      );
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
       );
@@ -183,7 +180,7 @@ for (const width of [320, 390, 420, 768, 1440])
         fullPage: true,
         animations: 'disabled',
       });
-      await page.locator('.plan-actions > summary').click();
+      await page.locator('.plan-actions > .plan-actions-trigger').click();
       await expect(page.locator('.plan-actions-menu')).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,

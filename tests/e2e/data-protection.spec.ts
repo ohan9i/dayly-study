@@ -13,10 +13,6 @@ test('approved member can recover a deleted plan with its original file', async 
   await page.getByRole('button', { name: '할 일 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
   await page.getByRole('button', { name: '영구 보존 계획 상세 보기', exact: true }).click();
-  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-  if (await page.locator('.task-extra-actions > summary').isVisible())
-    await page.locator('.task-extra-actions > summary').click();
   await expect(page.getByRole('button', { name: '이 할 일 삭제', exact: true })).toBeEnabled();
   await expect(page.getByRole('button', { name: '보존.png 삭제', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '다른 플래너로 이동', exact: true })).toBeEnabled();
@@ -31,7 +27,9 @@ test('approved member can recover a deleted plan with its original file', async 
   expect(cloud.requests.some((r) => r.method === 'DELETE')).toBe(false);
   await page.getByRole('button', { name: '설정', exact: true }).click();
   await expect(page.locator('.retention-status')).toContainText('복구 보호 적용됨');
-  await page.locator('.protection-section > summary').filter({ hasText: '휴지통' }).click();
+  await expect(
+    page.locator('.protection-section > h3').filter({ hasText: '휴지통' }),
+  ).toBeVisible();
   await page.getByRole('button', { name: '영구 보존 계획 복원', exact: true }).click();
   await page.getByRole('button', { name: '나의 하루', exact: true }).click();
   await expect(

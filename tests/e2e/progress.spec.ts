@@ -75,10 +75,6 @@ test('partial checks, parent completion and the weighted day ring update immedia
   await expect(ring(page)).toHaveAttribute('aria-valuenow', '20');
 
   await page.getByRole('button', { name: '수학 공부 상세 보기' }).click();
-  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-  if (await page.locator('.task-extra-actions > summary').isVisible())
-    await page.locator('.task-extra-actions > summary').click();
   await page
     .getByRole('dialog')
     .getByRole('checkbox', { name: '세부 항목 1 완료', exact: true })
@@ -110,10 +106,6 @@ test('duplicate texts have independent checks and edit/remove keeps completion w
   await expect(child(page, 1, '복습')).toHaveAttribute('aria-checked', 'false');
   await expect(bar(page, '복습')).toHaveAttribute('aria-valuenow', '50');
   await page.getByRole('button', { name: '복습 상세 보기' }).click();
-  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-  if (await page.locator('.task-extra-actions > summary').isVisible())
-    await page.locator('.task-extra-actions > summary').click();
   await page.getByRole('button', { name: '세부 항목 1 삭제', exact: true }).click();
   await page.getByLabel('세부 항목 1', { exact: true }).fill('내용을 수정해도 완료 유지');
   await page.getByRole('button', { name: '세부 항목 추가', exact: true }).click();
@@ -126,10 +118,6 @@ test('duplicate texts have independent checks and edit/remove keeps completion w
   await check(page, 2, '복습');
   await expect(parent(page, '복습')).toHaveAttribute('aria-checked', 'true');
   await page.getByRole('button', { name: '복습 상세 보기' }).click();
-  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-  if (await page.locator('.task-extra-actions > summary').isVisible())
-    await page.locator('.task-extra-actions > summary').click();
   await page.getByRole('button', { name: '세부 항목 2 삭제', exact: true }).click();
   await page.getByRole('button', { name: '세부 항목 1 삭제', exact: true }).click();
   await page.getByRole('button', { name: '할 일 저장', exact: true }).click();
@@ -201,10 +189,6 @@ for (const width of [1440, 1280, 800, 390, 360]) {
       animations: 'disabled',
     });
     await page.getByRole('button', { name: '수학 공부 상세 보기' }).click();
-    if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-      await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-    if (await page.locator('.task-extra-actions > summary').isVisible())
-      await page.locator('.task-extra-actions > summary').click();
     expect(await page.getByRole('dialog').evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
       true,
     );

@@ -16,7 +16,9 @@ test('plan history is fetched only when opened and closes back to settings', asy
     0,
   );
   await expect(page.locator('.topbar').getByRole('switch')).toHaveCount(0);
-  await page.locator('.protection-section > summary').filter({ hasText: '계획 변경 이력' }).click();
+  await expect(
+    page.locator('.protection-section > h3').filter({ hasText: '계획 변경 이력' }),
+  ).toBeVisible();
   const open = page.getByRole('button', { name: '계획 변경 이력 보기', exact: true });
   await open.click();
   const dialog = page.getByRole('dialog');

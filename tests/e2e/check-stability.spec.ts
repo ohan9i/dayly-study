@@ -107,10 +107,6 @@ for (const width of [1440, 390]) {
     expect(reads()).toBe(before);
 
     await page.getByRole('button', { name: '안정적인 체크 상세 보기', exact: true }).click();
-    if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-      await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-    if (await page.locator('.task-extra-actions > summary').isVisible())
-      await page.locator('.task-extra-actions > summary').click();
     await page.getByLabel('세부 항목 1', { exact: true }).fill('저장 전 수정 내용');
     const detailCheck = page
       .getByRole('dialog')

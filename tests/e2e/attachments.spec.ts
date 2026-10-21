@@ -22,10 +22,6 @@ test('task files and compact performance notes survive reload, preview, download
   await expect(page.getByRole('dialog')).not.toBeVisible();
   await expect(page.getByLabel('첨부 파일 2개')).toBeVisible();
   await page.getByRole('button', { name: '보의 휨 설계 수행 상세 보기' }).click();
-  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-  if (await page.locator('.task-extra-actions > summary').isVisible())
-    await page.locator('.task-extra-actions > summary').click();
   await expect(page.locator('.attachment-card')).toHaveCount(2);
   await page.getByRole('button', { name: '참고 사진.png 보기', exact: true }).click();
   await expect(page.getByRole('dialog', { name: '참고 사진.png', exact: true })).toBeVisible();
@@ -63,10 +59,6 @@ test('task files and compact performance notes survive reload, preview, download
   await page.getByRole('button', { name: '수정 저장', exact: true }).click();
   await expect(page.locator('.task-note')).toContainText('강도 검토까지 완료했습니다.');
   await page.getByRole('button', { name: '보의 휨 설계 수행 상세 보기' }).click();
-  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-  if (await page.locator('.task-extra-actions > summary').isVisible())
-    await page.locator('.task-extra-actions > summary').click();
   await expect(page.getByRole('button', { name: '이 할 일 삭제' })).toBeEnabled();
   await expect(page.getByRole('button', { name: '설계 문제.pdf 삭제' })).toHaveCount(0);
   expect(cloud.objects.size).toBe(3);
@@ -146,10 +138,6 @@ test('a newly registered member gets a private space and can add notes in approv
   await expect(page.getByLabel('사용 공간 선택')).toHaveValue(SHARED_SPACE);
   await expect(page.getByRole('checkbox', { name: '공유한 구조역학 문제 완료' })).toBeEnabled();
   await page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' }).click();
-  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-  if (await page.locator('.task-extra-actions > summary').isVisible())
-    await page.locator('.task-extra-actions > summary').click();
   await expect(page.locator('.task-read-view h3')).toBeVisible();
   await expect(page.locator('input[name=title]')).toHaveCount(0);
   await expect(page.getByLabel('파일 첨부', { exact: true })).toBeEnabled();
@@ -213,10 +201,6 @@ test('mobile detail stays compact and rejects oversized, unsupported and too man
   await expect(page.locator('.file-queue li')).toHaveCount(1);
   await page.getByRole('button', { name: '할 일 저장', exact: true }).click();
   await page.getByRole('button', { name: '모바일 첨부 파일과 수행 내용 상세 보기' }).click();
-  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-  if (await page.locator('.task-extra-actions > summary').isVisible())
-    await page.locator('.task-extra-actions > summary').click();
   await expect(page.locator('.task-notes-section')).toHaveCount(0);
   expect(await page.getByRole('dialog').evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
     true,

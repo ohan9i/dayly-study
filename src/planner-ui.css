@@ -61,7 +61,7 @@
 }
 .detail-record-toggle[aria-expanded='true'].ui-button {
   color: var(--text);
-  background: var(--ui-selected);
+  background: transparent;
 }
 .record-count {
   min-width: 1ch;
@@ -101,12 +101,6 @@
   transform-origin: left;
   transition: transform 200ms var(--ui-ease);
 }
-.atmosphere-switch .squish-switch__thumb {
-  color: var(--ui-on-primary);
-}
-.atmosphere-switch .squish-switch[data-on] .squish-switch__thumb {
-  color: var(--ui-primary);
-}
 .detail-record-form textarea:focus-visible {
   outline: 2px solid var(--control-border);
   outline-offset: 2px;
@@ -129,7 +123,7 @@
   flex: 0 0 44px;
   margin-left: auto;
 }
-.plan-actions > summary {
+.plan-actions > .plan-actions-trigger {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -140,10 +134,7 @@
   cursor: pointer;
   list-style: none;
 }
-.plan-actions > summary::-webkit-details-marker {
-  display: none;
-}
-.plan-actions[open] > summary {
+.plan-actions[data-open='true'] > summary {
   color: var(--text);
   background: var(--ui-selected);
 }
@@ -175,12 +166,10 @@
 .ui-button.danger-text:not(:disabled):hover {
   color: var(--ui-danger);
 }
-.plan-actions > summary:hover {
+.plan-actions > .plan-actions-trigger:hover {
   background: var(--ui-hover);
 }
-.plan-actions > summary:focus-visible,
-.task-extra-actions > summary:focus-visible,
-.protection-section > summary:focus-visible {
+.plan-actions > .plan-actions-trigger:focus-visible {
   outline: 2px solid var(--control-border);
   outline-offset: 3px;
 }
@@ -249,12 +238,10 @@
   margin-top: 20px;
   padding-top: 12px;
 }
-.task-extra-actions > summary,
-.protection-section > summary {
-  min-height: 44px;
-  cursor: pointer;
-  color: var(--text);
+.protection-section > h3 {
+  margin: 0 0 12px;
   font-size: 15px;
+  font-weight: 600;
 }
 .task-extra-actions .delete-button {
   margin-top: 20px;
@@ -428,4 +415,8 @@
 html[data-interaction='keyboard'] .detail-record-panel,
 html[data-interaction='keyboard'] .plan-actions-menu {
   animation: none;
+}
+
+.task-copy > .swipe-action:has(.plan-actions[data-open='true']) {
+  z-index: 5;
 }

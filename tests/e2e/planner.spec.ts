@@ -56,10 +56,6 @@ test('detail items persist; search, calendar and statistics show main task compl
     page.getByRole('checkbox', { name: '철근콘크리트 보의 휨 설계 완료' }),
   ).toHaveAttribute('aria-checked', 'true');
   await page.getByRole('button', { name: '철근콘크리트 보의 휨 설계 상세 보기' }).click();
-  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-  if (await page.locator('.task-extra-actions > summary').isVisible())
-    await page.locator('.task-extra-actions > summary').click();
   await page.getByLabel('할 일', { exact: true }).fill('철근콘크리트 복습');
   await page.getByLabel('세부 항목 1', { exact: true }).fill('건축시공학 복습');
   await page.getByRole('button', { name: '할 일 저장' }).click();

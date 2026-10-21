@@ -14,10 +14,6 @@ const save = async (page: Page) => {
 };
 const edit = async (page: Page, title = '수학 공부') => {
   await page.getByRole('button', { name: `${title} 상세 보기`, exact: true }).click();
-  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-  if (await page.locator('.task-extra-actions > summary').isVisible())
-    await page.locator('.task-extra-actions > summary').click();
 };
 async function backup(page: Page) {
   await page.getByRole('button', { name: '설정', exact: true }).click();

@@ -66,10 +66,6 @@ for (const width of [1536, 390]) {
     await page.getByRole('button', { name: '할 일 저장', exact: true }).click();
     await expect(page.getByRole('dialog')).not.toBeVisible();
     await page.getByRole('button', { name: '자동 갱신 없이 공부 계획 작성 상세 보기' }).click();
-    if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-      await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-    if (await page.locator('.task-extra-actions > summary').isVisible())
-      await page.locator('.task-extra-actions > summary').click();
     await expect(page.getByRole('textbox', { name: '세부 항목 1', exact: true })).toHaveValue(
       '구조역학 문제를 풀면서 작성 중인 메모 계속 작성',
     );
@@ -77,7 +73,8 @@ for (const width of [1536, 390]) {
     await expect(page.locator('.task-notes-section')).toHaveCount(0);
     await page.getByRole('button', { name: '닫기', exact: true }).click();
     await page.locator('.detail-record-toggle').click();
-    await page.getByRole('button', { name: '기록 작성', exact: true }).click();
+    if (await page.getByRole('button', { name: '기록 작성', exact: true }).isVisible())
+      await page.getByRole('button', { name: '기록 작성', exact: true }).click();
     await page.getByLabel('수행 파일 첨부', { exact: true }).setInputFiles({
       name: '작성 중 풀이 사진.png',
       mimeType: 'image/png',

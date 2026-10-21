@@ -41,10 +41,6 @@ test('copy resets progress, leaves records/files and original untouched, and can
       .length;
   const writeCount = taskWrites();
   await page.getByRole('button', { name: '원본 계획 상세 보기' }).click();
-  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-  if (await page.locator('.task-extra-actions > summary').isVisible())
-    await page.locator('.task-extra-actions > summary').click();
   await page.getByRole('button', { name: '이 계획 복제', exact: true }).click();
   await expect(page.getByLabel('복제할 날짜')).toHaveValue(todayKey());
   await expect(page.locator('.task-duplicate-picker')).toContainText('나의 공부 공간');
@@ -82,10 +78,6 @@ test('copy resets progress, leaves records/files and original untouched, and can
     '0',
   );
   await page.getByRole('button', { name: '원본 계획 상세 보기' }).click();
-  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-  if (await page.locator('.task-extra-actions > summary').isVisible())
-    await page.locator('.task-extra-actions > summary').click();
   await page.getByLabel('할 일', { exact: true }).fill('복제본만 수정');
   await page.getByLabel('세부 항목 1', { exact: true }).fill('새 순열');
   await page.getByRole('button', { name: '할 일 저장', exact: true }).click();
@@ -110,10 +102,6 @@ test('approved participant copies another author while content stays read-only',
   await signIn(page);
   await page.getByLabel('사용 공간 선택').selectOption(SHARED_SPACE);
   await page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' }).click();
-  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-  if (await page.locator('.task-extra-actions > summary').isVisible())
-    await page.locator('.task-extra-actions > summary').click();
   await expect(page.locator('.task-read-view h3')).toBeVisible();
   await expect(page.locator('input[name=title]')).toHaveCount(0);
   await expect(page.getByRole('button', { name: '다른 플래너로 이동', exact: true })).toBeEnabled();
@@ -136,10 +124,6 @@ for (const stage of ['denied', 'missing-server-update'])
     await signIn(page);
     await page.getByLabel('사용 공간 선택').selectOption(SHARED_SPACE);
     await page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' }).click();
-    if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-      await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-    if (await page.locator('.task-extra-actions > summary').isVisible())
-      await page.locator('.task-extra-actions > summary').click();
     await page.getByRole('button', { name: '이 계획 복제', exact: true }).click();
     const requestedDate = addDays(todayKey(), 2);
     await page.getByLabel('복제할 날짜').fill(requestedDate);
@@ -168,10 +152,6 @@ test('signed-out visitors have no copy action', async ({ page }) => {
   await mockCloud(page);
   await page.goto('/#planner');
   await page.getByRole('button', { name: '수학 공부 상세 보기' }).click();
-  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-  if (await page.locator('.task-extra-actions > summary').isVisible())
-    await page.locator('.task-extra-actions > summary').click();
   await expect(page.getByRole('button', { name: '이 계획 복제', exact: true })).toHaveCount(0);
 });
 
@@ -185,10 +165,6 @@ test('an unrelated completion read failure does not lock a server-authorized cop
   await signIn(page);
   await page.getByLabel('사용 공간 선택').selectOption(SHARED_SPACE);
   await page.getByRole('button', { name: '공유한 구조역학 문제 상세 보기' }).click();
-  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-  if (await page.locator('.task-extra-actions > summary').isVisible())
-    await page.locator('.task-extra-actions > summary').click();
   await page.route('https://*.supabase.co/rest/v1/task_completions*', (route) =>
     route.fulfill({
       status: 403,

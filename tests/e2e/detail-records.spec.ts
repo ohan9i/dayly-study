@@ -101,18 +101,10 @@ test('detail records stay inline, independent, and separate from progress', asyn
   });
   await page.getByRole('button', { name: '나의 하루', exact: true }).click();
   await page.getByRole('button', { name: '수학 공부 상세 보기' }).click();
-  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-  if (await page.locator('.task-extra-actions > summary').isVisible())
-    await page.locator('.task-extra-actions > summary').click();
   await expect(page.locator('.task-notes-section')).toHaveCount(0);
   await page.getByRole('button', { name: '세부 항목 2 삭제' }).click();
   await page.getByRole('button', { name: '할 일 저장' }).click();
   await page.getByRole('button', { name: '수학 공부 상세 보기' }).click();
-  if (await page.getByRole('button', { name: '계획 편집', exact: true }).isVisible())
-    await page.getByRole('button', { name: '계획 편집', exact: true }).click();
-  if (await page.locator('.task-extra-actions > summary').isVisible())
-    await page.locator('.task-extra-actions > summary').click();
   await expect(page.locator('.task-notes-section')).toHaveCount(0);
   await page.getByRole('button', { name: '닫기', exact: true }).click();
   await page.getByRole('button', { name: '설정', exact: true }).click();

@@ -18,11 +18,11 @@ test('plan menus support keyboard, Escape and outside clicks without moving reco
   await expect(page.getByRole('button', { name: '복제', exact: true })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(trigger).toBeFocused();
-  await expect(page.locator('.plan-actions[open]')).toHaveCount(0);
+  await expect(page.locator('.plan-actions[data-open=true]')).toHaveCount(0);
   await trigger.click();
   await page.locator('.page-heading h1').click();
-  await expect(page.locator('.plan-actions[open]')).toHaveCount(0);
-  await expect(page.locator('.swipe-row')).toHaveCount(0);
+  await expect(page.locator('.plan-actions[data-open=true]')).toHaveCount(0);
+  await expect(page.locator('.task-copy > .swipe-action').first()).toBeVisible();
 });
 test('visitors read actual content with no disabled input form and get an inline login path', async ({
   page,

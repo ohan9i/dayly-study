@@ -796,41 +796,6 @@ html[data-interaction='pointer'] .page-heading h1:focus {
 .book-edge-bottom {
   bottom: -10px;
 }
-.book-page-marks {
-  padding: 15% 12%;
-  opacity: 0;
-  color: #6c7377;
-}
-.book-page-date {
-  display: block;
-  font-size: 6px;
-  letter-spacing: 0.1em;
-}
-.book-page-title {
-  display: block;
-  font-size: 13px;
-  margin: 12px 0 22px;
-}
-.book-page-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 15px 0;
-}
-.book-page-row i {
-  width: 8px;
-  height: 8px;
-  border: 1px solid #9aa3a6;
-  border-radius: 2px;
-}
-.book-page-row b {
-  height: 1px;
-  width: 72%;
-  background: #cdd0ca;
-}
-.book-page-row:nth-child(even) b {
-  width: 53%;
-}
 .book-shadow {
   position: absolute;
   left: 45%;

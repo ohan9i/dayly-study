@@ -75,7 +75,7 @@ export function FilePicker({
             }
           }}
         />
-        <span>PDF·사진 / 파일당 10MB / 최대 5개</span>
+        <span>PDF, 사진 / 파일당 10MB / 최대 5개</span>
       </div>
       {files.length > 0 && (
         <ul className="file-queue">
@@ -525,9 +525,7 @@ export default function TaskDetail({
   const [progress, setProgress] = useState('');
   const [checking, setChecking] = useState(false);
   const [dirty, setDirty] = useState(Boolean(addDetailAfter));
-  const [editing, setEditing] = useState(
-    !item || Boolean(addDetailAfter) || initialAction === 'edit',
-  );
+  const editing = editable;
   useEffect(() => {
     onDirtyChange(dirty || files.length > 0);
   }, [dirty, files.length, onDirtyChange]);
@@ -700,12 +698,6 @@ export default function TaskDetail({
             ) : (
               <p>세부 항목 없음</p>
             )}
-            {editable && (
-              <Button variant="secondary" type="button" onClick={() => setEditing(true)}>
-                <Pencil size={16} />
-                계획 편집
-              </Button>
-            )}
           </section>
         )}
         <FileList files={attached} planner={planner} taskAuthor={taskAuthor} disabled={disabled} />
@@ -757,11 +749,7 @@ export default function TaskDetail({
         )}
       </form>
       {item && canContribute && !unavailable && (
-        <details
-          className="task-extra-actions"
-          open={initialAction === 'duplicate' || initialAction === 'move' ? true : undefined}
-        >
-          <summary>추가 작업</summary>
+        <div className="task-extra-actions">
           {item && canContribute && !unavailable && (
             <div className="task-duplicate">
               {!duplicating ? (
@@ -952,7 +940,7 @@ export default function TaskDetail({
               휴지통으로 이동
             </Button>
           )}
-        </details>
+        </div>
       )}
     </div>
   );

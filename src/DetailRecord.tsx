@@ -32,6 +32,10 @@ export default function DetailRecord({
     Boolean(planner.session) && (planner.canManageRecords || adding) && !planner.passwordRecovery;
   const disabled = checking || working || planner.busy || !planner.canManageRecords;
   useEffect(() => {
+    if (canContribute && notes.length === 0 && !adding) updateRecordDraft(key, { adding: true });
+  }, [key, canContribute, notes.length, adding]);
+
+  useEffect(() => {
     if (adding) input.current?.focus({ preventScroll: true });
   }, [adding]);
   useEffect(() => {
@@ -136,7 +140,7 @@ export default function DetailRecord({
             disabled={disabled}
           />
           <p className="card-footnote">
-            접기·날짜·공간 이동 후에도 초안을 유지해요. 글은 이 탭에서 복원되며, 선택 파일은
+            접기, 날짜, 공간 이동 후에도 초안을 유지해요. 글은 이 탭에서 복원되며, 선택 파일은
             새로고침하면 다시 첨부해야 해요.
           </p>
           <FilePicker
