@@ -4,6 +4,7 @@ import { mockCloud } from './cloud-fixture';
 declare global {
   interface Window {
     chromeDraws: number;
+    chromeRectReads: number;
     chromeInteraction: {
       simulationSteps: number;
       trails: number;
@@ -16,6 +17,12 @@ declare global {
 
 async function observeDraws(page: Page) {
   await page.addInitScript(() => {
+    window.chromeRectReads = 0;
+    const getRect = Element.prototype.getBoundingClientRect;
+    Element.prototype.getBoundingClientRect = function () {
+      if (this.classList.contains('liquid-chrome')) window.chromeRectReads++;
+      return getRect.call(this);
+    };
     window.chromeDraws = 0;
     const draw = WebGL2RenderingContext.prototype.drawArrays;
     WebGL2RenderingContext.prototype.drawArrays = function (...args) {
@@ -26,6 +33,37 @@ async function observeDraws(page: Page) {
   });
 }
 const draws = (page: Page) => page.evaluate(() => window.chromeDraws);
+
+test('high-frequency pointer bursts keep the latest position without per-event layout reads', async ({
+  page,
+}) => {
+  await mockCloud(page);
+  await observeDraws(page);
+  await observeInteraction(page);
+  await page.goto('/#planner');
+  await expect(page.locator('.liquid-chrome')).toHaveAttribute('data-renderer', 'webgl');
+  await page.mouse.move(150, 150);
+  await expect.poll(() => page.evaluate(() => window.chromeInteraction.shiftX)).toBeLessThan(-0.04);
+  const trails = await page.evaluate(() => window.chromeInteraction.trails);
+  const reads = await page.evaluate(() => {
+    const before = window.chromeRectReads;
+    for (let i = 0; i < 1000; i++) {
+      window.dispatchEvent(
+        new PointerEvent('pointermove', {
+          clientX: 400 + i,
+          clientY: 300,
+          pointerType: 'mouse',
+        }),
+      );
+    }
+    return window.chromeRectReads - before;
+  });
+  expect(reads).toBe(0);
+  await expect
+    .poll(() => page.evaluate(() => window.chromeInteraction.shiftX))
+    .toBeGreaterThan(0.04);
+  expect(await page.evaluate(() => window.chromeInteraction.trails)).toBe(trails + 1);
+});
 
 async function observeInteraction(page: Page) {
   await page.addInitScript(() => {
@@ -196,7 +234,7 @@ for (const width of [1440, 320])
     const resolution = await page
       .locator('.liquid-chrome canvas')
       .evaluate((c: HTMLCanvasElement) => c.width * c.height);
-    expect(resolution).toBeLessThanOrEqual(2_405_000);
+    expect(resolution).toBeLessThanOrEqual(502_000);
     await page.screenshot({ path: `.local/chrome-morning-${width}.png`, fullPage: true });
     await page.locator('.planner-moment').getByRole('switch').click();
     await expect(page.locator('html')).toHaveAttribute('data-atmosphere', 'night');

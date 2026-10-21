@@ -31,7 +31,8 @@ type Target = { texture: WebGLTexture; framebuffer: WebGLFramebuffer };
 type Stroke = { ax: number; ay: number; bx: number; by: number; strength: number; radius: number };
 type Connection = EventTarget & { saveData?: boolean };
 
-const PIXEL_BUDGET = 2.4e6;
+// The full-screen backdrop is soft; spend the budget on responsive motion.
+const PIXEL_BUDGET = 500_000;
 const SIM_CELL = 4;
 const SIM_STEP = 1 / 120;
 
@@ -74,22 +75,6 @@ void main() {
   fragColor = vec4(next, state.r, 0.0, 1.0);
 }`;
 
-const SLOPE = `#version 300 es
-precision highp float;
-uniform sampler2D uState;
-uniform vec2 uSize;
-out vec4 fragColor;
-
-void main() {
-  vec2 texel = 1.0 / uSize;
-  vec2 uv = gl_FragCoord.xy * texel;
-  float left = texture(uState, uv - vec2(texel.x, 0.0)).r;
-  float right = texture(uState, uv + vec2(texel.x, 0.0)).r;
-  float down = texture(uState, uv - vec2(0.0, texel.y)).r;
-  float up = texture(uState, uv + vec2(0.0, texel.y)).r;
-  fragColor = vec4((right - left) * 0.5, (up - down) * 0.5, 0.0, 1.0);
-}`;
-
 const CHROME = `#version 300 es
 precision highp float;
 uniform vec2 uResolution;
@@ -112,24 +97,12 @@ uniform float uRipple;
 out vec4 fragColor;
 
 vec2 slopeAt(vec2 uv) {
-  vec2 st = uv * uSlopeSize - 0.5;
-  vec2 i = floor(st);
-  vec2 f = st - i;
-  vec2 f2 = f * f;
-  vec2 f3 = f2 * f;
-  vec2 w0 = (-f3 + 3.0 * f2 - 3.0 * f + 1.0) / 6.0;
-  vec2 w1 = (3.0 * f3 - 6.0 * f2 + 4.0) / 6.0;
-  vec2 w2 = (-3.0 * f3 + 3.0 * f2 + 3.0 * f + 1.0) / 6.0;
-  vec2 w3 = f3 / 6.0;
-  vec2 g0 = w0 + w1;
-  vec2 g1 = w2 + w3;
-  vec2 h0 = (i - 0.5 + w1 / g0) / uSlopeSize;
-  vec2 h1 = (i + 1.5 + w3 / g1) / uSlopeSize;
-  vec2 a = texture(uSlope, vec2(h0.x, h0.y)).rg;
-  vec2 b = texture(uSlope, vec2(h1.x, h0.y)).rg;
-  vec2 c = texture(uSlope, vec2(h0.x, h1.y)).rg;
-  vec2 d = texture(uSlope, vec2(h1.x, h1.y)).rg;
-  return g0.y * (g0.x * a + g1.x * b) + g1.y * (g0.x * c + g1.x * d);
+  vec2 texel = 1.0 / uSlopeSize;
+  float left = texture(uSlope, uv - vec2(texel.x, 0.0)).r;
+  float right = texture(uSlope, uv + vec2(texel.x, 0.0)).r;
+  float down = texture(uSlope, uv - vec2(0.0, texel.y)).r;
+  float up = texture(uSlope, uv + vec2(0.0, texel.y)).r;
+  return vec2(right - left, up - down) * 0.5;
 }
 
 float lamp(vec2 p, vec2 center, vec2 size, float soft) {
@@ -216,7 +189,8 @@ void main() {
   float bevel = (1.0 - th * th) / tanh(k);
   float fade = smoothstep(3.0, 9.0, 3.14159 * uUnit / density);
   float weight = uDepth * uPresence * fade;
-  vec2 slope = k * cs * bevel * weight * across + slopeAt(frag / uResolution) * uRipple;
+  vec2 ripple = uRipple > 0.0 ? slopeAt(frag / uResolution) * uRipple : vec2(0.0);
+  vec2 slope = k * cs * bevel * weight * across + ripple;
   vec2 sweep = -k * bevel * (sn + 2.0 * k * cs * cs * th) * weight * density * 2.0 / uUnit * across;
   vec2 stepX = dFdx(slope);
   vec2 stepY = dFdy(slope);
@@ -227,16 +201,8 @@ void main() {
   vec3 f0 = mix(vec3(1.0), uTint, smoothstep(0.05, 0.6, length(slope))) * 0.92;
   vec3 v = normalize(vec3(uv * 0.08, -1.0));
   float blur = uRoughness * 0.35;
-  vec3 light;
-  if (bend < 0.01) {
-    light = shade(slope, v, blur + bend * 0.5, f0);
-  } else {
-    light = vec3(0.0);
-    for (float t = -0.375; t < 0.4; t += 0.25) {
-      light += shade(slope + sweep * t, v, blur + bend * 0.15, f0);
-    }
-    light *= 0.25;
-  }
+  // Widen the soft reflection analytically instead of shading each crease four times.
+  vec3 light = shade(slope, v, blur + bend * 0.35, f0);
   vec3 color = pow(aces(light * uExposure), vec3(1.0 / 2.2));
   float grain = fract(52.9829189 * fract(dot(frag, vec2(0.06711056, 0.00583715))));
   color += (grain - 0.5) / 255.0;
@@ -374,7 +340,6 @@ const LiquidChrome = ({
     let fluid =
       settingsRef.current.interactive && Boolean(gl.getExtension('EXT_color_buffer_float'));
     const sim = fluid ? link(gl, SIM) : null;
-    const slope = fluid ? link(gl, SLOPE) : null;
 
     const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
     const connection = (navigator as Navigator & { connection?: Connection }).connection;
@@ -388,7 +353,6 @@ const LiquidChrome = ({
     const vao = gl.createVertexArray();
     const grid = { width: 1, height: 1 };
     const targets: Target[] = [];
-    let slopeTarget: Target | null = null;
     let current = 0;
     let unit = 1;
     const pointer = { x: 0, y: 0, inside: false, ready: false, nx: 0, ny: 0 };
@@ -400,6 +364,16 @@ const LiquidChrome = ({
     let accumulator = 0;
     let raf = 0;
     let last = 0;
+    let lastInteraction = -Infinity;
+    let pendingPointer: { x: number; y: number } | null = null;
+    let bounds: DOMRect | null = null;
+    let boundsDirty = false;
+    let resolutionScale = 1;
+    let simulationScale = 1;
+    let averageFrameMs = 1000 / 60;
+    let missedFrameScore = 0;
+    let previousInterval = 1000 / 30;
+    let qualityChangedAt = performance.now();
     let visible = true;
     let pageVisible = !document.hidden;
     let lost = false;
@@ -440,13 +414,16 @@ const LiquidChrome = ({
     const resize = () => {
       const s = settingsRef.current;
       const rect = container.getBoundingClientRect();
+      bounds = rect;
+      boundsDirty = false;
       const cssWidth = Math.max(1, rect.width);
       const cssHeight = Math.max(1, rect.height);
-      const ratio = Math.min(
-        window.devicePixelRatio || 1,
-        s.maxRatio,
-        Math.sqrt(PIXEL_BUDGET / (cssWidth * cssHeight)),
-      );
+      const ratio =
+        Math.min(
+          window.devicePixelRatio || 1,
+          s.maxRatio,
+          Math.sqrt(PIXEL_BUDGET / (cssWidth * cssHeight)),
+        ) * resolutionScale;
       const width = Math.max(1, Math.round(cssWidth * ratio));
       const height = Math.max(1, Math.round(cssHeight * ratio));
       if (canvas.width !== width || canvas.height !== height) {
@@ -454,19 +431,22 @@ const LiquidChrome = ({
         canvas.height = height;
       }
       unit = Math.min(width, height);
-      if (!fluid || !sim || !slope) return;
-      const gridWidth = clamp(Math.round(cssWidth / SIM_CELL), 16, 512);
-      const gridHeight = clamp(Math.round(cssHeight / SIM_CELL), 16, 512);
+      if (!fluid || !sim) return;
+      const gridWidth = clamp(Math.round((cssWidth / SIM_CELL) * resolutionScale), 16, 384);
+      const gridHeight = clamp(Math.round((cssHeight / SIM_CELL) * resolutionScale), 16, 384);
+      simulationScale = (gridWidth * SIM_CELL) / cssWidth;
       if (gridWidth === grid.width && gridHeight === grid.height && targets.length) return;
       targets.forEach(dropTarget);
       targets.length = 0;
-      dropTarget(slopeTarget);
       Object.assign(grid, { width: gridWidth, height: gridHeight });
-      slopeTarget = null;
+      current = 0;
+      accumulator = 0;
+      strokes.length = 0;
+      energy = 0;
+      pointer.ready = false;
       try {
         targets.push(makeTarget(gridWidth, gridHeight));
         targets.push(makeTarget(gridWidth, gridHeight));
-        slopeTarget = makeTarget(gridWidth, gridHeight);
       } catch {
         targets.forEach(dropTarget);
         targets.length = 0;
@@ -475,14 +455,14 @@ const LiquidChrome = ({
     };
 
     const simulate = (steps: number) => {
-      if (!sim || !slope || !slopeTarget) return;
+      if (!sim || targets.length !== 2) return;
       gl.useProgram(sim.program);
       gl.viewport(0, 0, grid.width, grid.height);
       gl.uniform2f(sim.uniforms.uSize, grid.width, grid.height);
       gl.activeTexture(gl.TEXTURE0);
       gl.uniform1i(sim.uniforms.uState, 0);
       for (let step = 0; step < steps; step++) {
-        const stroke = step === 0 ? strokes.shift() : null;
+        const stroke = strokes.shift();
         if (stroke) {
           gl.uniform4f(sim.uniforms.uStroke, stroke.ax, stroke.ay, stroke.bx, stroke.by);
           gl.uniform2f(sim.uniforms.uImpulse, stroke.strength, stroke.radius);
@@ -496,12 +476,6 @@ const LiquidChrome = ({
         gl.drawArrays(gl.TRIANGLES, 0, 3);
         current = 1 - current;
       }
-      gl.useProgram(slope.program);
-      gl.uniform2f(slope.uniforms.uSize, grid.width, grid.height);
-      gl.uniform1i(slope.uniforms.uState, 0);
-      gl.bindTexture(gl.TEXTURE_2D, targets[current].texture);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, slopeTarget.framebuffer);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
     };
 
     const render = (s: typeof settings) => {
@@ -524,10 +498,10 @@ const LiquidChrome = ({
       gl.uniform1f(u.uExposure, s.exposure);
       gl.uniform1f(u.uLight, s.light ? 1 : 0);
       gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, slopeTarget ? slopeTarget.texture : zeroSlope);
+      gl.bindTexture(gl.TEXTURE_2D, targets[current]?.texture || zeroSlope);
       gl.uniform1i(u.uSlope, 0);
       gl.uniform2f(u.uSlopeSize, grid.width, grid.height);
-      gl.uniform1f(u.uRipple, slopeTarget ? s.rippleStrength * 2.2 : 0);
+      gl.uniform1f(u.uRipple, targets.length === 2 && energy > 0.002 ? s.rippleStrength * 2.2 : 0);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     };
 
@@ -536,13 +510,48 @@ const LiquidChrome = ({
       if (lost || !visible || !pageVisible) return;
       const s = settingsRef.current;
       if (s.paused) return;
-      // This slow decorative flow needs at most 30 frames per second.
-      if (!reduced && now - last < 1000 / 30) {
+      const active = pendingPointer || now - lastInteraction < 1200 || energy > 0.002;
+      const interval = 1000 / (active ? 60 : 30);
+      if (interval !== previousInterval) {
+        averageFrameMs = interval;
+        missedFrameScore = 0;
+        qualityChangedAt = now;
+        previousInterval = interval;
+      }
+      // A tolerance avoids skipping every other refresh due to timestamp rounding.
+      const elapsed = now - last;
+      if (!reduced && elapsed < interval - 0.5) {
         raf = requestAnimationFrame(frame);
         return;
       }
-      const dt = clamp((now - last) / 1000 || 0, 0, 0.05);
+      const dt = clamp(elapsed / 1000 || 0, 0, 0.05);
       last = Math.max(last, now);
+      if (!reduced) {
+        averageFrameMs += (Math.min(elapsed, 250) - averageFrameMs) * 0.15;
+        missedFrameScore =
+          elapsed > interval * 1.35
+            ? Math.min(12, missedFrameScore + 1)
+            : Math.max(0, missedFrameScore - 1);
+        // Lower resolution only after sustained misses, never on a single long task.
+        if (
+          resolutionScale > 0.4 &&
+          missedFrameScore >= 8 &&
+          now - qualityChangedAt > 1200 &&
+          averageFrameMs > interval * 1.35
+        ) {
+          resolutionScale = Math.max(0.4, resolutionScale * 0.75);
+          qualityChangedAt = now;
+          averageFrameMs = interval;
+          missedFrameScore = 0;
+          resize();
+        }
+      }
+      if (boundsDirty) resize();
+      if (pendingPointer) {
+        const point = pendingPointer;
+        pendingPointer = null;
+        updatePointer(point.x, point.y, s);
+      }
       time += reduced ? 0 : dt * s.speed;
       presence = Math.min(1, presence + dt / 1.8);
 
@@ -560,13 +569,14 @@ const LiquidChrome = ({
 
       gl.bindVertexArray(vao);
       // Run the extra fluid passes only while a pointer ripple is still settling.
-      if (slopeTarget && !reduced && (energy > 0.002 || strokes.length > 0)) {
-        accumulator += dt;
-        const steps = Math.min(4, Math.floor(accumulator / SIM_STEP));
+      if (targets.length === 2 && !reduced && (energy > 0.002 || strokes.length > 0)) {
+        // Never build a simulation backlog when a slower GPU misses a refresh.
+        accumulator = Math.min(accumulator + dt, 2 * SIM_STEP);
+        const steps = Math.min(2, Math.floor(accumulator / SIM_STEP));
         accumulator -= steps * SIM_STEP;
         if (steps > 0) {
           simulate(steps);
-          energy = Math.max(0, energy * Math.pow(0.982, steps));
+          energy = Math.max(0, energy * Math.pow(0.982, dt / SIM_STEP));
         }
       }
       render(s);
@@ -576,7 +586,12 @@ const LiquidChrome = ({
         Math.abs(targetYaw - view.yaw) + Math.abs(targetPitch - view.pitch) > 1e-4;
       const busy =
         !reduced &&
-        (s.speed > 0 || presence < 1 || settling || energy > 0.002 || strokes.length > 0);
+        (s.speed > 0 ||
+          presence < 1 ||
+          settling ||
+          energy > 0.002 ||
+          strokes.length > 0 ||
+          pendingPointer);
       if (container.dataset.renderer !== 'webgl') container.dataset.renderer = 'webgl';
       if (busy && visible && pageVisible) raf = requestAnimationFrame(frame);
     };
@@ -586,12 +601,19 @@ const LiquidChrome = ({
       if (!visible || !pageVisible || settingsRef.current.paused) {
         cancelAnimationFrame(raf);
         raf = 0;
+        pendingPointer = null;
+        pointer.ready = false;
+        pointer.inside = false;
+        strokes.length = 0;
         container.dataset.motion = 'paused';
         return;
       }
       container.dataset.motion = reduced || settingsRef.current.speed === 0 ? 'static' : 'running';
       if (raf) return;
       last = performance.now();
+      averageFrameMs = 1000 / 60;
+      missedFrameScore = 0;
+      qualityChangedAt = last;
       raf = requestAnimationFrame(frame);
     };
     wakeRef.current = () => {
@@ -600,7 +622,7 @@ const LiquidChrome = ({
     };
 
     const toGrid = (clientX: number, clientY: number) => {
-      const rect = container.getBoundingClientRect();
+      const rect = bounds!;
       return {
         x: ((clientX - rect.left) / rect.width) * grid.width,
         y: (1 - (clientY - rect.top) / rect.height) * grid.height,
@@ -615,16 +637,14 @@ const LiquidChrome = ({
     };
 
     const push = (stroke: Stroke, s: typeof settings) => {
-      if (!slopeTarget || !s.interactive || reduced) return;
+      if (targets.length !== 2 || !s.interactive || reduced) return;
       strokes.push(stroke);
       if (strokes.length > 6) strokes.shift();
       energy = 1;
     };
 
-    const onPointerMove = (event: PointerEvent) => {
-      const s = settingsRef.current;
-      if (!s.interactive || s.paused || reduced || !visible || !pageVisible) return;
-      const spot = toGrid(event.clientX, event.clientY);
+    const updatePointer = (x: number, y: number, s: typeof settings) => {
+      const spot = toGrid(x, y);
       pointer.nx = clamp(spot.nx, -1, 1);
       pointer.ny = clamp(spot.ny, -1, 1);
       pointer.inside = spot.inside;
@@ -637,8 +657,8 @@ const LiquidChrome = ({
               ay: pointer.y,
               bx: spot.x,
               by: spot.y,
-              strength: -Math.min(0.45, 0.04 + travel * 0.045) * s.rippleSize,
-              radius: 4 * s.rippleSize,
+              strength: -Math.min(0.45, 0.04 + (travel / simulationScale) * 0.045) * s.rippleSize,
+              radius: 4 * s.rippleSize * simulationScale,
             },
             s,
           );
@@ -647,12 +667,22 @@ const LiquidChrome = ({
       pointer.x = spot.x;
       pointer.y = spot.y;
       pointer.ready = spot.inside;
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      const s = settingsRef.current;
+      if (!s.interactive || s.paused || reduced || !visible || !pageVisible) return;
+      // High-polling mice can send several events per refresh. Keep only the latest.
+      pendingPointer = { x: event.clientX, y: event.clientY };
+      lastInteraction = performance.now();
       wake();
     };
 
     const onPointerDown = (event: PointerEvent) => {
       const s = settingsRef.current;
       if (!s.interactive || s.paused || reduced || !visible || !pageVisible) return;
+      lastInteraction = performance.now();
+      if (boundsDirty) resize();
       const spot = toGrid(event.clientX, event.clientY);
       if (!spot.inside) return;
       push(
@@ -662,7 +692,7 @@ const LiquidChrome = ({
           bx: spot.x,
           by: spot.y,
           strength: -1.6 * s.rippleSize,
-          radius: 6 * s.rippleSize,
+          radius: 6 * s.rippleSize * simulationScale,
         },
         s,
       );
@@ -670,6 +700,7 @@ const LiquidChrome = ({
     };
 
     const onLeave = () => {
+      pendingPointer = null;
       pointer.inside = false;
       pointer.ready = false;
       wake();
@@ -684,6 +715,11 @@ const LiquidChrome = ({
     window.addEventListener('pointerup', onPointerUp, { passive: true });
     window.addEventListener('pointercancel', onPointerUp, { passive: true });
     document.documentElement.addEventListener('pointerleave', onLeave);
+
+    const onScroll = () => {
+      boundsDirty = true;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true, capture: true });
 
     const onLost = (event: Event) => {
       event.preventDefault();
@@ -721,6 +757,9 @@ const LiquidChrome = ({
         presence = 1;
         strokes.length = 0;
         energy = 0;
+        pendingPointer = null;
+        pointer.ready = false;
+        pointer.inside = false;
         Object.assign(view, { yaw: 0, pitch: 0, vyaw: 0, vpitch: 0 });
       }
       wake();
@@ -741,6 +780,7 @@ const LiquidChrome = ({
       window.removeEventListener('pointerup', onPointerUp);
       window.removeEventListener('pointercancel', onPointerUp);
       document.documentElement.removeEventListener('pointerleave', onLeave);
+      window.removeEventListener('scroll', onScroll, true);
       document.removeEventListener('visibilitychange', onVisibility);
       preference.removeEventListener('change', onPreference);
       connection?.removeEventListener('change', onPreference);
@@ -748,12 +788,10 @@ const LiquidChrome = ({
       canvas.removeEventListener('webglcontextrestored', onRestored);
       if (!gl.isContextLost()) {
         targets.forEach(dropTarget);
-        dropTarget(slopeTarget);
         gl.deleteVertexArray(vao);
         gl.deleteTexture(zeroSlope);
         gl.deleteProgram(chrome.program);
         if (sim) gl.deleteProgram(sim.program);
-        if (slope) gl.deleteProgram(slope.program);
       }
     };
   }, [generation, interactive]);

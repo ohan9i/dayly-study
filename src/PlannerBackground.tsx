@@ -42,7 +42,7 @@ export default function PlannerBackground({
           rippleSize={1}
           intro={false}
           tilt={0.4}
-          maxDevicePixelRatio={1.5}
+          maxDevicePixelRatio={1}
         />
       )}
     </div>
