@@ -37,9 +37,11 @@ export default function PlannerBackground({
           roughness={0.45}
           exposure={0.6}
           lightMode={false}
-          interactive={false}
+          interactive
+          rippleStrength={0.8}
+          rippleSize={1}
           intro={false}
-          tilt={0.25}
+          tilt={0.4}
           maxDevicePixelRatio={1.5}
         />
       )}

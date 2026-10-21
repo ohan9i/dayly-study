@@ -559,7 +559,8 @@ const LiquidChrome = ({
       view.pitch += view.vpitch * dt;
 
       gl.bindVertexArray(vao);
-      if (slopeTarget) {
+      // Run the extra fluid passes only while a pointer ripple is still settling.
+      if (slopeTarget && !reduced && (energy > 0.002 || strokes.length > 0)) {
         accumulator += dt;
         const steps = Math.min(4, Math.floor(accumulator / SIM_STEP));
         accumulator -= steps * SIM_STEP;
@@ -622,7 +623,7 @@ const LiquidChrome = ({
 
     const onPointerMove = (event: PointerEvent) => {
       const s = settingsRef.current;
-      if (!s.interactive || reduced) return;
+      if (!s.interactive || s.paused || reduced || !visible || !pageVisible) return;
       const spot = toGrid(event.clientX, event.clientY);
       pointer.nx = clamp(spot.nx, -1, 1);
       pointer.ny = clamp(spot.ny, -1, 1);
@@ -651,7 +652,7 @@ const LiquidChrome = ({
 
     const onPointerDown = (event: PointerEvent) => {
       const s = settingsRef.current;
-      if (!s.interactive || reduced) return;
+      if (!s.interactive || s.paused || reduced || !visible || !pageVisible) return;
       const spot = toGrid(event.clientX, event.clientY);
       if (!spot.inside) return;
       push(

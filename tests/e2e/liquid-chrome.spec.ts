@@ -4,6 +4,12 @@ import { mockCloud } from './cloud-fixture';
 declare global {
   interface Window {
     chromeDraws: number;
+    chromeInteraction: {
+      simulationSteps: number;
+      trails: number;
+      clicks: number;
+      shiftX: number;
+    };
     restoreChrome?: () => void;
   }
 }
@@ -20,6 +26,90 @@ async function observeDraws(page: Page) {
   });
 }
 const draws = (page: Page) => page.evaluate(() => window.chromeDraws);
+
+async function observeInteraction(page: Page) {
+  await page.addInitScript(() => {
+    window.chromeInteraction = { simulationSteps: 0, trails: 0, clicks: 0, shiftX: 0 };
+    const names = new WeakMap<WebGLUniformLocation, string>();
+    const prototype = WebGL2RenderingContext.prototype;
+    const getLocation = prototype.getUniformLocation;
+    prototype.getUniformLocation = function (program, name) {
+      const location = getLocation.call(this, program, name);
+      if (location) names.set(location, name);
+      return location;
+    };
+    const uniform2f = prototype.uniform2f;
+    prototype.uniform2f = function (location, x, y) {
+      if ((this.canvas as HTMLCanvasElement).classList.contains('liquid-chrome__canvas')) {
+        const stats = window.chromeInteraction;
+        const name = location && names.get(location);
+        if (name === 'uShift') stats.shiftX = x;
+        if (name === 'uImpulse') {
+          stats.simulationSteps++;
+          if (x < -0.5) stats.clicks++;
+          else if (x < 0) stats.trails++;
+        }
+      }
+      return uniform2f.call(this, location, x, y);
+    };
+  });
+}
+
+test('pointer movement and clicks drive ripples without idle fluid work or modal input', async ({
+  page,
+}) => {
+  await mockCloud(page);
+  await observeDraws(page);
+  await observeInteraction(page);
+  await page.goto('/#planner');
+  await expect(page.locator('.liquid-chrome')).toHaveAttribute('data-renderer', 'webgl');
+  await expect.poll(() => draws(page)).toBeGreaterThan(3);
+  expect(await page.evaluate(() => window.chromeInteraction.simulationSteps)).toBe(0);
+
+  await page.mouse.move(1300, 150);
+  await page.mouse.move(1400, 300, { steps: 10 });
+  await expect.poll(() => page.evaluate(() => window.chromeInteraction.trails)).toBeGreaterThan(0);
+  await expect
+    .poll(() => page.evaluate(() => window.chromeInteraction.shiftX))
+    .toBeGreaterThan(0.04);
+  await page.mouse.click(1400, 500);
+  await expect.poll(() => page.evaluate(() => window.chromeInteraction.clicks)).toBeGreaterThan(0);
+  await page.mouse.move(150, 150, { steps: 10 });
+  await expect.poll(() => page.evaluate(() => window.chromeInteraction.shiftX)).toBeLessThan(-0.04);
+
+  await page.getByRole('button', { name: '수학 공부 상세 보기', exact: true }).click();
+  await expect(page.locator('.liquid-chrome')).toHaveAttribute('data-motion', 'paused');
+  const paused = await draws(page);
+  await page.mouse.move(1400, 600, { steps: 10 });
+  await page.waitForTimeout(150);
+  expect(await draws(page)).toBe(paused);
+  await page.keyboard.press('Escape');
+  await expect.poll(() => draws(page)).toBeGreaterThan(paused);
+});
+
+test('without float textures the surface follows the cursor and planner controls still work', async ({
+  page,
+}) => {
+  await mockCloud(page);
+  await observeInteraction(page);
+  await page.addInitScript(() => {
+    const getExtension = WebGL2RenderingContext.prototype.getExtension;
+    WebGL2RenderingContext.prototype.getExtension = function (name) {
+      if (name === 'EXT_color_buffer_float') return null;
+      return Reflect.apply(getExtension, this, [name]);
+    };
+  });
+  await page.goto('/#planner');
+  await expect(page.locator('.liquid-chrome')).toHaveAttribute('data-renderer', 'webgl');
+  await page.mouse.move(1400, 300);
+  await expect
+    .poll(() => page.evaluate(() => window.chromeInteraction.shiftX))
+    .toBeGreaterThan(0.04);
+  await page.mouse.click(1400, 500);
+  expect(await page.evaluate(() => window.chromeInteraction.simulationSteps)).toBe(0);
+  await page.getByRole('button', { name: '수학 공부 상세 보기', exact: true }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+});
 
 test('chrome starts after the book opens, replaces the video, and leaves controls usable', async ({
   page,
