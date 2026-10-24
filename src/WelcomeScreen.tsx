@@ -90,7 +90,7 @@ export default function WelcomeScreen({
           <div className="welcome-rule" aria-hidden="true" />
           <div className="book-shadow" aria-hidden="true" />
           <div className="book-contact-shadow" aria-hidden="true" />
-          <PlannerObject ref={object} />
+          <PlannerObject ref={object} cover={enabled} />
         </div>
       </section>
       <div className="planner-layer" ref={app} inert={enabled && !initial.entered}>
