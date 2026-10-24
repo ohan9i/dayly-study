@@ -8,3 +8,4 @@ dist/
 test-results/
 .local/
 backup-output/
+.omc/
