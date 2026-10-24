@@ -5,6 +5,16 @@ import SquishSwitch from './SquishSwitch';
 export type Atmosphere = 'morning' | 'night';
 const storageKey = 'dayly.atmosphere';
 
+/** A saved side wins over the device; until then the device leads. */
+function hasChosenAtmosphere() {
+  try {
+    const value = localStorage.getItem(storageKey);
+    return value === 'night' || value === 'morning';
+  } catch {
+    return false;
+  }
+}
+
 export function useAtmosphere() {
   const [atmosphere, setAtmosphere] = useState<Atmosphere>(() =>
     document.documentElement.dataset.atmosphere === 'night' ? 'night' : 'morning',
@@ -15,10 +25,17 @@ export function useAtmosphere() {
     document
       .querySelector('meta[name="theme-color"]')
       ?.setAttribute('content', atmosphere === 'night' ? '#242320' : '#f1efe9');
+  }, [atmosphere]);
+  useEffect(() => {
+    if (hasChosenAtmosphere()) return;
     try {
-      localStorage.setItem(storageKey, atmosphere);
+      const query = window.matchMedia('(prefers-color-scheme: dark)');
+      const follow = (event: MediaQueryListEvent) =>
+        setAtmosphere(event.matches ? 'night' : 'morning');
+      query.addEventListener('change', follow);
+      return () => query.removeEventListener('change', follow);
     } catch {
-      // The theme still works when browser storage is unavailable.
+      // Without media queries the opening theme simply stays put.
     }
   }, [atmosphere]);
   useEffect(() => {
@@ -46,6 +63,12 @@ export function useAtmosphere() {
   }, []);
   const changeAtmosphere = (next: Atmosphere) => {
     if (next === atmosphere) return;
+    try {
+      // Only a deliberate choice is remembered, so the device keeps leading until then.
+      localStorage.setItem(storageKey, next);
+    } catch {
+      // The theme still works when browser storage is unavailable.
+    }
     setAtmosphere(next);
   };
   return [atmosphere, changeAtmosphere] as const;

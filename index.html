@@ -6,7 +6,14 @@
     <meta name="theme-color" content="#f1efe9" />
     <script>
       try {
-        const theme = localStorage.getItem('dayly.atmosphere') === 'night' ? 'night' : 'morning';
+        const saved = localStorage.getItem('dayly.atmosphere');
+        // No saved choice yet: open in whichever light the device is already using.
+        const theme =
+          saved === 'night' || saved === 'morning'
+            ? saved
+            : matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'night'
+              : 'morning';
         document.documentElement.dataset.atmosphere = theme;
         document.documentElement.style.colorScheme = theme === 'night' ? 'dark' : 'light';
         document.querySelector('meta[name="theme-color"]').content =
@@ -15,13 +22,52 @@
     </script>
     <meta
       name="description"
-      content="맑은 하루, 차곡차곡 쌓이는 공부. 과목별 할 일과 완료 현황을 관리하는 Dayly."
+      content="맑은 하루, 차곡차곡 쌓이는 공부. 하루의 할 일과 완료 현황을 관리하는 Dayly."
     />
+    <link rel="canonical" href="https://ohan9i.github.io/dayly-study/" />
+    <!-- Shared links show a card in messengers instead of a bare address. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Dayly" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:url" content="https://ohan9i.github.io/dayly-study/" />
+    <meta property="og:title" content="Dayly — 나의 공부, 나의 하루" />
+    <meta
+      property="og:description"
+      content="맑은 하루, 차곡차곡 쌓이는 공부. 하루의 할 일과 완료 현황을 관리하는 Dayly."
+    />
+    <meta property="og:image" content="https://ohan9i.github.io/dayly-study/icon-512.png" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:image:alt" content="Dayly 로고" />
+    <meta name="twitter:card" content="summary" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="apple-touch-icon" href="./icon-192.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-title" content="Dayly" />
+    <!-- The shared record is the first request after the scripts run. -->
+    <link rel="preconnect" href="%VITE_SUPABASE_URL%" crossorigin />
     <title>Dayly — 나의 공부, 나의 하루</title>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <div
+        style="
+          margin: 0 auto;
+          max-width: 34em;
+          padding: 3rem 1.5rem;
+          font-family: system-ui, sans-serif;
+          line-height: 1.7;
+          color: #302e2b;
+        "
+      >
+        <h1 style="font-size: 1.5rem">Dayly — 나의 공부, 나의 하루</h1>
+        <p>
+          Dayly는 자바스크립트로 동작합니다. 브라우저에서 자바스크립트를 켜고 새로고침하면 할 일과
+          기록을 볼 수 있어요.
+        </p>
+      </div>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
