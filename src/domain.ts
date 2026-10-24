@@ -17,6 +17,7 @@ export type Task = {
   completedAt?: string | null;
   revision?: number;
   created_by: string;
+  created_at?: string;
   workspace_id?: string;
 };
 export type TaskRecord = Omit<Task, 'details'> & {
@@ -305,8 +306,17 @@ export function duplicateTaskPlan(
     workspace_id: workspaceId,
   };
 }
+// A day reads in the order it was planned: timed items first, then the order the
+// plans were added. Renaming a plan no longer moves it in the list.
 export const sortedTasks = (tasks: Task[]) =>
-  [...tasks].sort((a, b) => a.title.localeCompare(b.title, 'ko'));
+  [...tasks].sort((a, b) => {
+    const left = a.time?.trim() || '',
+      right = b.time?.trim() || '';
+    if (left !== right) return left && right ? left.localeCompare(right) : left ? -1 : 1;
+    const added = (a.created_at || '').localeCompare(b.created_at || '');
+    // Equal keys keep the source order, which is how backups and samples read.
+    return added;
+  });
 export function sampleSnapshot(date = todayKey()): Snapshot {
   const rows: [string, string[]][] = [
     ['아침 스트레칭하기', []],
@@ -421,15 +431,6 @@ export function readLocal(): { data: Snapshot; warning: string } {
       warning:
         '저장된 기록을 읽지 못했습니다. 기존 저장 데이터는 유지했습니다. 브라우저의 저장 권한을 확인해 주세요.',
     };
-  }
-}
-export function writeLocal(value: Snapshot) {
-  try {
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(value));
-  } catch {
-    throw new Error(
-      '이 브라우저에 기록을 저장하지 못했습니다. 저장 공간과 브라우저 권한을 확인해 주세요.',
-    );
   }
 }
 export function weeklyStats(data: Snapshot, end: string) {

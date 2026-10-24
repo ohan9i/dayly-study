@@ -36,8 +36,12 @@ test('the single clock switch slides, saves the theme and has no duplicate contr
     ),
   ).toBeGreaterThan(1);
   await page.getByRole('button', { name: '설정', exact: true }).click();
-  await expect(page.getByRole('switch')).toHaveCount(0);
+  // The atmosphere switch belongs to the clock alone; settings only carries the
+  // timer's own alarm switch.
+  await expect(page.getByRole('switch', { name: '밤 공부', exact: true })).toHaveCount(0);
   await expect(page.locator('.atmosphere-settings')).toHaveCount(0);
+  await expect(page.getByRole('switch')).toHaveCount(1);
+  await expect(page.getByRole('switch', { name: '타이머 종료 알림', exact: true })).toHaveCount(1);
   await page.getByRole('button', { name: '나의 하루', exact: true }).click();
   await expect(page.locator('.planner-moment').getByRole('switch')).toHaveCount(1);
   await expect(page.locator('.focus-clock-card').getByRole('switch')).toHaveCount(1);

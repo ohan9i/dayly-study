@@ -80,8 +80,10 @@ Node.js 24를 기준으로 작성하고 검사했습니다.
 | `src/styles.css`                                                  | 색상, 여백, 반투명 카드, 휴대폰 화면                |
 | `src/domain.ts`                                                   | 데이터 형식, 날짜 계산, 백업 검사, 통계             |
 | `src/planner.ts`                                                  | Supabase 세션, 데이터 저장과 편집 권한              |
-| `public/study-window.webp`                                        | 이전 창가 디자인의 압축된 배경 보관                 |
-| `design/study-window.png`                                         | 생성한 배경의 원본                                  |
+| `design/study-window.png`                                         | 이전 창가 디자인의 배경 원본, 현재 화면에서는 미사용 |
+| `public/manifest.webmanifest`                                     | 홈 화면 추가에 쓰는 앱 정보와 아이콘                |
+| `src/focusAlarm.ts`                                               | 타이머 종료 알림음, 진동, 브라우저 알림             |
+| `src/entryNavigation.ts`                                          | 주소에 담는 화면과 날짜, 뒤로 가기 복원             |
 | `supabase/schema.sql`                                             | 공유 데이터베이스 테이블과 접근 권한                |
 | `supabase/migrations/20261005_task_files_and_personal_spaces.sql` | 첨부와 수행 내용, 비공개 Storage, 내 공간 자동 생성 |
 | `.github/workflows/deploy.yml`                                    | GitHub Pages 자동 배포                              |

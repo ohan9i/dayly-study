@@ -1,5 +1,15 @@
 import { Button } from '@/components/ui/button';
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import {
   CalendarDays,
   Check,
@@ -26,6 +36,9 @@ import {
   ChartNoAxesColumnIncreasing,
   Copy,
   CircleAlert,
+  Bell,
+  BellOff,
+  Timer,
 } from 'lucide-react';
 import {
   addDays,
@@ -42,16 +55,13 @@ import {
   type Task,
 } from './domain';
 import { usePlanner } from './planner';
-import Account from './Account';
 import TaskDetail from './TaskDetail';
 import { TaskProgress, DayProgressRing } from './TaskProgress';
 import WorkspacePanel from './WorkspacePanel';
 import DetailRecord from './DetailRecord';
-import DataProtection from './DataProtection';
-import TaskHistory from './TaskHistory';
 import { AtmospherePicker, CompletionSparkles, useAtmosphere } from './Atmosphere';
 import WelcomeScreen from './WelcomeScreen';
-import { readEntryNavigation, saveEntryNavigation } from './entryNavigation';
+import { pushEntryNavigation, readEntryNavigation, saveEntryNavigation } from './entryNavigation';
 import PlanActions from './PlanActions';
 import SwipeAction from './SwipeAction';
 import { useDraftUnloadGuard } from './recordDrafts';
@@ -59,6 +69,13 @@ import LoadingStatus from './LoadingStatus';
 import PlannerBackground from './PlannerBackground';
 import SpringCheck, { SpringCheckLabel } from './SpringCheck';
 import FocusClock from './FocusClock';
+import SquishSwitch from './SquishSwitch';
+import { useAlarmEnabled } from './focusAlarm';
+
+// Screens that only open on request are fetched on request.
+const Account = lazy(() => import('./Account'));
+const DataProtection = lazy(() => import('./DataProtection'));
+const TaskHistory = lazy(() => import('./TaskHistory'));
 
 type View = 'home' | 'calendar' | 'stats' | 'settings';
 type ModalState =
@@ -130,7 +147,10 @@ function Modal({
           {title}
         </h2>
         {showHeader && subtitle && <p className="modal-subtitle">{subtitle}</p>}
-        {children}
+        {/* The frame and its title appear at once; screens fetched on demand fill in. */}
+        <Suspense fallback={<p className="loading-note">불러오는 중이에요.</p>}>
+          {children}
+        </Suspense>
       </div>
     </dialog>
   );
@@ -163,10 +183,30 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
     </label>
   );
 }
+/** The minute hand owns its own state so the planner is not redrawn with it. */
+function LiveClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 10000);
+    return () => clearInterval(timer);
+  }, []);
+  const clock = new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(now);
+  return (
+    <time className="live-clock" dateTime={now.toISOString()} aria-label={`현재 시각 ${clock}`}>
+      {clock}
+    </time>
+  );
+}
 
 export default function App() {
   useDraftUnloadGuard();
   const [atmosphere, setAtmosphere] = useAtmosphere();
+  const [alarmEnabled, setAlarmEnabled] = useAlarmEnabled();
   const planner = usePlanner();
   const { data, isOwner, canWrite, busy, loading } = planner;
   const [view, setView] = useState<View>(() => readEntryNavigation().view || 'home');
@@ -180,10 +220,16 @@ export default function App() {
   const [month, setMonth] = useState(
     () => readEntryNavigation().month || todayKey().slice(0, 7) + '-01',
   );
+  // The first render adopts the address it was opened with; every later screen or
+  // date becomes its own history entry so back returns where the reader came from.
+  const started = useRef(false);
   useEffect(() => {
-    saveEntryNavigation({ view, date, month, scroll: window.scrollY });
+    if (started.current) pushEntryNavigation({ view, date, month, scroll: 0 });
+    else {
+      started.current = true;
+      saveEntryNavigation({ view, date, month, scroll: window.scrollY });
+    }
   }, [view, date, month]);
-  const [now, setNow] = useState(new Date());
   const [modal, setModal] = useState<ModalState>(null);
   const swipeScope = `${planner.session?.user.id}:${planner.workspace?.id}:${date}:${view}:${modal?.kind || ''}`;
   const [openRecords, setOpenRecords] = useState<Set<string>>(() => new Set());
@@ -195,8 +241,16 @@ export default function App() {
         : current,
     );
   }, [planner.workspace?.id, planner.session?.user.id]);
-  const [toast, setToast] = useState('');
+  // Toasts queue instead of overwriting, so a burst of checks stays readable.
+  const [toasts, setToasts] = useState<string[]>([]);
+  const toast = toasts[0] || '';
+  const setToast = useCallback(
+    (message: string) =>
+      setToasts((queue) => (queue[queue.length - 1] === message ? queue : [...queue, message])),
+    [],
+  );
   const [search, setSearch] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [confirmation, setConfirmation] = useState<{
     title: string;
     label?: string;
@@ -219,27 +273,38 @@ export default function App() {
     }
   });
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 10000);
-    return () => clearInterval(timer);
-  }, []);
-  useEffect(() => {
     if (!toast) return;
-    const timer = window.setTimeout(() => setToast(''), 4000);
+    // A message already waiting shortens the one on screen, so a burst of checks
+    // shows every result without holding the corner of the screen for long.
+    const timer = window.setTimeout(
+      () => setToasts((queue) => queue.slice(1)),
+      toasts.length > 1 ? 2400 : 3600,
+    );
     return () => clearTimeout(timer);
-  }, [toast]);
+  }, [toast, toasts.length]);
+  // Typing settles before the whole record is searched.
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearchQuery(search.trim().toLowerCase()), 150);
+    return () => clearTimeout(timer);
+  }, [search]);
   const today = todayKey();
-  const tasks = sortedTasks(data.tasks.filter((x) => x.date === date));
-  const completed = new Set(data.completedTaskIds);
-  const totalProgress = dayProgress(tasks, completed);
-  const searchMatches = data.tasks.filter((task) =>
-    `${task.title} ${task.details.join(' ')}`.toLowerCase().includes(search.trim().toLowerCase()),
+  const tasks = useMemo(
+    () => sortedTasks(data.tasks.filter((x) => x.date === date)),
+    [data.tasks, date],
   );
-  const clock = new Intl.DateTimeFormat('ko-KR', {
-    timeZone: 'Asia/Seoul',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).format(now);
+  const completed = useMemo(() => new Set(data.completedTaskIds), [data.completedTaskIds]);
+  const totalProgress = useMemo(() => dayProgress(tasks, completed), [tasks, completed]);
+  // Searching only runs while the search screen is open and a word is entered.
+  const searching = modal?.kind === 'search' && Boolean(searchQuery);
+  const searchMatches = useMemo(
+    () =>
+      searching
+        ? data.tasks.filter((task) =>
+            `${task.title} ${task.details.join(' ')}`.toLowerCase().includes(searchQuery),
+          )
+        : [],
+    [searching, searchQuery, data.tasks],
+  );
   const canManageTask = (item?: Task) =>
     Boolean(planner.session && planner.workspace) &&
     !planner.passwordRecovery &&
@@ -271,6 +336,55 @@ export default function App() {
       heading?.focus({ preventScroll: true });
     });
   };
+  // Back and forward restore the screen and date recorded in that history entry.
+  useEffect(() => {
+    const restore = () => {
+      const entry = readEntryNavigation();
+      closePlanMenus();
+      setModal(null);
+      setView(entry.view || 'home');
+      setDate(entry.date || todayKey());
+      if (entry.month) setMonth(entry.month);
+    };
+    window.addEventListener('popstate', restore);
+    return () => window.removeEventListener('popstate', restore);
+  }, []);
+  // Everyday keys for a tool opened every morning. Physical codes keep these
+  // working on a Korean keyboard layout and while an IME is composing.
+  useEffect(() => {
+    const handle = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (modal || confirmation) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.isContentEditable || /^(input|textarea|select)$/i.test(target?.tagName || ''))
+        return;
+      // The decorative entry owns the keyboard until the planner is open.
+      if (document.querySelector('.entry-flow')?.getAttribute('data-entered') !== 'true') return;
+      if (event.code === 'Slash') {
+        event.preventDefault();
+        setSearch('');
+        setModal({ kind: 'search' });
+      } else if (event.code === 'KeyN') {
+        if (busy || loading) return;
+        event.preventDefault();
+        setModal({ kind: canWrite ? 'task' : 'account' });
+      } else if (view === 'home' && (event.code === 'ArrowLeft' || event.code === 'ArrowRight')) {
+        event.preventDefault();
+        goDate(addDays(date, event.code === 'ArrowLeft' ? -1 : 1));
+      }
+    };
+    window.addEventListener('keydown', handle);
+    return () => window.removeEventListener('keydown', handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modal, confirmation, view, date, canWrite, busy, loading]);
+  const confirmDiscard = (discard: () => void) =>
+    setConfirmation({
+      title: '작성 중인 기록이 있어요',
+      label: '기록 버리기',
+      cancelLabel: '계속 작성',
+      message: '아직 저장하지 않은 글과 선택 파일이 있어요. 계속 작성하거나 버릴 수 있어요.',
+      action: async () => discard(),
+    });
   const requestDelete = (item: Task) =>
     setConfirmation({
       title: '계획을 휴지통으로 보낼까요?',
@@ -536,6 +650,7 @@ export default function App() {
                                 detailId={detailId}
                                 planner={planner}
                                 onLogin={() => setModal({ kind: 'account' })}
+                                onConfirmDiscard={confirmDiscard}
                               />
                             )}
                           </li>
@@ -597,7 +712,7 @@ export default function App() {
         <p className="save-note">
           <CircleCheck size={13} />
           {planner.lastSaved ? '공유 공간에 저장되어 있어요' : '공유 기록'}
-          <span>SEOUL (KST)</span>
+          <span lang="en">SEOUL (KST)</span>
         </p>
       )}
     </section>
@@ -608,11 +723,16 @@ export default function App() {
       <div className="scenery" aria-hidden="true">
         {view === 'home' && <PlannerBackground atmosphere={atmosphere} paused={Boolean(modal)} />}
       </div>
-      <button className="brand mobile-brand" aria-label="Dayly 홈" onClick={() => goView('home')}>
+      <button
+        className="brand mobile-brand"
+        lang="en"
+        aria-label="Dayly 홈"
+        onClick={() => goView('home')}
+      >
         Dayly<span className="brand-dot">.</span>
       </button>
       <aside className="sidebar">
-        <button className="brand" aria-label="Dayly 홈" onClick={() => goView('home')}>
+        <button className="brand" lang="en" aria-label="Dayly 홈" onClick={() => goView('home')}>
           Dayly<span className="brand-dot">.</span>
         </button>
         <nav aria-label="주 메뉴" data-active={view}>
@@ -632,7 +752,7 @@ export default function App() {
         </nav>
         <div className="sidebar-bottom">
           <Leaf size={19} />
-          <span>
+          <span lang="en">
             one day
             <br />
             at a time
@@ -736,14 +856,10 @@ export default function App() {
           </div>
           <div className="planner-side-column">
             <aside className="moment planner-moment" aria-label="시계와 공부 공간 분위기">
-              <span className="moment-label">SEOUL / KST</span>
-              <time
-                className="live-clock"
-                dateTime={now.toISOString()}
-                aria-label={`현재 시각 ${clock}`}
-              >
-                {clock}
-              </time>
+              <span className="moment-label" lang="en">
+                SEOUL / KST
+              </span>
+              <LiveClock />
               <AtmospherePicker value={atmosphere} onChange={setAtmosphere} compact />
             </aside>
             <FocusClock visible={view === 'home'} />
@@ -752,7 +868,9 @@ export default function App() {
         {view === 'calendar' && (
           <div className="wide-page">
             <div className="page-heading">
-              <p className="eyebrow">MY DAYS</p>
+              <p className="eyebrow" lang="en">
+                MY DAYS
+              </p>
               <h1 id="planner" tabIndex={-1}>
                 달력
               </h1>
@@ -836,7 +954,9 @@ export default function App() {
         {view === 'stats' && (
           <div className="wide-page">
             <div className="page-heading">
-              <p className="eyebrow">YOUR LITTLE PROGRESS</p>
+              <p className="eyebrow" lang="en">
+                YOUR LITTLE PROGRESS
+              </p>
               <h1 id="planner" tabIndex={-1}>
                 학습 흐름
               </h1>
@@ -853,7 +973,9 @@ export default function App() {
         {view === 'settings' && (
           <div className="wide-page settings-page">
             <div className="page-heading">
-              <p className="eyebrow">MAKE IT YOURS</p>
+              <p className="eyebrow" lang="en">
+                MAKE IT YOURS
+              </p>
               <h1 id="planner" tabIndex={-1}>
                 설정
               </h1>
@@ -899,6 +1021,34 @@ export default function App() {
                   저장
                 </Button>
               </form>
+            </section>
+            <section className="glass-card settings-card">
+              <h2>
+                <Timer size={19} />
+                타이머 알림
+              </h2>
+              <div className="setting-row">
+                <div>
+                  <strong>시간이 끝나면 알려주기</strong>
+                  <p>
+                    타이머가 끝나면 짧은 알림음과 진동으로 알려줘요. 브라우저에서 알림을 허용하면
+                    다른 탭을 보고 있어도 확인할 수 있어요.
+                  </p>
+                </div>
+                <SquishSwitch
+                  checked={alarmEnabled}
+                  onChange={setAlarmEnabled}
+                  ariaLabel="타이머 종료 알림"
+                  trackColor="#27272a"
+                  trackOnColor="#f5f5f5"
+                  thumbColor="#f5f5f5"
+                  thumbOnColor="#27272a"
+                  width={64}
+                  height={34}
+                  radius={17}
+                  thumbContent={alarmEnabled ? <Bell size={15} /> : <BellOff size={15} />}
+                />
+              </div>
             </section>
             <section className="glass-card settings-card">
               <h2>
@@ -1037,11 +1187,15 @@ export default function App() {
               </div>
             </section>
             {planner.session && planner.workspace && (
-              <DataProtection
-                onOpenHistory={() => setModal({ kind: 'history' })}
-                key={`${planner.session.user.id}:${planner.workspace.id}`}
-                planner={planner}
-              />
+              <Suspense
+                fallback={<p className="loading-note">기록 보호 설정을 불러오는 중이에요.</p>}
+              >
+                <DataProtection
+                  onOpenHistory={() => setModal({ kind: 'history' })}
+                  key={`${planner.session.user.id}:${planner.workspace.id}`}
+                  planner={planner}
+                />
+              </Suspense>
             )}
           </div>
         )}
@@ -1134,14 +1288,28 @@ export default function App() {
             onDelete={
               modal.item && planner.canWrite
                 ? () => {
-                    if (
-                      taskDetailDirty &&
-                      !window.confirm('저장하지 않은 변경을 버리고 휴지통 이동을 진행할까요?')
-                    )
-                      return;
                     const item = modal.item!;
-                    setModal(null);
-                    requestDelete(item);
+                    if (!taskDetailDirty) {
+                      setModal(null);
+                      requestDelete(item);
+                      return;
+                    }
+                    // One question, not two: the unsaved draft and the plan go together.
+                    setConfirmation({
+                      title: '저장하지 않은 변경이 있어요',
+                      label: '변경 버리고 휴지통으로',
+                      cancelLabel: '계속 편집',
+                      success: '계획을 휴지통으로 옮겼어요.',
+                      message:
+                        '아직 저장하지 않은 내용과 선택 파일이 있어요. 변경을 버리고 “' +
+                        item.title +
+                        '”을 휴지통으로 옮깁니다. 내용과 기록, 첨부 원본은 보관되며 설정의 휴지통에서 복원할 수 있어요.',
+                      action: async () => {
+                        await planner.deleteTask(item.id);
+                        setTaskDetailDirty(false);
+                        setModal(null);
+                      },
+                    });
                   }
                 : undefined
             }
@@ -1196,16 +1364,17 @@ export default function App() {
               autoFocus
             />
           </div>
-          {search.trim() ? (
+          {searchQuery ? (
             <div className="search-results">
               {searchMatches.slice(0, 50).map((task) => (
                 <button
                   key={task.id}
                   onClick={() => {
+                    closePlanMenus();
                     setDate(task.date);
                     setView('home');
                     const index = task.details.findIndex((detail) =>
-                      detail.toLowerCase().includes(search.trim().toLowerCase()),
+                      detail.toLowerCase().includes(searchQuery),
                     );
                     if (index >= 0)
                       setOpenRecords(
@@ -1226,16 +1395,14 @@ export default function App() {
                   <span>
                     <small>{task.date}</small>
                     <strong>
-                      <SearchHighlight text={task.title} query={search} />
+                      <SearchHighlight text={task.title} query={searchQuery} />
                     </strong>
                     {task.details
-                      .filter((detail) =>
-                        detail.toLowerCase().includes(search.trim().toLowerCase()),
-                      )
+                      .filter((detail) => detail.toLowerCase().includes(searchQuery))
                       .slice(0, 1)
                       .map((detail) => (
                         <span className="search-match" key={detail}>
-                          <SearchHighlight text={detail} query={search} />
+                          <SearchHighlight text={detail} query={searchQuery} />
                         </span>
                       ))}
                   </span>

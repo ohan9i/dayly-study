@@ -99,6 +99,21 @@ for (const width of [1536, 390]) {
     await expect(page.locator('.detail-record-form')).toHaveCount(0);
 
     await page.getByRole('button', { name: '설정', exact: true }).click();
+    // Settings fetches its record-protection panel on arrival; only reads caused
+    // by typing afterwards are under test here.
+    await expect(page.locator('.data-protection')).toBeVisible();
+    let lastSeen = -1;
+    await expect
+      .poll(
+        () => {
+          const current = reads();
+          const settled = current === lastSeen;
+          lastSeen = current;
+          return settled;
+        },
+        { intervals: [150, 150, 150, 150, 150, 150, 150, 150] },
+      )
+      .toBe(true);
     const settingsReads = reads();
     await keepTypingAfterReturning(
       page,

@@ -142,3 +142,57 @@ for (const width of [1440, 1000, 390, 320]) {
     await page.screenshot({ path: `.local/focus-clock-night-${width}.png`, fullPage: true });
   });
 }
+
+test('a running timer resumes in a newly opened tab and the finish is announced', async ({
+  page,
+  context,
+}) => {
+  const announced: string[] = [];
+  await context.addInitScript(() => {
+    // Record the finish signals without depending on sound or OS permission.
+    (window as unknown as { alarmCalls: string[] }).alarmCalls = [];
+    navigator.vibrate = (pattern) => {
+      (window as unknown as { alarmCalls: string[] }).alarmCalls.push('vibrate:' + pattern);
+      return true;
+    };
+  });
+  await setup(page);
+  for (const [label, value] of [
+    ['타이머 시간', '0'],
+    ['타이머 분', '0'],
+    ['타이머 초', '4'],
+  ] as const)
+    await card(page).getByRole('spinbutton', { name: label, exact: true }).fill(value);
+  await card(page).getByRole('button', { name: '시작', exact: true }).click();
+  await expect(card(page)).toContainText('타이머 진행 중');
+
+  // The clock is kept outside this tab's session, so a second tab picks it up.
+  const second = await context.newPage();
+  await second.clock.install({ time: new Date('2026-10-21T03:01:02Z') });
+  await second.goto('/#planner');
+  await expect(second.getByRole('region', { name: '타이머와 스톱워치' })).toContainText(
+    '타이머 진행 중',
+  );
+  await second.close();
+
+  await page.clock.runFor(5000);
+  await expect(card(page)).toContainText('설정한 시간이 끝났어요.');
+  announced.push(
+    ...(await page.evaluate(() => (window as unknown as { alarmCalls: string[] }).alarmCalls)),
+  );
+  expect(announced.some((entry) => entry.startsWith('vibrate:'))).toBe(true);
+});
+
+test('the settings switch silences the finish signal and is remembered', async ({ page }) => {
+  await setup(page);
+  await page.getByRole('button', { name: '설정', exact: true }).click();
+  const alarm = page.getByRole('switch', { name: '타이머 종료 알림', exact: true });
+  await expect(alarm).toBeChecked();
+  await alarm.click();
+  await expect(alarm).not.toBeChecked();
+  await page.reload();
+  await page.getByRole('button', { name: '설정', exact: true }).click();
+  await expect(
+    page.getByRole('switch', { name: '타이머 종료 알림', exact: true }),
+  ).not.toBeChecked();
+});

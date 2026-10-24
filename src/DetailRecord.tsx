@@ -12,11 +12,14 @@ export default function DetailRecord({
   detailId,
   planner,
   onLogin,
+  onConfirmDiscard,
 }: {
   task: Task;
   detailId: string;
   planner: Planner;
   onLogin: () => void;
+  /** Asks the planner's own confirmation screen before a draft is thrown away. */
+  onConfirmDiscard: (discard: () => void) => void;
 }) {
   const key = `${planner.session?.user.id || 'guest'}:${planner.workspace?.id || 'local'}:${task.id}:${detailId}`;
   const draft = useRecordDraft(key);
@@ -156,12 +159,10 @@ export default function DetailRecord({
               size="sm"
               disabled={disabled}
               onClick={() => {
-                if (
-                  (body || files.length) &&
-                  !window.confirm('작성 중인 기록과 선택 파일을 버릴까요?')
-                )
-                  return;
-                update({ body: '', files: [], pendingId: null, adding: false, error: '' });
+                const discard = () =>
+                  update({ body: '', files: [], pendingId: null, adding: false, error: '' });
+                if (body || files.length) onConfirmDiscard(discard);
+                else discard();
               }}
             >
               취소

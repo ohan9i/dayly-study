@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Hourglass, Pause, Play, RotateCcw, Timer } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { CircleProgress } from './components/ui/circle-progress';
 import { CountdownNumber } from './components/ui/countdown-number';
 import SquishSwitch from './SquishSwitch';
+import { prepareAlarm, soundAlarm } from './focusAlarm';
 import './FocusClock.css';
 
 type Mode = 'timer' | 'stopwatch';
@@ -56,9 +57,12 @@ const parseDuration = (fields: DurationFields) => {
   return (values[0] * 3600 + values[1] * 60 + values[2]) * 1000;
 };
 
+// A clock left running overnight is paused rather than counting the hours away.
+const staleAfter = 12 * 3600_000;
+
 function readClock(): ClockState {
   try {
-    const value = JSON.parse(sessionStorage.getItem(storageKey) || 'null');
+    const value = JSON.parse(localStorage.getItem(storageKey) || 'null');
     if (
       !value ||
       !['timer', 'stopwatch'].includes(value.mode) ||
@@ -75,6 +79,8 @@ function readClock(): ClockState {
       return { ...initialState };
     if (value.deadline !== null && value.deadline <= Date.now())
       return { ...value, remaining: 0, deadline: null, finished: true };
+    if (value.startedAt !== null && Date.now() - value.startedAt > staleAfter)
+      return { ...value, startedAt: null };
     return value;
   } catch {
     return { ...initialState };
@@ -85,6 +91,7 @@ export default function FocusClock({ visible }: { visible: boolean }) {
   const [state, setState] = useState(readClock);
   const [fields, setFields] = useState(() => toFields(Math.ceil(state.remaining / 1000) * 1000));
   const [now, setNow] = useState(Date.now);
+  const announced = useRef<number | null>(null);
   const timer = state.mode === 'timer';
   const running = timer ? state.deadline !== null : state.startedAt !== null;
   const duration = parseDuration(fields);
@@ -93,7 +100,7 @@ export default function FocusClock({ visible }: { visible: boolean }) {
 
   useEffect(() => {
     try {
-      sessionStorage.setItem(storageKey, JSON.stringify(state));
+      localStorage.setItem(storageKey, JSON.stringify(state));
     } catch {
       /* Keep working without browser storage. */
     }
@@ -103,6 +110,11 @@ export default function FocusClock({ visible }: { visible: boolean }) {
     const tick = () => {
       const time = Date.now();
       if (state.deadline !== null && time >= state.deadline) {
+        // Announce once per deadline, even while this card is out of sight.
+        if (announced.current !== state.deadline) {
+          announced.current = state.deadline;
+          soundAlarm('설정한 시간이 끝났어요.');
+        }
         setFields(toFields(0));
         setState((current) =>
           current.deadline === state.deadline
@@ -164,6 +176,8 @@ export default function FocusClock({ visible }: { visible: boolean }) {
   const toggleRunning = () => {
     const time = Date.now();
     setNow(time);
+    // Sound and notice permission are only granted from a press like this one.
+    if (!running) prepareAlarm();
     if (timer && state.deadline !== null)
       setFields(toFields(Math.ceil(remainingAt(state, time) / 1000) * 1000));
     setState((current) => {
@@ -212,7 +226,9 @@ export default function FocusClock({ visible }: { visible: boolean }) {
 
   return (
     <section className="focus-clock-card" aria-label="타이머와 스톱워치">
-      <span className="focus-clock-label">FOCUS / TIME</span>
+      <span className="focus-clock-label" lang="en">
+        FOCUS / TIME
+      </span>
       <div className="focus-clock-face" data-mode={state.mode}>
         <CircleProgress
           className="focus-clock-ring"
