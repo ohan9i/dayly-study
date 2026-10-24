@@ -1,8 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
-import '@fontsource/caveat/500.css';
 import App from './App';
+import './fonts.css';
 import './tailwind.css';
 import './styles.css';
 import './studio.css';

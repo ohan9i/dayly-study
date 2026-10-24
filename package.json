@@ -8,8 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run",
-    "test:e2e": "playwright test",
-    "optimize:assets": "node scripts/optimize-assets.mjs"
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@fontsource/caveat": "^5.3.0",

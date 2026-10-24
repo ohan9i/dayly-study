@@ -3,9 +3,8 @@
 - 기준 이미지: 프로젝트 루트의 `차분한 하루 플래너 대시보드.png`
 - 생성 도구: 내장 `image_gen` 도구, 이미지 편집 방식
 - 최종 원본: `design/study-window.png`
-- 웹용 배경: `public/study-window.webp`
-- 웹용 파일은 Sharp로 WebP 인코딩만 했으며, 구도나 내용을 추가로 바꾸지 않았습니다.
-- 다시 압축하려면 `npm run optimize:assets`를 실행합니다.
+- **현재 화면에는 적용하지 않습니다.** 따뜻한 종이 톤의 studio 테마(`src/studio.css`)가 `.scenery`를 단색으로 칠하면서 사진 배경과 반투명 블러가 모두 꺼졌습니다. 배포에서 쓰이지 않던 `public/study-window.webp`와 인코딩 스크립트는 삭제했습니다.
+- 창가 배경을 되살리려면 원본을 다시 WebP로 인코딩해 `public/`에 넣고, `.scenery`의 배경을 studio 테마에서 덮지 않도록 조정하면 됩니다.
 
 ## 아이콘과 세부 UI 참고
 

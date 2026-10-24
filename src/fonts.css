@@ -1,0 +1,14 @@
+/*
+ * Caveat sets the Dayly wordmark and nothing else. Declaring the one face this
+ * page actually uses keeps the Cyrillic subsets and the WOFF fallbacks — which
+ * no supported browser needs — out of the build.
+ */
+@font-face {
+  font-family: 'Caveat';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('@fontsource/caveat/files/caveat-latin-500-normal.woff2') format('woff2');
+  /* Only the wordmark's letters are ever drawn with it. */
+  unicode-range: U+0000-00FF;
+}
