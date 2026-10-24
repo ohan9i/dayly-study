@@ -527,21 +527,19 @@ svg {
   padding: 0;
   margin: 0;
 }
+/* The separator belongs to the list item, so the row carries nothing but its
+   rounded hover fill. Both used to draw a bottom border, which doubled the
+   hairline and left the rounded corners cut by a straight line. */
 .task-row {
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 54px;
-  border-bottom: 1px solid var(--line);
-  border-radius: 0;
-  transition: background var(--dur-3) var(--ease);
+  border-radius: var(--radius-sm);
+  transition: background-color var(--dur-3) var(--ease);
 }
-.task-row:last-child {
-  border-bottom-color: transparent;
-}
-.task-row.is-complete {
-  background: linear-gradient(90deg, var(--surface-soft), transparent 70%);
-}
+/* A finished plan is already said by the strike, the faded label and the
+   muted details. A second background colour here only fought the hover. */
 .task-checkbox {
   position: relative;
   width: 44px;
@@ -2237,7 +2235,7 @@ svg {
     transform: translateY(-1px);
   }
   .task-row:hover {
-    background: var(--surface-hover);
+    background-color: var(--row-hover);
   }
   .task-checkbox:not(:disabled):hover::before {
     border-color: var(--sky-500);

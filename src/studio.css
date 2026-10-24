@@ -329,6 +329,8 @@ html[data-interaction='keyboard'] .squish-switch__thumb {
   --surface-focus: #ffffff;
   --surface-soft: #eee9e1;
   --surface-hover: #e7e0d6;
+  /* Rows are large; they need a lighter touch than a button-sized target. */
+  --row-hover: #f2eee4;
   --surface-selected: #e8e0d4;
   --surface-toolbar: #f7f4ee;
   --surface-solid: #faf8f2;
@@ -372,6 +374,7 @@ html[data-interaction='keyboard'] .squish-switch__thumb {
   --surface-focus: #3d3933;
   --surface-soft: #38342e;
   --surface-hover: #454036;
+  --row-hover: #353229;
   --surface-selected: #4a4237;
   --surface-toolbar: #302d28;
   --surface-solid: #2d2b27;

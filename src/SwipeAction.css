@@ -9,10 +9,16 @@
   outline: 2px solid var(--control-border);
   outline-offset: 2px;
 }
+/* Transparent at rest so the row's own hover reads as one surface; an opaque
+   panel here cut every row into boxes. It turns solid only once a gesture
+   starts, which is the only time there is a rail underneath to cover. */
 .swipe-action__content {
   position: relative;
-  background: var(--surface-solid);
+  background: transparent;
   touch-action: pan-y;
+}
+.swipe-action:not([data-phase='idle']) > .swipe-action__content {
+  background: var(--surface-solid);
 }
 .swipe-action__rail {
   position: absolute;

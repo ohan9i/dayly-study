@@ -48,13 +48,13 @@
     background-color: transparent;
   }
   50% {
-    background-color: var(--ui-hover);
+    background-color: var(--row-hover);
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .task-row[data-pending] {
     animation: none;
-    background-color: var(--ui-hover);
+    background-color: var(--row-hover);
   }
 }
 .detail-row-main {
