@@ -323,7 +323,11 @@ html[data-interaction='keyboard'] .squish-switch__thumb {
   --glass-bg: var(--planner-paper);
   --glass-border: #dfd9cf;
   --glass-blur: 0px;
-  --shadow-soft: 0 5px 18px -12px #303a4938;
+  /* Two tiers: a tight contact edge that seats the card on the desk, and a
+     wide ambient pool. The old single -12px spread was all but invisible, so
+     a paper card floated on a paper ground with only a hairline between. */
+  --shadow-soft: 0 1px 2px -1px #2b2a271f, 0 10px 28px -18px #2b2a2740;
+  --paper-grain: #2b2a2706;
   --surface-input: #fffdf8;
   --surface-disabled: #ebe6de;
   --surface-focus: #ffffff;
@@ -368,7 +372,8 @@ html[data-interaction='keyboard'] .squish-switch__thumb {
   --line: #4b463f;
   --glass-bg: #2d2b27;
   --glass-border: #48433b;
-  --shadow-soft: 0 5px 18px -12px #0008;
+  --shadow-soft: 0 1px 2px -1px #00000052, 0 10px 28px -18px #0000008a;
+  --paper-grain: #ffffff07;
   --surface-input: #262420;
   --surface-disabled: #34312c;
   --surface-focus: #3d3933;
@@ -544,12 +549,14 @@ html[data-interaction='pointer'] .page-heading h1:focus {
   display: grid;
   margin: 26px 0 0;
 }
-/* View-transition pseudo-elements sit outside the normal tree; keep literal
-   fallbacks so an unresolved token can never silently drop the fade. */
-::view-transition-old(root) {
+/* Scoped to the themed crossfade on purpose: unscoped, this would attach a
+   half-second fade to every future view transition. View-transition pseudo-
+   elements sit outside the normal tree, so keep literal fallbacks too -- an
+   unresolved token would silently drop the fade instead of failing loudly. */
+html[data-vt='theme']::view-transition-old(root) {
   animation: theme-out var(--dur-4, 480ms) var(--ease, ease) both;
 }
-::view-transition-new(root) {
+html[data-vt='theme']::view-transition-new(root) {
   animation: theme-in var(--dur-4, 480ms) var(--ease, ease) both;
 }
 @keyframes theme-out {

@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   lazy,
   Suspense,
@@ -203,6 +204,35 @@ function LiveClock() {
   );
 }
 
+/** Entry and exit for the plan list. A reader who asked for less motion gets
+ *  the same list with every value flattened rather than a second code path,
+ *  so the markup and the ordering never diverge between the two.
+ *
+ *  Deliberately no `layout` prop: motion animates a size change by scaling the
+ *  element, and on a wrapped Korean title that squashes the glyphs for the
+ *  length of the animation. Plans below a deleted one settle without a tween
+ *  rather than passing through distorted text. */
+function useListMotion() {
+  const reduce = useReducedMotion();
+  return useMemo(() => {
+    if (reduce)
+      return {
+        initial: false as const,
+        exit: { opacity: 0 },
+        spring: { duration: 0 },
+        delay: () => 0,
+      };
+    return {
+      initial: { opacity: 0, y: -6 },
+      exit: { opacity: 0, scale: 0.97 },
+      spring: { type: 'spring' as const, visualDuration: 0.26, bounce: 0.18 },
+      // Six steps is enough to read as unfolding; beyond that a long day
+      // would just feel slow to arrive.
+      delay: (index: number) => Math.min(index, 6) * 0.032,
+    };
+  }, [reduce]);
+}
+
 /** Holds a cleared message through its exit transition, so status surfaces
  *  fade out with their text instead of emptying first. */
 function useLingering(value: string, linger = 240) {
@@ -229,6 +259,7 @@ export default function App() {
   const [taskDetailDirty, setTaskDetailDirty] = useState(false);
   const [actionError, setActionError] = useState('');
   const [pending, setPending] = useState<Set<string>>(() => new Set());
+  const listMotion = useListMotion();
   const retryAction = useRef<(() => Promise<unknown>) | null>(null);
   const closePlanMenus = () => window.dispatchEvent(new Event('dayly:cancel-actions'));
   const livePlanner = useRef(planner);
@@ -529,179 +560,194 @@ export default function App() {
       </div>
       {tasks.length ? (
         <ul className="task-list">
-          {tasks.map((task) => (
-            <li key={task.id} className="task-swipe-item">
-              <div
-                data-task-id={task.id}
-                data-pending={pending.has(task.id) || undefined}
-                className={`task-row ${completed.has(task.id) ? 'is-complete' : ''}`}
+          {/* popLayout takes a leaving plan out of flow so it fades in place
+              rather than holding its row open while the list waits for it. */}
+          <AnimatePresence initial={false} mode="popLayout">
+            {tasks.map((task, index) => (
+              <motion.li
+                key={task.id}
+                className="task-swipe-item"
+                initial={listMotion.initial}
+                animate={{
+                  opacity: 1,
+                  y: 0,
+                  transition: { ...listMotion.spring, delay: listMotion.delay(index) },
+                }}
+                exit={listMotion.exit}
+                transition={listMotion.spring}
               >
-                <SpringCheck
-                  className="task-checkbox"
-                  checked={completed.has(task.id)}
-                  ariaLabel={`${task.title} 완료`}
-                  color="var(--text)"
-                  boxSize={22}
-                  boxRadius={5}
-                  doneOpacity={0.72}
-                  labelSelector=".task-title .spring-check__label"
-                  disabled={!canWrite || busy}
-                  onChange={() => void act(() => planner.toggleTask(task.id), undefined, task.id)}
-                />
-                <div className="task-copy">
-                  <SwipeAction
-                    title={task.title}
-                    scope={swipeScope}
-                    disabled={!canWrite || busy || loading}
-                    contentClassName="task-heading"
-                    onAdd={() => setModal({ kind: 'task' })}
-                    onDelete={() =>
-                      act(
-                        () => livePlanner.current.deleteTask(task.id),
-                        '계획을 휴지통으로 옮겼어요.',
-                        task.id,
-                      )
-                    }
-                  >
-                    <button
-                      className="task-title"
-                      aria-label={`${task.title} 상세 보기`}
-                      onClick={() => setModal({ kind: 'task', item: task })}
-                    >
-                      <SpringCheckLabel checked={completed.has(task.id)}>
-                        {task.title}
-                      </SpringCheckLabel>
-                    </button>
-                    {(data.attachments || []).filter(
-                      (file) => file.task_id === task.id && file.state === 'ready',
-                    ).length > 0 && (
-                      <span
-                        className="task-file-count"
-                        aria-label={`첨부 파일 ${(data.attachments || []).filter((file) => file.task_id === task.id && file.state === 'ready').length}개`}
-                      >
-                        <Paperclip size={13} />
-                        {
-                          (data.attachments || []).filter(
-                            (file) => file.task_id === task.id && file.state === 'ready',
-                          ).length
-                        }
-                      </span>
-                    )}
-                    <PlanActions
+                <div
+                  data-task-id={task.id}
+                  data-pending={pending.has(task.id) || undefined}
+                  className={`task-row ${completed.has(task.id) ? 'is-complete' : ''}`}
+                >
+                  <SpringCheck
+                    className="task-checkbox"
+                    checked={completed.has(task.id)}
+                    ariaLabel={`${task.title} 완료`}
+                    color="var(--text)"
+                    boxSize={22}
+                    boxRadius={5}
+                    doneOpacity={0.72}
+                    labelSelector=".task-title .spring-check__label"
+                    disabled={!canWrite || busy}
+                    onChange={() => void act(() => planner.toggleTask(task.id), undefined, task.id)}
+                  />
+                  <div className="task-copy">
+                    <SwipeAction
                       title={task.title}
+                      scope={swipeScope}
                       disabled={!canWrite || busy || loading}
-                      onAction={(initialAction) =>
-                        setModal({ kind: 'task', item: task, initialAction })
+                      contentClassName="task-heading"
+                      onAdd={() => setModal({ kind: 'task' })}
+                      onDelete={() =>
+                        act(
+                          () => livePlanner.current.deleteTask(task.id),
+                          '계획을 휴지통으로 옮겼어요.',
+                          task.id,
+                        )
                       }
-                      onDelete={() => requestDelete(task)}
-                    />
-                  </SwipeAction>
-                  {task.details.length > 0 && (
-                    <ul className="task-details" aria-label={`${task.title} 세부 항목`}>
-                      {task.details.map((detail, index) => {
-                        const detailId =
-                          task.detailChecks?.[index]?.id || `${task.id}-detail-${index}`;
-                        const recordKey = `${task.id}:${detailId}`;
-                        const expanded = openRecords.has(recordKey);
-                        const recordCount = (data.taskNotes || []).filter(
-                          (note) =>
-                            note.task_id === task.id &&
-                            readDetailNote(note.body).detailId === detailId,
-                        ).length;
-                        return (
-                          <li
-                            key={detailId}
-                            className={`${task.detailChecks?.[index]?.completed ? 'detail-is-complete' : ''} ${expanded ? 'detail-is-expanded' : ''}`}
-                          >
-                            <SwipeAction
-                              title={`${task.title} 세부 항목 ${index + 1}`}
-                              scope={swipeScope}
-                              disabled={!canWrite || !canManageTask(task) || busy || loading}
-                              contentClassName="detail-row-main"
-                              onAdd={() =>
-                                setModal({
-                                  kind: 'task',
-                                  item: task,
-                                  addDetailAfter: detailId,
-                                  initialAction: 'edit',
-                                })
-                              }
-                              onDelete={() =>
-                                act(
-                                  () => deleteDetail(task.id, detailId),
-                                  '세부 항목을 삭제했어요.',
-                                  task.id,
-                                )
-                              }
+                    >
+                      <button
+                        className="task-title"
+                        aria-label={`${task.title} 상세 보기`}
+                        onClick={() => setModal({ kind: 'task', item: task })}
+                      >
+                        <SpringCheckLabel checked={completed.has(task.id)}>
+                          {task.title}
+                        </SpringCheckLabel>
+                      </button>
+                      {(data.attachments || []).filter(
+                        (file) => file.task_id === task.id && file.state === 'ready',
+                      ).length > 0 && (
+                        <span
+                          className="task-file-count"
+                          aria-label={`첨부 파일 ${(data.attachments || []).filter((file) => file.task_id === task.id && file.state === 'ready').length}개`}
+                        >
+                          <Paperclip size={13} />
+                          {
+                            (data.attachments || []).filter(
+                              (file) => file.task_id === task.id && file.state === 'ready',
+                            ).length
+                          }
+                        </span>
+                      )}
+                      <PlanActions
+                        title={task.title}
+                        disabled={!canWrite || busy || loading}
+                        onAction={(initialAction) =>
+                          setModal({ kind: 'task', item: task, initialAction })
+                        }
+                        onDelete={() => requestDelete(task)}
+                      />
+                    </SwipeAction>
+                    {task.details.length > 0 && (
+                      <ul className="task-details" aria-label={`${task.title} 세부 항목`}>
+                        {task.details.map((detail, index) => {
+                          const detailId =
+                            task.detailChecks?.[index]?.id || `${task.id}-detail-${index}`;
+                          const recordKey = `${task.id}:${detailId}`;
+                          const expanded = openRecords.has(recordKey);
+                          const recordCount = (data.taskNotes || []).filter(
+                            (note) =>
+                              note.task_id === task.id &&
+                              readDetailNote(note.body).detailId === detailId,
+                          ).length;
+                          return (
+                            <li
+                              key={detailId}
+                              className={`${task.detailChecks?.[index]?.completed ? 'detail-is-complete' : ''} ${expanded ? 'detail-is-expanded' : ''}`}
                             >
-                              <SpringCheck
-                                className="detail-checkbox"
-                                ariaLabel={`${task.title} 세부 항목 ${index + 1} 완료`}
-                                checked={Boolean(task.detailChecks?.[index]?.completed)}
-                                color="var(--text)"
-                                boxSize={20}
-                                boxRadius={5}
-                                doneOpacity={0.72}
-                                labelSelector=".detail-row-title .spring-check__label"
-                                disabled={!canWrite || busy}
-                                onChange={() =>
-                                  void act(
-                                    () => planner.toggleDetail(task.id, detailId),
-                                    undefined,
+                              <SwipeAction
+                                title={`${task.title} 세부 항목 ${index + 1}`}
+                                scope={swipeScope}
+                                disabled={!canWrite || !canManageTask(task) || busy || loading}
+                                contentClassName="detail-row-main"
+                                onAdd={() =>
+                                  setModal({
+                                    kind: 'task',
+                                    item: task,
+                                    addDetailAfter: detailId,
+                                    initialAction: 'edit',
+                                  })
+                                }
+                                onDelete={() =>
+                                  act(
+                                    () => deleteDetail(task.id, detailId),
+                                    '세부 항목을 삭제했어요.',
                                     task.id,
                                   )
                                 }
-                              />
-                              <span className="detail-row-title">
-                                <SpringCheckLabel
-                                  checked={Boolean(task.detailChecks?.[index]?.completed)}
-                                >
-                                  {detail}
-                                </SpringCheckLabel>
-                              </span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="detail-record-toggle"
-                                aria-label={`${detail} 기록 ${expanded ? '접기' : '열기'}`}
-                                aria-expanded={expanded}
-                                onClick={() =>
-                                  setOpenRecords((current) => {
-                                    const next = new Set(current);
-                                    if (next.has(recordKey)) next.delete(recordKey);
-                                    else next.add(recordKey);
-                                    return next;
-                                  })
-                                }
                               >
-                                기록 <span className="record-count">{recordCount}</span>
-                                <ChevronRight size={14} />
-                              </Button>
-                            </SwipeAction>
-                            {expanded && (
-                              <DetailRecord
-                                task={task}
-                                detailId={detailId}
-                                planner={planner}
-                                onLogin={() => setModal({ kind: 'account' })}
-                                onConfirmDiscard={confirmDiscard}
-                              />
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                  {task.details.length > 0 && (
-                    <TaskProgress
-                      progress={taskProgress(task, completed)}
-                      label={`${task.title} 진행률`}
-                    />
-                  )}
+                                <SpringCheck
+                                  className="detail-checkbox"
+                                  ariaLabel={`${task.title} 세부 항목 ${index + 1} 완료`}
+                                  checked={Boolean(task.detailChecks?.[index]?.completed)}
+                                  color="var(--text)"
+                                  boxSize={20}
+                                  boxRadius={5}
+                                  doneOpacity={0.72}
+                                  labelSelector=".detail-row-title .spring-check__label"
+                                  disabled={!canWrite || busy}
+                                  onChange={() =>
+                                    void act(
+                                      () => planner.toggleDetail(task.id, detailId),
+                                      undefined,
+                                      task.id,
+                                    )
+                                  }
+                                />
+                                <span className="detail-row-title">
+                                  <SpringCheckLabel
+                                    checked={Boolean(task.detailChecks?.[index]?.completed)}
+                                  >
+                                    {detail}
+                                  </SpringCheckLabel>
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="detail-record-toggle"
+                                  aria-label={`${detail} 기록 ${expanded ? '접기' : '열기'}`}
+                                  aria-expanded={expanded}
+                                  onClick={() =>
+                                    setOpenRecords((current) => {
+                                      const next = new Set(current);
+                                      if (next.has(recordKey)) next.delete(recordKey);
+                                      else next.add(recordKey);
+                                      return next;
+                                    })
+                                  }
+                                >
+                                  기록 <span className="record-count">{recordCount}</span>
+                                  <ChevronRight size={14} />
+                                </Button>
+                              </SwipeAction>
+                              {expanded && (
+                                <DetailRecord
+                                  task={task}
+                                  detailId={detailId}
+                                  planner={planner}
+                                  onLogin={() => setModal({ kind: 'account' })}
+                                  onConfirmDiscard={confirmDiscard}
+                                />
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                    {task.details.length > 0 && (
+                      <TaskProgress
+                        progress={taskProgress(task, completed)}
+                        label={`${task.title} 진행률`}
+                      />
+                    )}
+                  </div>
                 </div>
-              </div>
-            </li>
-          ))}
+              </motion.li>
+            ))}
+          </AnimatePresence>
         </ul>
       ) : (
         <Empty

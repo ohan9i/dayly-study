@@ -72,8 +72,11 @@ textarea,
 select {
   -webkit-tap-highlight-color: transparent;
 }
+/* Without this reset a button that never names a background falls back to the
+   UA's buttonface, which the dark colour-scheme paints as a grey slab. */
 button {
   border: 0;
+  background: none;
   color: inherit;
   cursor: pointer;
 }
@@ -434,9 +437,16 @@ svg {
   padding-right: 10px;
 }
 
-/* Translucent paper, with one calm highlight along the upper edge. */
+/* Translucent paper, with one calm highlight along the upper edge. The ruled
+   grain is a half-pixel repeat, the same trick the book cover uses, so the
+   surface reads as paper without a shadow, gradient or glow being added. */
 .glass-card {
-  background: var(--glass-bg);
+  background-color: var(--glass-bg);
+  background-image: repeating-linear-gradient(
+    0deg,
+    var(--paper-grain) 0 0.5px,
+    transparent 0.5px 3px
+  );
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-soft);

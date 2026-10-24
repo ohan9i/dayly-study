@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Moon, Sun } from 'lucide-react';
 import SquishSwitch from './SquishSwitch';
+import { withViewTransition } from './viewTransition';
 
 export type Atmosphere = 'morning' | 'night';
 const storageKey = 'dayly.atmosphere';
@@ -86,7 +87,9 @@ export function useAtmosphere() {
     } catch {
       // The theme still works when browser storage is unavailable.
     }
-    setAtmosphere(next);
+    // Forty-odd colour tokens swap at once; crossfading the snapshot turns a
+    // hard cut into the room's light changing.
+    withViewTransition('theme', () => setAtmosphere(next));
   };
   return [atmosphere, changeAtmosphere] as const;
 }
