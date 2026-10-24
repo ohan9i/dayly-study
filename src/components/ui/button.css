@@ -19,10 +19,10 @@
   letter-spacing: -0.01em;
   white-space: nowrap;
   transition:
-    background-color 110ms ease,
-    border-color 110ms ease,
-    color 110ms ease;
-  transform: none;
+    background-color var(--dur-1) var(--ease),
+    border-color var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
 }
 .ui-button[data-variant='secondary'] {
   color: var(--text);
@@ -67,7 +67,7 @@
   flex-shrink: 0;
 }
 .ui-button:focus-visible {
-  outline: 2px solid var(--control-border);
+  outline: 2px solid var(--sky-500);
   outline-offset: 3px;
   box-shadow: none;
 }
@@ -78,7 +78,6 @@
 @media (hover: hover) {
   .ui-button:not(:disabled):hover {
     background: var(--accent-hover);
-    transform: none;
   }
   .ui-button:is([data-variant='outline'], [data-variant='secondary'], [data-variant='ghost']):not(
       :disabled
@@ -116,4 +115,5 @@
 
 .ui-button:not(:disabled):active {
   filter: brightness(0.94);
+  transform: scale(0.97);
 }

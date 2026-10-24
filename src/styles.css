@@ -35,8 +35,16 @@
   --type-hero: clamp(28px, 2.35vw, 34px);
   --sidebar-width: 96px;
   --content-width: 1120px;
+  /* One rhythm for the whole planner. Four steps cover every transition here:
+     dur-1 presses, dur-2 state changes, dur-3 entrances, dur-4 whole-screen work. */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --duration: 220ms;
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 320ms;
+  --dur-4: 480ms;
+  --dur-celebrate: 800ms;
+  --duration: var(--dur-2);
   --surface-danger: rgba(255, 240, 237, 0.94);
   --surface-danger-hover: #eedbd8;
   --highlight-line: rgba(255, 255, 255, 0.5);
@@ -226,7 +234,7 @@ svg {
   background: var(--surface-selected);
   box-shadow: inset 0 1px 0 var(--surface-soft);
   transform: translateY(calc(var(--nav-index) * 82px));
-  transition: transform 320ms var(--ease);
+  transition: transform var(--dur-3) var(--ease);
   pointer-events: none;
 }
 .nav-button {
@@ -346,7 +354,7 @@ svg {
 }
 .home-layout,
 .wide-page {
-  animation: page-enter 260ms var(--ease);
+  animation: page-enter var(--dur-3) var(--ease);
 }
 .page-heading {
   margin-bottom: 28px;
@@ -475,7 +483,7 @@ svg {
   display: inline-block;
   font-weight: 550;
   color: var(--sky-600);
-  animation: number-enter 350ms var(--ease);
+  animation: number-enter var(--dur-3) var(--ease);
 }
 .progress-track {
   width: 88px;
@@ -486,10 +494,12 @@ svg {
 }
 .progress-track i {
   display: block;
+  width: 100%;
   height: 100%;
   background: var(--accent-solid);
   border-radius: inherit;
-  transition: width 420ms var(--ease);
+  transform-origin: left;
+  transition: transform var(--dur-3) var(--ease);
 }
 .add-button {
   width: 44px;
@@ -524,7 +534,7 @@ svg {
   min-height: 54px;
   border-bottom: 1px solid var(--line);
   border-radius: 0;
-  transition: background 300ms var(--ease);
+  transition: background var(--dur-3) var(--ease);
 }
 .task-row:last-child {
   border-bottom-color: transparent;
@@ -554,9 +564,9 @@ svg {
   border-radius: 5px;
   background: var(--surface-soft);
   transition:
-    border-color 300ms var(--ease),
-    background 300ms var(--ease),
-    box-shadow 300ms var(--ease);
+    border-color var(--dur-3) var(--ease),
+    background var(--dur-3) var(--ease),
+    box-shadow var(--dur-3) var(--ease);
 }
 .task-checkbox svg {
   position: relative;
@@ -564,7 +574,7 @@ svg {
   width: 15px;
   height: 15px;
   stroke-width: 2;
-  animation: check-enter 220ms var(--ease);
+  animation: check-enter var(--dur-2) var(--ease);
 }
 .task-checkbox:disabled {
   opacity: 0.8;
@@ -775,10 +785,12 @@ svg {
 }
 .detail-progress-track i {
   display: block;
+  width: 100%;
   height: 100%;
   border-radius: inherit;
   background: var(--accent-solid);
-  transition: width var(--duration) var(--ease);
+  transform-origin: left;
+  transition: transform var(--duration) var(--ease);
 }
 .day-progress-ring {
   width: 44px;
@@ -846,8 +858,8 @@ svg {
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
   transition:
-    color 320ms var(--ease),
-    text-decoration-color 320ms var(--ease);
+    color var(--dur-3) var(--ease),
+    text-decoration-color var(--dur-3) var(--ease);
 }
 .is-complete .task-title {
   color: var(--text-muted);
@@ -1649,13 +1661,13 @@ svg {
 }
 .modal[open],
 .file-preview[open] {
-  animation: dialog-enter 240ms var(--ease) both;
+  animation: dialog-enter var(--dur-3) var(--ease) both;
 }
 .modal::backdrop,
 .file-preview::backdrop {
   background: var(--backdrop);
   backdrop-filter: blur(7px);
-  animation: backdrop-enter 220ms var(--ease) both;
+  animation: backdrop-enter var(--dur-2) var(--ease) both;
 }
 .modal-inner {
   position: relative;
@@ -3065,7 +3077,7 @@ svg {
 }
 .sidebar nav::before {
   box-shadow: inset 0 1px 0 var(--highlight-line);
-  transition-duration: 220ms;
+  transition-duration: var(--dur-2);
 }
 .glass-card {
   box-shadow: var(--shadow-soft);
@@ -3075,7 +3087,7 @@ svg {
 }
 .home-layout,
 .wide-page {
-  animation-duration: 180ms;
+  animation-duration: var(--dur-2);
 }
 .moment-label {
   display: block;
@@ -3123,7 +3135,7 @@ svg {
 }
 .completion-sparkles i {
   font-style: normal;
-  animation: complete-spark 800ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  animation: complete-spark var(--dur-celebrate) var(--ease) both;
 }
 .completion-sparkles i:nth-child(2) {
   animation-delay: 60ms;
@@ -3172,17 +3184,15 @@ svg {
     background: var(--surface-solid);
   }
 }
-/* Keyboard actions and reduced-motion preferences have immediate feedback. */
-html[data-interaction='keyboard'] *,
-html[data-interaction='keyboard'] *::before,
-html[data-interaction='keyboard'] *::after {
+/* Keyboard navigation gets immediate feedback on the focused control only —
+   this used to disable every animation and transition app-wide on any keypress. */
+html[data-interaction='keyboard'] :focus-visible,
+html[data-interaction='keyboard'] :focus-visible::before,
+html[data-interaction='keyboard'] :focus-visible::after {
   animation: none !important;
   transition: none !important;
 }
-html[data-interaction='keyboard'] .completion-sparkles {
-  display: none;
-}
-@media (prefers-reduced-motion: reduce), (pointer: coarse) {
+@media (prefers-reduced-motion: reduce) {
   .completion-sparkles {
     display: none;
   }

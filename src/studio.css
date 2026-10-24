@@ -12,8 +12,22 @@
   background: var(--surface-solid);
   box-shadow: var(--shadow-soft);
   pointer-events: none;
-  animation: none;
-  transition: none;
+  animation: status-enter var(--dur-3) var(--ease) both;
+}
+@keyframes status-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading-note {
+    animation: none;
+  }
 }
 @media (max-width: 700px) {
   .loading-note {
@@ -36,7 +50,7 @@
   inset: 0;
 }
 .atmosphere-switch .squish-switch:focus-visible {
-  outline: 2px solid var(--accent-solid);
+  outline: 2px solid var(--sky-500);
   outline-offset: 3px;
   border-radius: 22px;
 }
@@ -389,10 +403,10 @@ body,
   grid-template-columns: minmax(0, 760px) 248px;
   gap: clamp(32px, 4vw, 64px);
   max-width: 1100px;
-  animation: page-enter 240ms var(--ease);
+  animation: page-enter var(--dur-3) var(--ease);
 }
 .wide-page {
-  animation: page-enter 240ms var(--ease);
+  animation: page-enter var(--dur-3) var(--ease);
 }
 .view-home h1 {
   font-size: clamp(26px, 2.3vw, 32px);
@@ -527,11 +541,13 @@ html[data-interaction='pointer'] .page-heading h1:focus {
   display: grid;
   margin: 26px 0 0;
 }
+/* View-transition pseudo-elements sit outside the normal tree; keep literal
+   fallbacks so an unresolved token can never silently drop the fade. */
 ::view-transition-old(root) {
-  animation: theme-out 480ms ease both;
+  animation: theme-out var(--dur-4, 480ms) var(--ease, ease) both;
 }
 ::view-transition-new(root) {
-  animation: theme-in 480ms ease both;
+  animation: theme-in var(--dur-4, 480ms) var(--ease, ease) both;
 }
 @keyframes theme-out {
   to {

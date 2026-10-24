@@ -116,9 +116,11 @@ test('signed-in drafts, restored side clock and theme survive scrolling and menu
   await expect(page.locator('.detail-record-form textarea')).toHaveValue('작성 중인 풀이 과정');
   await expect(page.locator('.welcome-runway')).toBeHidden();
   await page.getByRole('button', { name: '달력', exact: true }).click();
+  // Screen changes carry the shared page-enter motion; the opening runway must
+  // stay gone regardless. Reduced motion is covered by its own test below.
   expect(
     await page.locator('.wide-page').evaluate((el) => getComputedStyle(el).animationName),
-  ).toBe('none');
+  ).toBe('page-enter');
   await page.getByRole('button', { name: '나의 하루', exact: true }).click();
   await expect(page.locator('.planner-moment .atmosphere-picker')).toBeVisible();
   await expect(page.locator('blockquote')).toHaveCount(0);
@@ -140,6 +142,37 @@ test('reduced motion and preference changes enter without trapping the app', asy
   await expect(page.locator('.entry-flow')).toHaveAttribute('data-phase', 'opening');
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await expect(page.locator('.welcome-runway')).toBeHidden();
+});
+
+test('restored screen motion still turns off under reduced motion', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await mockCloud(page);
+  await page.goto('/#planner');
+  await page.getByRole('button', { name: '달력', exact: true }).click();
+  expect(
+    await page.locator('.wide-page').evaluate((el) => getComputedStyle(el).animationName),
+  ).toBe('none');
+});
+
+test('typing never flags keyboard mode, and the flag only flattens the focused control', async ({
+  page,
+}) => {
+  await mockCloud(page);
+  await page.goto('/#planner');
+  await signIn(page);
+  const duration = () =>
+    page.locator('.add-button').evaluate((el) => getComputedStyle(el).transitionDuration);
+
+  await page.getByRole('button', { name: '할 일 추가', exact: true }).click();
+  await page.getByLabel('할 일', { exact: true }).fill('타이핑해도 움직임은 유지된다');
+  await expect(page.locator('html')).not.toHaveAttribute('data-interaction', 'keyboard');
+
+  // Tab is real navigation and does flag keyboard mode, but an unfocused
+  // control elsewhere must keep its transition.
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Tab');
+  await expect(page.locator('html')).toHaveAttribute('data-interaction', 'keyboard');
+  expect(await duration()).not.toBe('0s');
 });
 
 for (const width of [320, 390]) {

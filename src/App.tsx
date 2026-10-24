@@ -203,6 +203,21 @@ function LiveClock() {
   );
 }
 
+/** Holds a cleared message through its exit transition, so status surfaces
+ *  fade out with their text instead of emptying first. */
+function useLingering(value: string, linger = 240) {
+  const [shown, setShown] = useState(value);
+  useEffect(() => {
+    if (value) {
+      setShown(value);
+      return undefined;
+    }
+    const timer = window.setTimeout(() => setShown(''), linger);
+    return () => window.clearTimeout(timer);
+  }, [value, linger]);
+  return shown;
+}
+
 export default function App() {
   useDraftUnloadGuard();
   const [atmosphere, setAtmosphere] = useAtmosphere();
@@ -213,6 +228,7 @@ export default function App() {
   const [date, setDate] = useState(() => readEntryNavigation().date || todayKey());
   const [taskDetailDirty, setTaskDetailDirty] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [pending, setPending] = useState<Set<string>>(() => new Set());
   const retryAction = useRef<(() => Promise<unknown>) | null>(null);
   const closePlanMenus = () => window.dispatchEvent(new Event('dayly:cancel-actions'));
   const livePlanner = useRef(planner);
@@ -244,6 +260,7 @@ export default function App() {
   // Toasts queue instead of overwriting, so a burst of checks stays readable.
   const [toasts, setToasts] = useState<string[]>([]);
   const toast = toasts[0] || '';
+  const shownToast = useLingering(toast);
   const setToast = useCallback(
     (message: string) =>
       setToasts((queue) => (queue[queue.length - 1] === message ? queue : [...queue, message])),
@@ -309,7 +326,10 @@ export default function App() {
     Boolean(planner.session && planner.workspace) &&
     !planner.passwordRecovery &&
     (!item || isOwner || item.created_by === planner.session?.user.id);
-  const act = async (action: () => Promise<unknown>, success?: string) => {
+  // `pendingKey` names the row the work belongs to, so waiting shows where it
+  // happens instead of only dimming every control at once.
+  const act = async (action: () => Promise<unknown>, success?: string, pendingKey?: string) => {
+    if (pendingKey) setPending((current) => new Set(current).add(pendingKey));
     try {
       await action();
       setActionError('');
@@ -318,6 +338,13 @@ export default function App() {
     } catch (e) {
       retryAction.current = action;
       setActionError((e as Error).message || '저장하지 못했습니다. 다시 시도해 주세요.');
+    } finally {
+      if (pendingKey)
+        setPending((current) => {
+          const next = new Set(current);
+          next.delete(pendingKey);
+          return next;
+        });
     }
   };
   const goDate = (next: string) => {
@@ -506,6 +533,7 @@ export default function App() {
             <li key={task.id} className="task-swipe-item">
               <div
                 data-task-id={task.id}
+                data-pending={pending.has(task.id) || undefined}
                 className={`task-row ${completed.has(task.id) ? 'is-complete' : ''}`}
               >
                 <SpringCheck
@@ -518,7 +546,7 @@ export default function App() {
                   doneOpacity={0.72}
                   labelSelector=".task-title .spring-check__label"
                   disabled={!canWrite || busy}
-                  onChange={() => void act(() => planner.toggleTask(task.id))}
+                  onChange={() => void act(() => planner.toggleTask(task.id), undefined, task.id)}
                 />
                 <div className="task-copy">
                   <SwipeAction
@@ -531,6 +559,7 @@ export default function App() {
                       act(
                         () => livePlanner.current.deleteTask(task.id),
                         '계획을 휴지통으로 옮겼어요.',
+                        task.id,
                       )
                     }
                   >
@@ -601,6 +630,7 @@ export default function App() {
                                 act(
                                   () => deleteDetail(task.id, detailId),
                                   '세부 항목을 삭제했어요.',
+                                  task.id,
                                 )
                               }
                             >
@@ -615,7 +645,11 @@ export default function App() {
                                 labelSelector=".detail-row-title .spring-check__label"
                                 disabled={!canWrite || busy}
                                 onChange={() =>
-                                  void act(() => planner.toggleDetail(task.id, detailId))
+                                  void act(
+                                    () => planner.toggleDetail(task.id, detailId),
+                                    undefined,
+                                    task.id,
+                                  )
                                 }
                               />
                               <span className="detail-row-title">
@@ -1223,10 +1257,10 @@ export default function App() {
         </div>
       )}
       <div className={`toast ${toast ? 'visible' : ''}`} role="status" aria-live="polite">
-        {toast && (
+        {shownToast && (
           <>
             <CircleCheck size={17} />
-            <span>{toast}</span>
+            <span>{shownToast}</span>
           </>
         )}
       </div>

@@ -28,27 +28,61 @@
   background: var(--ui-secondary);
   color: var(--text);
 }
+/* The flat declaration stays first so a browser without calc() inside
+   color-mix() keeps a readable rail instead of losing the background. */
 .swipe-action[data-side='delete'] > .swipe-action__rail {
   color: var(--ui-danger);
   left: auto;
   right: 0;
 }
+.swipe-action[data-side='delete'] > .swipe-action__rail {
+  background: color-mix(
+    in srgb,
+    var(--ui-danger) calc(var(--swipe-progress, 0) * 20%),
+    var(--ui-secondary)
+  );
+}
 .swipe-action__copy {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
   font-size: 12px;
 }
+.swipe-action__copy svg {
+  flex-shrink: 0;
+  transition: transform var(--dur-1) var(--ease);
+}
+.swipe-action[data-phase='waiting'] .swipe-action__copy svg {
+  transform: scale(1.12);
+}
+/* Icon-only on a narrow rail; the label lives in the accessible name. */
 .swipe-action__cancel {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  min-width: 44px;
   min-height: 44px;
-  padding: 0 8px;
+  padding: 0 4px;
+  flex-shrink: 0;
   color: inherit;
-  border: 1px solid currentColor;
+  border: 0;
   border-radius: 8px;
-  font-size: 13px;
+  transition: background-color var(--dur-1) var(--ease);
+}
+.swipe-action__cancel > :not(svg) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.swipe-action__cancel:hover,
+.swipe-action__cancel:focus-visible {
+  background-color: color-mix(in srgb, currentColor 14%, transparent);
 }
 .swipe-action__countdown {
   position: absolute;
@@ -58,7 +92,11 @@
   height: 3px;
   background: currentColor;
   transform-origin: left;
-  animation: swipe-wait 2s linear both;
+  /* The bar keeps linear time while a second track thickens over the last
+     500ms, so the final moment before deletion reads as imminent. */
+  animation:
+    swipe-wait 2s linear both,
+    swipe-urgency 2s var(--ease) both;
   pointer-events: none;
 }
 .swipe-action[data-phase='idle'] > .swipe-action__rail {
@@ -83,21 +121,22 @@
     transform: scaleX(1);
   }
 }
+@keyframes swipe-urgency {
+  0%,
+  75% {
+    height: 3px;
+    opacity: 0.85;
+  }
+  100% {
+    height: 5px;
+    opacity: 1;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .swipe-action__countdown {
     animation: none;
   }
-}
-
-.swipe-action__cancel {
-  font-size: 0;
-  padding-inline: 4px;
-  border: 0;
-  flex-shrink: 0;
-}
-.swipe-action__copy {
-  min-width: 0;
-}
-.swipe-action__copy svg {
-  flex-shrink: 0;
+  .swipe-action__copy svg {
+    transition: none;
+  }
 }

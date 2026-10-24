@@ -34,8 +34,9 @@ export function CountdownNumber({
     old.textContent = before;
     old.style.visibility = 'visible';
     const offset = direction === 'up' ? 100 : -100;
+    // Matches the --dur-3 / --ease step of the shared motion scale.
     const timing = {
-      duration: 280,
+      duration: 320,
       easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
       fill: 'both' as const,
     };

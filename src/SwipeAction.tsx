@@ -5,6 +5,15 @@ import './SwipeAction.css';
 type Side = 'add' | 'delete';
 type Phase = 'idle' | 'dragging' | 'waiting' | 'working';
 
+/** Arming and committing feel different in the hand, not just on screen. */
+function buzz(pattern: number | number[]) {
+  try {
+    navigator.vibrate?.(pattern);
+  } catch {
+    // A device without a vibrator simply keeps the visual feedback.
+  }
+}
+
 /** Half-width swipe: add immediately; hold deletion for two seconds without releasing. */
 export default function SwipeAction({
   children,
@@ -45,7 +54,16 @@ export default function SwipeAction({
     distance.current = value;
     if (surface.current) surface.current.style.transform = `translate3d(${value}px, 0, 0)`;
     const nextSide = value < 0 ? 'delete' : 'add';
-    if (root.current) root.current.dataset.side = nextSide;
+    if (root.current) {
+      root.current.dataset.side = nextSide;
+      // The rail reads how far the row has travelled, so risk deepens with the
+      // gesture instead of appearing all at once at the halfway mark.
+      const limit = (root.current.clientWidth || 1) * 0.5;
+      root.current.style.setProperty(
+        '--swipe-progress',
+        String(Math.min(1, Math.abs(value) / limit)),
+      );
+    }
     if (sideRef.current !== nextSide) {
       sideRef.current = nextSide;
       if (alive.current) setSide(nextSide);
@@ -69,8 +87,10 @@ export default function SwipeAction({
     setSide(next);
     paint((root.current?.clientWidth || 1) * (next === 'add' ? 0.5 : -0.5));
     root.current?.focus({ preventScroll: true });
+    buzz(10);
     const execute = async () => {
       if (generation.current !== token || latest.current.disabled || !alive.current) return;
+      if (next === 'delete') buzz([12, 40, 12]);
       changePhase('working');
       try {
         await (next === 'add' ? latest.current.onAdd() : latest.current.onDelete());
@@ -239,7 +259,7 @@ export default function SwipeAction({
             onClick={reset}
           >
             <X size={16} />
-            취소
+            <span>취소</span>
           </button>
         )}
         {phase === 'waiting' && <span className="swipe-action__countdown" />}

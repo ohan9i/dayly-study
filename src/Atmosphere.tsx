@@ -48,7 +48,24 @@ export function useAtmosphere() {
     return () => window.removeEventListener('storage', sync);
   }, []);
   useEffect(() => {
-    const keyboard = () => {
+    const navigationKeys = new Set([
+      'Tab',
+      'ArrowUp',
+      'ArrowDown',
+      'ArrowLeft',
+      'ArrowRight',
+      'Enter',
+      ' ',
+      'Escape',
+      'Home',
+      'End',
+      'PageUp',
+      'PageDown',
+    ]);
+    const keyboard = (event: KeyboardEvent) => {
+      if (!navigationKeys.has(event.key)) return;
+      const target = event.target as Element | null;
+      if (target?.closest('input,textarea,select,[contenteditable]')) return;
       document.documentElement.dataset.interaction = 'keyboard';
     };
     const pointer = () => {
