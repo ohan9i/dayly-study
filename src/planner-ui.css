@@ -444,3 +444,43 @@ html[data-interaction='keyboard'] .plan-actions-menu {
 .task-copy > .swipe-action:has(.plan-actions[data-open='true']) {
   z-index: 5;
 }
+
+/* Copying from the plan menu: the menu becomes a small date picker in place. */
+.plan-actions-menu.plan-copy-picker {
+  width: min(260px, 80vw);
+  max-width: none;
+  gap: 8px;
+  padding: 12px;
+}
+.plan-copy-picker .field {
+  margin-bottom: 0;
+}
+.plan-copy-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.plan-copy-picker .form-error {
+  margin: 0;
+}
+.plan-copy-actions,
+.quick-add-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.plan-actions-menu.plan-copy-picker .ui-button {
+  justify-content: center;
+}
+
+/* Swipe-to-add opens one line, not the whole plan editor. */
+.modal.quick-add-modal {
+  max-width: 420px;
+}
+.quick-add .field {
+  margin-bottom: var(--space-3);
+}
+.quick-add .form-error {
+  margin: 0 0 var(--space-3);
+}

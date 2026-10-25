@@ -680,6 +680,27 @@ export function usePlanner() {
     );
     return copy!;
   };
+  // Plans are inserted one by one in a single write, then read back once.
+  const importTasks = async (plans: Task[]) => {
+    const added: Task[] = [];
+    await mutate(
+      (state) => reconcileCompletion({ ...state, tasks: [...state.tasks, ...added] }),
+      async (space, user) => {
+        for (const plan of plans) {
+          const task = { ...plan, workspace_id: space.id, created_by: user.user.id };
+          try {
+            await insertTask(task, space, user, encodeTaskProgress(task, new Set()));
+          } catch (e) {
+            throw new Error(
+              `${added.length ? `계획 ${added.length}개는 가져왔어요. ` : ''}“${task.title}”에서 멈췄어요. ${(e as Error).message}`,
+            );
+          }
+          added.push(task);
+        }
+      },
+    );
+    return added.length;
+  };
   const checkTask = async (taskId: string, detailId: string | null) => {
     const task = data.tasks.find((task) => task.id === taskId);
     if (!task) throw new Error('할 일을 찾지 못했습니다.');
@@ -964,6 +985,7 @@ export function usePlanner() {
     lastSaved,
     saveTask,
     duplicateTask,
+    importTasks,
     toggleTask,
     toggleDetail,
     moveTask,

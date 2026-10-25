@@ -19,6 +19,7 @@ import {
   ChevronRight,
   CircleCheck,
   Download,
+  Upload,
   Home,
   Leaf,
   LockKeyhole,
@@ -45,6 +46,8 @@ import {
   addDays,
   dateObject,
   formatDate,
+  importablePlans,
+  parseSnapshot,
   shiftMonth,
   sortedTasks,
   taskProgress,
@@ -57,6 +60,7 @@ import {
 } from './domain';
 import { usePlanner } from './planner';
 import TaskDetail from './TaskDetail';
+import QuickAdd from './QuickAdd';
 import { TaskProgress, DayProgressRing } from './TaskProgress';
 import WorkspacePanel from './WorkspacePanel';
 import DetailRecord from './DetailRecord';
@@ -86,6 +90,7 @@ type ModalState =
       addDetailAfter?: string;
       initialAction?: 'edit' | 'duplicate' | 'move';
     }
+  | { kind: 'quick'; taskId?: string; afterDetailId?: string }
   | { kind: 'search' }
   | { kind: 'account' }
   | { kind: 'history' }
@@ -283,7 +288,10 @@ export default function App() {
   const [taskDetailBusy, setTaskDetailBusy] = useState(false);
   useEffect(() => {
     setModal((current) =>
-      current?.kind === 'task' || current?.kind === 'search' || current?.kind === 'history'
+      current?.kind === 'task' ||
+      current?.kind === 'quick' ||
+      current?.kind === 'search' ||
+      current?.kind === 'history'
         ? null
         : current,
     );
@@ -469,6 +477,41 @@ export default function App() {
       true,
     );
   };
+  const importInput = useRef<HTMLInputElement>(null);
+  async function importData(file: File) {
+    const session = planner.session,
+      space = planner.workspace;
+    if (!session || !space) return;
+    let backup;
+    try {
+      if (file.size > 20 * 1024 * 1024) throw new Error();
+      backup = parseSnapshot(JSON.parse(await file.text()));
+    } catch {
+      setActionError('Dayly에서 내려받은 백업 JSON 파일인지 확인해 주세요.');
+      return;
+    }
+    const { plans, skipped } = importablePlans(backup, data.tasks, session.user.id, space.id);
+    if (!plans.length) {
+      setToast(
+        skipped
+          ? `백업의 계획 ${skipped}개가 이미 “${space.name}”에 있어요.`
+          : '백업 파일에 가져올 계획이 없어요.',
+      );
+      return;
+    }
+    setConfirmation({
+      title: '백업에서 계획을 가져올까요?',
+      label: `${plans.length}개 가져오기`,
+      success: `계획 ${plans.length}개를 가져왔어요.`,
+      message:
+        `“${space.name}”에 계획 ${plans.length}개를 새로 추가합니다.` +
+        (skipped ? ` 이미 있는 ${skipped}개는 건너뛰어요.` : '') +
+        ' 제목·날짜·세부 항목만 가져오고 완료 상태와 기록, 첨부는 가져오지 않아요. 기존 계획은 바뀌지 않아요.',
+      action: async () => {
+        await planner.importTasks(plans);
+      },
+    });
+  }
   function exportData() {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob),
@@ -599,7 +642,7 @@ export default function App() {
                       scope={swipeScope}
                       disabled={!canWrite || busy || loading}
                       contentClassName="task-heading"
-                      onAdd={() => setModal({ kind: 'task' })}
+                      onAdd={() => setModal({ kind: 'quick' })}
                       onDelete={() =>
                         act(
                           () => livePlanner.current.deleteTask(task.id),
@@ -634,10 +677,18 @@ export default function App() {
                       )}
                       <PlanActions
                         title={task.title}
+                        date={task.date}
                         disabled={!canWrite || busy || loading}
                         onAction={(initialAction) =>
                           setModal({ kind: 'task', item: task, initialAction })
                         }
+                        onDuplicate={async (copyDate) => {
+                          const copy = await planner.duplicateTask(task.id, copyDate);
+                          goDate(copy.date);
+                          setToast(
+                            `${Number(copy.date.slice(5, 7))}월 ${Number(copy.date.slice(8))}일에 계획을 복제했어요.`,
+                          );
+                        }}
                         onDelete={() => requestDelete(task)}
                       />
                     </SwipeAction>
@@ -665,10 +716,9 @@ export default function App() {
                                 contentClassName="detail-row-main"
                                 onAdd={() =>
                                   setModal({
-                                    kind: 'task',
-                                    item: task,
-                                    addDetailAfter: detailId,
-                                    initialAction: 'edit',
+                                    kind: 'quick',
+                                    taskId: task.id,
+                                    afterDetailId: detailId,
                                   })
                                 }
                                 onDelete={() =>
@@ -1249,9 +1299,9 @@ export default function App() {
                 나의 기록 보관
               </h2>
               <p className="setting-description">
-                현재 공간의 할 일과 수행 내용, 파일 목록을 JSON으로 보관합니다. 파일 원본은 포함되지
-                않으니 각 파일의 내려받기를 이용해 주세요. 이전 개인 기록은 로그인 전에 보관할 수
-                있어요.
+                현재 공간의 할 일과 수행 내용, 파일 목록을 JSON으로 보관하고 다시 가져옵니다. 파일
+                원본은 포함되지 않으니 각 파일의 내려받기를 이용해 주세요. 이전 개인 기록은 로그인
+                전에 보관할 수 있어요.
               </p>
               <div className="backup-actions">
                 <Button
@@ -1264,7 +1314,34 @@ export default function App() {
                   <Download size={16} />
                   백업 내려받기
                 </Button>
+                <Button
+                  variant="secondary"
+                  size="default"
+                  className="soft-button"
+                  onClick={() => importInput.current?.click()}
+                  disabled={!canWrite || busy || loading}
+                >
+                  <Upload size={16} />
+                  백업 가져오기
+                </Button>
+                <input
+                  ref={importInput}
+                  type="file"
+                  accept="application/json,.json"
+                  hidden
+                  aria-label="가져올 백업 파일"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = '';
+                    if (file) void importData(file);
+                  }}
+                />
               </div>
+              <p className="setting-description">
+                {canWrite
+                  ? '가져오기는 백업 JSON의 계획을 현재 공간에 새 계획으로 추가해요. 같은 날짜·제목·세부 항목의 계획은 건너뛰어요.'
+                  : '백업 가져오기는 로그인하고 공간을 선택하면 쓸 수 있어요.'}
+              </p>
             </section>
             {planner.session && planner.workspace && (
               <Suspense
@@ -1317,6 +1394,27 @@ export default function App() {
           onClose={() => setModal(null)}
         >
           <TaskHistory planner={planner} />
+        </Modal>
+      )}
+      {modal?.kind === 'quick' && (
+        <Modal
+          className="quick-add-modal"
+          title={modal.taskId ? '세부 항목 추가' : '계획 추가'}
+          onClose={() => {
+            if (!busy) setModal(null);
+          }}
+        >
+          <QuickAdd
+            planner={planner}
+            date={date}
+            taskId={modal.taskId}
+            afterDetailId={modal.afterDetailId}
+            onCancel={() => setModal(null)}
+            onDone={(message) => {
+              setModal(null);
+              setToast(message);
+            }}
+          />
         </Modal>
       )}
       {modal?.kind === 'task' && (
