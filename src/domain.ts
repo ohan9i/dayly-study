@@ -306,32 +306,6 @@ export function duplicateTaskPlan(
     workspace_id: workspaceId,
   };
 }
-// Plans read from a backup file become new plans of the current space, like a
-// copy: new IDs and author, no progress, records or files. A plan already in the
-// space with the same date, title and details is skipped, so importing the same
-// file twice adds nothing.
-export function importablePlans(
-  backup: Snapshot,
-  existing: Task[],
-  userId: string,
-  workspaceId: string,
-): { plans: Task[]; skipped: number } {
-  const key = (task: Pick<Task, 'date' | 'title' | 'details'>) =>
-    JSON.stringify([task.date, task.title.trim(), cleanDetails(task.details)]);
-  const seen = new Set(existing.map(key));
-  const plans: Task[] = [];
-  let skipped = 0;
-  for (const task of sortedTasks(backup.tasks)) {
-    const id = key(task);
-    if (seen.has(id)) {
-      skipped++;
-      continue;
-    }
-    seen.add(id);
-    plans.push(duplicateTaskPlan(task, task.date, userId, workspaceId));
-  }
-  return { plans, skipped };
-}
 // A day reads in the order it was planned: timed items first, then the order the
 // plans were added. Renaming a plan no longer moves it in the list.
 export const sortedTasks = (tasks: Task[]) =>

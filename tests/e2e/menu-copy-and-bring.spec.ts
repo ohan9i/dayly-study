@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { addDays, emptySnapshot, normalizeTask, todayKey } from '../../src/domain';
-import { mockCloud, signIn, OWN_SPACE } from './cloud-fixture';
+import { addDays, normalizeTask, todayKey } from '../../src/domain';
+import { mockCloud, signIn, OWN_SPACE, SHARED_SPACE } from './cloud-fixture';
 
 const owner = '10000000-0000-0000-0000-000000000001';
 
@@ -76,79 +76,85 @@ test('the copy picker closes with Escape and cancel without writing', async ({ p
   expect(cloud.tasks()).toHaveLength(1);
 });
 
-test('a backup file adds its plans to the current space once', async ({ page }) => {
-  const day = todayKey();
+test('plans from another day are brought to the viewed day with their progress', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const today = todayKey(),
+    yesterday = addDays(today, -1);
   const cloud = await mockCloud(page, {
     approved: true,
     tasks: [
       {
-        id: 'kept',
+        id: 'left',
         workspace_id: OWN_SPACE,
         created_by: owner,
-        title: '이미 있는 계획',
-        date: day,
+        title: '남은 계획',
+        date: yesterday,
+        details: '첫 항목\n둘째 항목',
+      },
+      {
+        id: 'done',
+        workspace_id: OWN_SPACE,
+        created_by: owner,
+        title: '끝낸 계획',
+        date: yesterday,
         details: '',
       },
     ],
   });
   await page.goto('/#planner');
   await signIn(page);
-  const backup = {
-    ...emptySnapshot(),
-    tasks: [
-      { id: 'b1', title: '이미 있는 계획', date: day, details: [], created_by: 'x' },
-      {
-        id: 'b2',
-        title: '가져온 계획',
-        date: day,
-        details: ['첫 항목', '둘째 항목'],
-        detailChecks: [
-          { id: 'c1', completed: true },
-          { id: 'c2', completed: false },
-        ],
-        created_by: 'x',
-      },
-    ],
-    completedTaskIds: [],
-  };
-  const file = {
-    name: 'dayly-backup.json',
-    mimeType: 'application/json',
-    buffer: Buffer.from(JSON.stringify(backup)),
-  };
-  await page.getByRole('button', { name: '설정', exact: true }).first().click();
-  await page.getByLabel('가져올 백업 파일', { exact: true }).setInputFiles(file);
+  // Finish one item of the plan that will move, and the whole other plan.
+  await page.getByRole('button', { name: '이전 날짜', exact: true }).click();
+  await page.getByRole('checkbox', { name: '남은 계획 세부 항목 1 완료', exact: true }).click();
+  await page.getByRole('checkbox', { name: '끝낸 계획 완료', exact: true }).click();
+  await expect(page.getByRole('checkbox', { name: '끝낸 계획 완료', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: '오늘', exact: true }).click();
+  await page.getByRole('button', { name: '다른 날짜에서 계획 가져오기', exact: true }).click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog).toContainText('계획 1개를 새로 추가합니다');
-  await expect(dialog).toContainText('이미 있는 1개는 건너뛰어요');
-  await dialog.getByRole('button', { name: '1개 가져오기', exact: true }).click();
+  // The latest day with something left opens, its unfinished plans already picked.
+  await expect(dialog.getByLabel('가져올 날짜', { exact: true })).toHaveValue(yesterday);
+  await expect(dialog.getByRole('checkbox', { name: /남은 계획/ })).toBeChecked();
+  await expect(dialog.getByRole('checkbox', { name: /끝낸 계획/ })).not.toBeChecked();
+  await dialog
+    .getByRole('button', {
+      name: `1개를 ${Number(today.slice(5, 7))}월 ${Number(today.slice(8))}일로 가져오기`,
+      exact: true,
+    })
+    .click();
   await expect(dialog).toHaveCount(0);
-  expect(cloud.tasks()).toHaveLength(2);
-  const added = normalizeTask(cloud.tasks()[1]);
-  expect(added).toMatchObject({ title: '가져온 계획', date: day, workspace_id: OWN_SPACE });
-  expect(added.id).not.toBe('b2');
-  expect(added.details).toEqual(['첫 항목', '둘째 항목']);
-  expect(added.detailChecks!.some((check) => check.completed)).toBe(false);
-  // The same file again adds nothing.
-  await page.getByLabel('가져올 백업 파일', { exact: true }).setInputFiles(file);
-  // Toasts queue, so this one follows the import's own message.
-  await expect(page.getByText('백업의 계획 2개가 이미', { exact: false })).toBeVisible({
-    timeout: 10_000,
-  });
+  await expect(page.locator('.task-title')).toHaveText('남은 계획');
+  const moved = normalizeTask(cloud.tasks().find((task) => task.id === 'left')!);
+  expect(moved.date).toBe(today);
+  expect(moved.detailChecks!.map((check) => check.completed)).toEqual([true, false]);
+  expect(cloud.tasks().find((task) => task.id === 'done')!.date).toBe(yesterday);
   expect(cloud.tasks()).toHaveLength(2);
 });
 
-test('a file that is not a Dayly backup is refused', async ({ page }) => {
-  const cloud = await mockCloud(page, { approved: true });
+test('plans written by someone else cannot be brought by a participant', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const today = todayKey();
+  const cloud = await mockCloud(page, {
+    approved: true,
+    tasks: [
+      {
+        id: 'theirs',
+        workspace_id: SHARED_SPACE,
+        created_by: '10000000-0000-0000-0000-000000000002',
+        title: '다른 사람 계획',
+        date: addDays(today, -2),
+        details: '',
+      },
+    ],
+  });
   await page.goto('/#planner');
   await signIn(page);
-  const before = cloud.tasks().length;
-  await page.getByRole('button', { name: '설정', exact: true }).first().click();
-  await page.getByLabel('가져올 백업 파일', { exact: true }).setInputFiles({
-    name: 'other.json',
-    mimeType: 'application/json',
-    buffer: Buffer.from('{"hello":1}'),
-  });
-  await expect(page.getByRole('alert')).toContainText('백업 JSON 파일인지 확인해 주세요');
-  expect(cloud.tasks()).toHaveLength(before);
+  await page.getByLabel('사용 공간 선택').selectOption(SHARED_SPACE);
+  await page.getByRole('button', { name: '다른 날짜에서 계획 가져오기', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('작성자만 옮길 수 있어요');
+  await expect(dialog.getByRole('checkbox', { name: /다른 사람 계획/ })).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: '가져올 계획을 골라 주세요' })).toBeDisabled();
+  expect(cloud.tasks()[0].date).toBe(addDays(today, -2));
 });
