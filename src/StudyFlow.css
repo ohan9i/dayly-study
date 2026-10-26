@@ -1,0 +1,248 @@
+/* Study flow: slate blue taken from the planner cover, on the paper card. */
+:root {
+  --flow-0: #ebe9e4;
+  --flow-1: #d3d8e1;
+  --flow-2: #a9b3c4;
+  --flow-3: #7f8ba1;
+  --flow-4: #4e5a70;
+  --flow-planned: #dfe3ea;
+  --flow-done: #7f8ba1;
+  --flow-toggle: #4e5a70;
+  --flow-on-toggle: #fffdf8;
+}
+:root[data-atmosphere='night'] {
+  --flow-0: #38352f;
+  --flow-1: #3f4859;
+  --flow-2: #56637b;
+  --flow-3: #7d8aa3;
+  --flow-4: #b4bfd3;
+  --flow-planned: #3f4859;
+  --flow-done: #8f9cb4;
+  --flow-toggle: #b4bfd3;
+  --flow-on-toggle: #242320;
+}
+.flow-card {
+  padding: var(--space-5) 28px;
+  margin-bottom: 20px;
+}
+.flow-card h2 {
+  margin: 0 0 var(--space-4);
+  font-size: var(--type-section);
+}
+.flow-year-scroll {
+  overflow-x: auto;
+  padding-inline: 2px;
+  scrollbar-width: thin;
+  padding-bottom: var(--space-1);
+}
+.flow-year {
+  --flow-gap: 3px;
+  min-width: 680px;
+}
+.flow-months,
+.flow-grid {
+  display: grid;
+  grid-template-columns: repeat(53, minmax(0, 1fr));
+  column-gap: var(--flow-gap);
+}
+.flow-months {
+  margin-bottom: 6px;
+  color: var(--text-muted);
+  font-size: var(--type-meta);
+  line-height: 1;
+}
+.flow-months span {
+  white-space: nowrap;
+  overflow: visible;
+}
+.flow-grid {
+  grid-template-rows: repeat(7, auto);
+  grid-auto-flow: column;
+  row-gap: var(--flow-gap);
+}
+.flow-cell {
+  display: block;
+  aspect-ratio: 1;
+  border: 0;
+  border-radius: 3px;
+  padding: 0;
+  background: var(--flow-0);
+}
+button.flow-cell {
+  cursor: pointer;
+  transition: transform var(--duration) var(--ease);
+}
+button.flow-cell:hover {
+  transform: scale(1.25);
+}
+button.flow-cell:focus-visible {
+  outline: 2px solid var(--flow-4);
+  outline-offset: 1px;
+}
+.flow-cell.level-1 {
+  background: var(--flow-1);
+}
+.flow-cell.level-2 {
+  background: var(--flow-2);
+}
+.flow-cell.level-3 {
+  background: var(--flow-3);
+}
+.flow-cell.level-4 {
+  background: var(--flow-4);
+}
+.flow-cell.is-future {
+  background: transparent;
+}
+.flow-cell.is-selected {
+  box-shadow: 0 0 0 1.5px var(--text);
+}
+.flow-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--type-meta);
+}
+.flow-legend .flow-cell {
+  width: 11px;
+}
+.flow-legend .flow-cell:first-of-type {
+  margin-left: 4px;
+}
+.flow-legend .flow-cell:last-of-type {
+  margin-right: 4px;
+}
+.flow-period-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.flow-period-header h2 {
+  margin: 0 auto 0 0;
+}
+.flow-period-note {
+  color: var(--text-muted);
+  font-size: var(--type-meta);
+}
+.flow-toggle {
+  display: flex;
+  gap: 4px;
+}
+.flow-toggle button {
+  min-width: 48px;
+  min-height: 32px;
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--type-support);
+  cursor: pointer;
+  transition:
+    background var(--duration) var(--ease),
+    color var(--duration) var(--ease);
+}
+.flow-toggle button[aria-pressed='true'] {
+  border-color: var(--flow-toggle);
+  background: var(--flow-toggle);
+  color: var(--flow-on-toggle);
+  font-weight: 600;
+}
+.flow-toggle button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.flow-bars-plot,
+.flow-bars-labels {
+  display: flex;
+  gap: var(--space-3);
+  padding-inline: var(--space-2);
+}
+.flow-bars.is-month .flow-bars-plot,
+.flow-bars.is-month .flow-bars-labels {
+  gap: 3px;
+}
+.flow-bars-plot {
+  position: relative;
+  height: 140px;
+  align-items: flex-end;
+  border-bottom: 1px solid var(--line);
+}
+.flow-bar {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  max-width: 44px;
+  margin-inline: auto;
+}
+.flow-bar span {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  border-radius: 5px 5px 2px 2px;
+  transition: height var(--duration) var(--ease);
+}
+.flow-bars.is-month .flow-bar span {
+  border-radius: 3px 3px 1px 1px;
+}
+.flow-bar-planned {
+  background: var(--flow-planned);
+}
+.flow-bar-done {
+  background: var(--flow-done);
+}
+.flow-average {
+  position: absolute;
+  inset-inline: 0;
+  border-top: 1px dashed var(--control-border);
+  pointer-events: none;
+  z-index: 1;
+}
+.flow-bars-labels span {
+  flex: 1;
+  max-width: 44px;
+  margin-inline: auto;
+  margin-top: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--type-meta);
+  text-align: center;
+  white-space: nowrap;
+}
+.flow-bars-labels span.is-current {
+  color: var(--text);
+  font-weight: 600;
+}
+.flow-empty {
+  margin: var(--space-5) 0;
+  color: var(--text-muted);
+  font-size: var(--type-support);
+  text-align: center;
+}
+@media (max-width: 700px) {
+  .flow-card {
+    padding: var(--space-4) var(--space-4);
+  }
+  .flow-period-header {
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+  }
+  .flow-period-note {
+    order: 3;
+    width: 100%;
+  }
+  .flow-bars-plot,
+  .flow-bars-labels {
+    gap: var(--space-2);
+    padding-inline: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  button.flow-cell,
+  .flow-bar span,
+  .flow-toggle button {
+    transition: none;
+  }
+}

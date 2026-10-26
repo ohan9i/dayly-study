@@ -91,7 +91,20 @@ test('partial checks, parent completion and the weighted day ring update immedia
   await expect(ring(page)).toHaveAttribute('aria-valuenow', '40');
   await expect(page.locator('.progress-copy')).toContainText('2 / 5 완료');
   await page.getByRole('button', { name: '학습 흐름', exact: true }).click();
-  await expect(page.locator('.stat-tile').first()).toContainText('2 / 5개');
+  // The flow counts plans: 책 읽기 is done, 수학 공부 is not.
+  await expect(page.locator('.flow-cell.is-selected')).toHaveAttribute(
+    'aria-label',
+    /계획 2개 중 1개 완료/,
+  );
+  await page.getByRole('button', { name: '월', exact: true }).click();
+  await expect(page.getByRole('button', { name: '월', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(page.locator('.flow-bars.is-month .flow-bar').first()).toBeVisible();
+  await page.locator('.flow-cell.is-selected').click();
+  await expect(page.locator('#planner')).not.toHaveText('학습 흐름');
+  await expect(bar(page)).toHaveAttribute('aria-valuenow', '25');
   expect(errors).toEqual([]);
 });
 

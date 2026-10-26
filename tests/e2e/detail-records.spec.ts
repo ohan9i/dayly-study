@@ -90,9 +90,9 @@ test('detail records stay inline, independent, and separate from progress', asyn
     animations: 'disabled',
   });
   await page.getByRole('button', { name: '학습 흐름', exact: true }).click();
-  await expect(page.getByRole('progressbar', { name: '수학 공부 학습 흐름' })).toHaveAttribute(
-    'aria-valuenow',
-    '50',
+  await expect(page.locator('.flow-cell.is-selected')).toHaveAttribute(
+    'aria-label',
+    /계획 1개 중 0개 완료/,
   );
   await page.screenshot({
     path: '.local/detail-flow-390.png',
