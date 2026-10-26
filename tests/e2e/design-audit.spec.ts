@@ -128,7 +128,8 @@ test('statistics date filtering keeps the view, navigation reveals the heading, 
   await expect(page.locator('#planner')).toBeFocused();
   await page.getByRole('button', { name: '이전 날짜', exact: true }).click();
   await expect(page.locator('#planner')).toHaveText('학습 흐름');
-  await expect(page.locator('.stats-range')).toContainText('최근 7일');
+  await expect(page.getByRole('heading', { name: '한 해의 흐름', level: 2 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '주 / 월 차트', level: 2 })).toBeVisible();
   await page.getByRole('button', { name: '할 일 검색', exact: true }).click();
   await expect(page.getByLabel('할 일 검색어')).toBeFocused();
   await page.getByLabel('할 일 검색어').fill('전단력 선도');

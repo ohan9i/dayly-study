@@ -446,3 +446,45 @@ export function weeklyStats(data: Snapshot, end: string) {
     };
   });
 }
+
+// Study flow: plan-level completion per day (a plan counts once, however many
+// detail items it has), so the year grid and the period chart share one unit.
+export type PlanDay = { total: number; done: number };
+export function planDays(data: Snapshot) {
+  const completed = new Set(data.completedTaskIds);
+  const days = new Map<string, PlanDay>();
+  for (const task of data.tasks) {
+    const day = days.get(task.date) || { total: 0, done: 0 };
+    day.total++;
+    if (isTaskComplete(task, completed)) day.done++;
+    days.set(task.date, day);
+  }
+  return days;
+}
+export function flowLevel(day?: PlanDay) {
+  if (!day?.total || !day.done) return 0;
+  const ratio = day.done / day.total;
+  return ratio >= 1 ? 4 : ratio >= 0.5 ? 3 : ratio >= 0.25 ? 2 : 1;
+}
+// 53 Sunday-first weeks; the last column holds `end`.
+export function yearWeeks(end: string) {
+  const start = addDays(end, -dateObject(end).getUTCDay() - 52 * 7);
+  return Array.from({ length: 53 }, (_, week) =>
+    Array.from({ length: 7 }, (_, day) => addDays(start, week * 7 + day)),
+  );
+}
+export type FlowPeriod = 'week' | 'month';
+function monthDays(first: string) {
+  const days: string[] = [];
+  for (let day = first; day.slice(0, 7) === first.slice(0, 7); day = addDays(day, 1))
+    days.push(day);
+  return days;
+}
+export function periodDays(date: string, period: FlowPeriod) {
+  if (period === 'week') return Array.from({ length: 7 }, (_, i) => addDays(date, i - 6));
+  return monthDays(date.slice(0, 8) + '01');
+}
+export function previousPeriodDays(date: string, period: FlowPeriod) {
+  if (period === 'week') return Array.from({ length: 7 }, (_, i) => addDays(date, i - 13));
+  return monthDays(addDays(date.slice(0, 8) + '01', -1).slice(0, 8) + '01');
+}

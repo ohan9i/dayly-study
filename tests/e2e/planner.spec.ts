@@ -43,8 +43,12 @@ test('detail items persist; search, calendar and statistics show main task compl
   ).toBeVisible();
   await page.getByRole('button', { name: '닫기', exact: true }).click();
   await page.getByRole('button', { name: '학습 흐름', exact: true }).click();
-  await expect(page.locator('.stat-tile').nth(1)).toContainText('100');
-  await expect(page.locator('.stat-tile').first()).toContainText('1 / 1개');
+  await expect(page.getByRole('heading', { name: '한 해의 흐름', level: 2 })).toBeVisible();
+  await expect(page.locator('.flow-cell.is-selected')).toHaveAttribute(
+    'aria-label',
+    /계획 1개 중 1개 완료/,
+  );
+  await expect(page.locator('.flow-cell.is-selected')).toHaveClass(/level-4/);
   await expect(page.locator('.subject-stat')).toHaveCount(0);
   await page.getByRole('button', { name: '달력', exact: true }).click();
   await expect(

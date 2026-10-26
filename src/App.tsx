@@ -52,7 +52,6 @@ import {
   dayProgress,
   readDetailNote,
   todayKey,
-  weeklyStats,
   type Snapshot,
   type Task,
 } from './domain';
@@ -61,6 +60,7 @@ import TaskDetail from './TaskDetail';
 import QuickAdd from './QuickAdd';
 import BringPlans from './BringPlans';
 import { TaskProgress, DayProgressRing } from './TaskProgress';
+import StudyFlow from './StudyFlow';
 import WorkspacePanel from './WorkspacePanel';
 import DetailRecord from './DetailRecord';
 import { AtmospherePicker, CompletionSparkles, useAtmosphere } from './Atmosphere';
@@ -1070,11 +1070,17 @@ export default function App() {
               <p className="page-description">작은 계획을 얼마나 꾸준히 실천했는지 살펴봐요.</p>
             </div>
             <div className="section-toolbar">{dateNav}</div>
-            <Stats data={data} date={date} />
-            <p className="stats-note">
-              선택한 날까지 최근 7일의 세부 항목 완료 상태를 집계합니다.
-              {data.hasSamples && !planner.session && ' 현재 예시 일정이 포함되어 있어요.'}
-            </p>
+            <StudyFlow
+              data={data}
+              date={date}
+              onOpenDay={(day) => {
+                goDate(day);
+                goView('home');
+              }}
+            />
+            {data.hasSamples && !planner.session && (
+              <p className="stats-note">현재 예시 일정이 포함되어 있어요.</p>
+            )}
           </div>
         )}
         {view === 'settings' && (
@@ -1684,126 +1690,6 @@ function MemberForm({
     </form>
   );
 }
-function Stats({ data, date }: { data: Snapshot; date: string }) {
-  const week = weeklyStats(data, date);
-  const selectedTasks = sortedTasks(data.tasks.filter((task) => task.date === date));
-  const completed = new Set(data.completedTaskIds);
-  const total = week.reduce((sum, day) => sum + day.total, 0),
-    done = week.reduce((sum, day) => sum + day.completed, 0);
-  const rate = total ? Math.round((done / total) * 100) : 0,
-    max = Math.max(1, ...week.map((day) => day.total));
-  return (
-    <>
-      <p className="stats-range">
-        {addDays(date, -6).slice(5).replace('-', '.')}–{date.slice(5).replace('-', '.')}, 최근 7일
-      </p>
-      <div className="glass-card stats-summary">
-        <div className="stat-tile">
-          <span>
-            <CheckCheck size={18} />
-            완료한 항목
-          </span>
-          <strong>
-            {done}
-            {total > 0 && <small> / {total}개</small>}
-          </strong>
-          <p>{total ? '한 걸음씩 해냈어요.' : '첫 할 일을 적어 보세요.'}</p>
-        </div>
-        <div className="stat-tile">
-          <span>
-            <CircleCheck size={18} />
-            계획 달성률
-          </span>
-          <strong>
-            {total ? rate : '—'}
-            {total > 0 && <small>%</small>}
-          </strong>
-          <p>{total ? '작은 계획을 실천하는 힘.' : '첫 계획부터 시작해 보세요.'}</p>
-        </div>
-        <div className="stat-tile">
-          <span>
-            <Leaf size={18} />
-            공부를 해낸 날
-          </span>
-          <strong>
-            {week.filter((day) => day.completed > 0).length}
-            <small> / 7일</small>
-          </strong>
-          <p>실행 항목을 1개 이상 완료한 날</p>
-        </div>
-      </div>
-      {selectedTasks.length > 0 && (
-        <section className="study-flow" aria-label="선택한 날의 학습 흐름">
-          <h2>{formatDate(date)}, 선택한 날</h2>
-          {selectedTasks.map((task) => {
-            const progress = taskProgress(task, completed);
-            return (
-              <div className="study-flow-row" key={task.id}>
-                <span>{task.title}</span>
-                <TaskProgress progress={progress} label={`${task.title} 학습 흐름`} />
-              </div>
-            );
-          })}
-        </section>
-      )}
-      <section className="glass-card chart-card">
-        <div className="card-header">
-          <h2>지난 7일의 세부 항목</h2>
-          {total > 0 && (
-            <div className="chart-legend">
-              <i />
-              완료 <i className="pale" />
-              계획
-            </div>
-          )}
-        </div>
-        {total > 0 ? (
-          <div
-            className="bar-chart"
-            role="img"
-            aria-label={week
-              .map((day) => `${day.date}: ${day.total}개 중 ${day.completed}개 완료`)
-              .join(', ')}
-          >
-            {week.map((day) => (
-              <div className={`chart-column ${day.total ? '' : 'is-empty'}`} key={day.date}>
-                <span className="bar-value">
-                  {day.total > 0 && (
-                    <>
-                      {day.completed}
-                      <small>/{day.total}</small>
-                    </>
-                  )}
-                </span>
-                <div className="bar-track">
-                  <div className="bar-planned" style={{ height: `${(day.total / max) * 100}%` }}>
-                    <div
-                      className="bar-completed"
-                      style={{ height: `${day.total ? (day.completed / day.total) * 100 : 0}%` }}
-                    />
-                  </div>
-                </div>
-                <span className={day.date === date ? 'chart-day current' : 'chart-day'}>
-                  {shortDay(day.date)}
-                </span>
-                <small className="chart-date">
-                  {Number(day.date.slice(5, 7))}.{Number(day.date.slice(8))}
-                </small>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <Empty
-            icon="check"
-            title="아직은, 여백이 있는 한 주"
-            text="할 일을 적고 하나씩 완료하면 이곳에 나의 흐름이 쌓여요."
-          />
-        )}
-      </section>
-    </>
-  );
-}
-
 function SearchHighlight({ text, query }: { text: string; query: string }) {
   const index = text.toLowerCase().indexOf(query.trim().toLowerCase());
   if (index < 0 || !query.trim()) return <>{text}</>;
