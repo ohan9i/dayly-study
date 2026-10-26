@@ -87,6 +87,8 @@ test('copy resets progress, leaves records/files and original untouched, and can
   await page.getByRole('button', { name: '달력', exact: true }).click();
   // The original remains available, with its recorded work and file bytes.
   await page.locator('.calendar-day.is-today').click();
+  if (await page.locator('.month-preview-open').isVisible())
+    await page.locator('.month-preview-open').click();
   await page.getByRole('button', { name: '순열 기록 열기', exact: true }).click();
   if (await page.getByRole('button', { name: '기록 작성', exact: true }).last().isVisible())
     await page.getByRole('button', { name: '기록 작성', exact: true }).last().click();

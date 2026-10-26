@@ -51,10 +51,11 @@ test('detail items persist; search, calendar and statistics show main task compl
   await expect(page.locator('.flow-cell.is-selected')).toHaveClass(/level-4/);
   await expect(page.locator('.subject-stat')).toHaveCount(0);
   await page.getByRole('button', { name: '달력', exact: true }).click();
-  await expect(
-    page.locator('.calendar-day[aria-label*="세부 항목 1개 중 1개 완료"]'),
-  ).toBeVisible();
-  await page.locator('.calendar-day[aria-label*="세부 항목 1개 중 1개 완료"]').click();
+  const doneDay = page.locator('.calendar-day[aria-label*="계획 1개 중 1개 완료"]');
+  await expect(doneDay).toHaveClass(/is-complete-day/);
+  await doneDay.click();
+  if (await page.locator('.month-preview-open').isVisible())
+    await page.locator('.month-preview-open').click();
   await expect(page.getByLabel('조회 날짜')).toHaveValue(date);
   await expect(
     page.getByRole('checkbox', { name: '철근콘크리트 보의 휨 설계 완료' }),

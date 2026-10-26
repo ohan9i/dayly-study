@@ -258,21 +258,10 @@
 .task-extra-actions .task-move {
   margin-block: 12px;
 }
-.stats-range,
-.calendar-selection-summary {
+.stats-range {
   color: var(--text-secondary);
   font-size: 13px;
   margin: 12px 0;
-}
-.calendar-day.selected-day {
-  outline: 2px solid var(--control-border);
-  outline-offset: -2px;
-}
-.calendar-day.is-today .day-number {
-  color: var(--text);
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 5px;
 }
 /* The error rises on the same motion the toast uses, so the two status
    surfaces read as one layer instead of two unrelated boxes. It stays

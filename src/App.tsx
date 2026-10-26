@@ -46,7 +46,6 @@ import {
   addDays,
   dateObject,
   formatDate,
-  shiftMonth,
   sortedTasks,
   taskProgress,
   dayProgress,
@@ -61,6 +60,7 @@ import QuickAdd from './QuickAdd';
 import BringPlans from './BringPlans';
 import { TaskProgress, DayProgressRing } from './TaskProgress';
 import StudyFlow from './StudyFlow';
+import MonthCalendar from './MonthCalendar';
 import WorkspacePanel from './WorkspacePanel';
 import DetailRecord from './DetailRecord';
 import { AtmospherePicker, CompletionSparkles, useAtmosphere } from './Atmosphere';
@@ -983,79 +983,20 @@ export default function App() {
               </h1>
               <p className="page-description">날짜를 누르면 그날의 할 일을 볼 수 있어요.</p>
             </div>
-            <section className="glass-card calendar-card">
-              <div className="card-header">
-                <h2>
-                  {month.slice(0, 4)}년 {Number(month.slice(5, 7))}월
-                </h2>
-                <div className="row-actions">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-button"
-                    onClick={() => setMonth(today.slice(0, 7) + '-01')}
-                  >
-                    이번 달
-                  </Button>
-                  <button
-                    className="icon-button"
-                    aria-label="이전 달"
-                    onClick={() => setMonth(shiftMonth(month, -1))}
-                  >
-                    <ChevronLeft size={20} />
-                  </button>
-                  <button
-                    className="icon-button"
-                    aria-label="다음 달"
-                    onClick={() => setMonth(shiftMonth(month, 1))}
-                  >
-                    <ChevronRight size={20} />
-                  </button>
-                </div>
-              </div>
-              <div className="calendar-weekdays">
-                {['일', '월', '화', '수', '목', '금', '토'].map((x) => (
-                  <span key={x}>{x}</span>
-                ))}
-              </div>
-              <div className="calendar-grid">
-                {Array.from({ length: 42 }, (_, i) => {
-                  const value = addDays(month, i - dateObject(month).getUTCDay()),
-                    dailyTasks = data.tasks.filter((x) => x.date === value),
-                    progress = dayProgress(dailyTasks, completed),
-                    remaining = progress.total - progress.done;
-                  return (
-                    <button
-                      key={value}
-                      className={`calendar-day ${value.slice(0, 7) !== month.slice(0, 7) ? 'outside-month' : ''} ${value === today ? 'is-today' : ''} ${value === date ? 'selected-day' : ''} ${dailyTasks.length ? 'has-tasks' : ''} ${dailyTasks.length && progress.done === progress.total ? 'is-complete-day' : ''}`}
-                      aria-label={`${formatDate(value)} 세부 항목 ${progress.total}개 중 ${progress.done}개 완료, ${progress.percent}%, 남은 계획 ${remaining}개`}
-                      onClick={() => goDate(value)}
-                    >
-                      <span className="day-number">{Number(value.slice(8))}</span>
-                      {remaining > 0 && (
-                        <span className="calendar-remaining" aria-hidden="true">
-                          <span className="calendar-remaining-label">남은 </span>
-                          {remaining}
-                        </span>
-                      )}
-                      {dailyTasks.length > 0 && (
-                        <span className="calendar-progress-track" aria-hidden="true">
-                          <i style={{ width: `${progress.percent}%` }} />
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="calendar-selection-summary">
-                {formatDate(date)}, 남은 실행 항목 {totalProgress.total - totalProgress.done}개
-              </p>
-              <p className="card-footnote">
-                <span className="legend-dot" />
-                오늘 <span className="legend-square" />
-                선택한 날, 막대는 진행률, 숫자는 남은 계획
-              </p>
-            </section>
+            <MonthCalendar
+              data={data}
+              month={month}
+              date={date}
+              today={today}
+              tasks={tasks}
+              completed={completed}
+              onMonth={setMonth}
+              onSelect={(day) => {
+                closePlanMenus();
+                setDate(day);
+              }}
+              onOpen={goDate}
+            />
           </div>
         )}
         {view === 'stats' && (

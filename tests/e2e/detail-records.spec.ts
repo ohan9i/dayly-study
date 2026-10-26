@@ -79,11 +79,9 @@ test('detail records stay inline, independent, and separate from progress', asyn
   );
   await expect(page.locator('.progress-copy')).toContainText('1 / 2 완료');
   await page.getByRole('button', { name: '달력', exact: true }).click();
-  await expect(
-    page.locator(
-      '.calendar-day[aria-label*="세부 항목 2개 중 1개 완료"] .calendar-progress-track i',
-    ),
-  ).toHaveAttribute('style', 'width: 50%;');
+  await expect(page.locator('.calendar-day[aria-label*="계획 1개 중 0개 완료"]')).toHaveClass(
+    /is-partial-day/,
+  );
   await page.screenshot({
     path: '.local/detail-calendar-390.png',
     fullPage: true,
