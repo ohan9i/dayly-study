@@ -13,6 +13,7 @@ import {
 } from 'react';
 import {
   CalendarDays,
+  CalendarArrowDown,
   Check,
   CheckCheck,
   ChevronLeft,
@@ -57,6 +58,8 @@ import {
 } from './domain';
 import { usePlanner } from './planner';
 import TaskDetail from './TaskDetail';
+import QuickAdd from './QuickAdd';
+import BringPlans from './BringPlans';
 import { TaskProgress, DayProgressRing } from './TaskProgress';
 import WorkspacePanel from './WorkspacePanel';
 import DetailRecord from './DetailRecord';
@@ -86,6 +89,8 @@ type ModalState =
       addDetailAfter?: string;
       initialAction?: 'edit' | 'duplicate' | 'move';
     }
+  | { kind: 'quick'; taskId?: string; afterDetailId?: string }
+  | { kind: 'bring' }
   | { kind: 'search' }
   | { kind: 'account' }
   | { kind: 'history' }
@@ -283,7 +288,11 @@ export default function App() {
   const [taskDetailBusy, setTaskDetailBusy] = useState(false);
   useEffect(() => {
     setModal((current) =>
-      current?.kind === 'task' || current?.kind === 'search' || current?.kind === 'history'
+      current?.kind === 'task' ||
+      current?.kind === 'quick' ||
+      current?.kind === 'bring' ||
+      current?.kind === 'search' ||
+      current?.kind === 'history'
         ? null
         : current,
     );
@@ -547,6 +556,17 @@ export default function App() {
           </div>
         )}
         <Button
+          variant="ghost"
+          size="icon"
+          className="bring-button"
+          aria-label="다른 날짜에서 계획 가져오기"
+          title="다른 날짜에서 가져오기"
+          disabled={busy || loading}
+          onClick={() => setModal({ kind: canWrite ? 'bring' : 'account' })}
+        >
+          <CalendarArrowDown size={21} strokeWidth={1.9} />
+        </Button>
+        <Button
           variant="default"
           size="icon"
           className="add-button"
@@ -599,7 +619,7 @@ export default function App() {
                       scope={swipeScope}
                       disabled={!canWrite || busy || loading}
                       contentClassName="task-heading"
-                      onAdd={() => setModal({ kind: 'task' })}
+                      onAdd={() => setModal({ kind: 'quick' })}
                       onDelete={() =>
                         act(
                           () => livePlanner.current.deleteTask(task.id),
@@ -634,10 +654,18 @@ export default function App() {
                       )}
                       <PlanActions
                         title={task.title}
+                        date={task.date}
                         disabled={!canWrite || busy || loading}
                         onAction={(initialAction) =>
                           setModal({ kind: 'task', item: task, initialAction })
                         }
+                        onDuplicate={async (copyDate) => {
+                          const copy = await planner.duplicateTask(task.id, copyDate);
+                          goDate(copy.date);
+                          setToast(
+                            `${Number(copy.date.slice(5, 7))}월 ${Number(copy.date.slice(8))}일에 계획을 복제했어요.`,
+                          );
+                        }}
                         onDelete={() => requestDelete(task)}
                       />
                     </SwipeAction>
@@ -665,10 +693,9 @@ export default function App() {
                                 contentClassName="detail-row-main"
                                 onAdd={() =>
                                   setModal({
-                                    kind: 'task',
-                                    item: task,
-                                    addDetailAfter: detailId,
-                                    initialAction: 'edit',
+                                    kind: 'quick',
+                                    taskId: task.id,
+                                    afterDetailId: detailId,
                                   })
                                 }
                                 onDelete={() =>
@@ -1317,6 +1344,48 @@ export default function App() {
           onClose={() => setModal(null)}
         >
           <TaskHistory planner={planner} />
+        </Modal>
+      )}
+      {modal?.kind === 'bring' && (
+        <Modal
+          className="bring-modal"
+          title="다른 날짜에서 가져오기"
+          subtitle={`${formatDate(date)}로 계획을 옮겨 와요.`}
+          onClose={() => {
+            if (!busy) setModal(null);
+          }}
+        >
+          <BringPlans
+            planner={planner}
+            date={date}
+            canMove={(task) => canManageTask(task)}
+            onCancel={() => setModal(null)}
+            onDone={(count) => {
+              setModal(null);
+              setToast(`계획 ${count}개를 가져왔어요.`);
+            }}
+          />
+        </Modal>
+      )}
+      {modal?.kind === 'quick' && (
+        <Modal
+          className="quick-add-modal"
+          title={modal.taskId ? '세부 항목 추가' : '계획 추가'}
+          onClose={() => {
+            if (!busy) setModal(null);
+          }}
+        >
+          <QuickAdd
+            planner={planner}
+            date={date}
+            taskId={modal.taskId}
+            afterDetailId={modal.afterDetailId}
+            onCancel={() => setModal(null)}
+            onDone={(message) => {
+              setModal(null);
+              setToast(message);
+            }}
+          />
         </Modal>
       )}
       {modal?.kind === 'task' && (

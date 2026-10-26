@@ -102,12 +102,18 @@ export default function DetailItemsEditor({
     if (e.key === 'Enter') {
       e.preventDefault();
       if (row.text.trim()) addAfter(index);
-    } else if (e.key === 'Backspace' && row.text === '' && index > 0) {
+    } else if (e.key === 'Backspace' && row.text === '') {
+      // An emptied row stays and keeps focus. Jumping to the row above let a held
+      // or repeated Backspace go on erasing the item before it.
       e.preventDefault();
-      const previous = inputs.current.get(rows[index - 1].id);
-      previous?.focus();
-      previous?.setSelectionRange(previous.value.length, previous.value.length);
-      // Keep the empty row: Backspace changes focus, never deletes another item.
+    } else if (
+      (e.key === 'ArrowUp' && index > 0) ||
+      (e.key === 'ArrowDown' && index < rows.length - 1)
+    ) {
+      e.preventDefault();
+      const next = inputs.current.get(rows[index + (e.key === 'ArrowUp' ? -1 : 1)].id);
+      next?.focus();
+      next?.setSelectionRange(next.value.length, next.value.length);
     }
   }
 

@@ -444,3 +444,152 @@ html[data-interaction='keyboard'] .plan-actions-menu {
 .task-copy > .swipe-action:has(.plan-actions[data-open='true']) {
   z-index: 5;
 }
+
+/* Copying from the plan menu: the menu becomes a small date picker in place. */
+.plan-actions-menu.plan-copy-picker {
+  width: min(260px, 80vw);
+  max-width: none;
+  gap: 8px;
+  padding: 12px;
+}
+.plan-copy-picker .field {
+  margin-bottom: 0;
+}
+.plan-copy-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.plan-copy-picker .form-error {
+  margin: 0;
+}
+.plan-copy-actions,
+.quick-add-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.plan-actions-menu.plan-copy-picker .ui-button {
+  justify-content: center;
+}
+
+/* Swipe-to-add opens one line, not the whole plan editor. */
+.modal.quick-add-modal {
+  max-width: 420px;
+}
+.quick-add .field {
+  margin-bottom: var(--space-3);
+}
+.quick-add .form-error {
+  margin: 0 0 var(--space-3);
+}
+
+/* Bringing plans from another day to the one being viewed. */
+.tasks-card .bring-button {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  margin-left: auto;
+  border-radius: 50%;
+  color: var(--text-secondary);
+}
+.tasks-card .task-progress + .bring-button {
+  margin-left: 0;
+}
+.modal.bring-modal {
+  max-width: 460px;
+}
+.bring-plans {
+  display: grid;
+  gap: var(--space-3);
+}
+.bring-plans .field {
+  margin-bottom: 0;
+}
+.bring-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.bring-day {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  color: var(--text-secondary);
+  background: transparent;
+  font-size: 13px;
+  cursor: pointer;
+}
+.bring-day[aria-pressed='true'] {
+  color: var(--text);
+  border-color: var(--control-border);
+  background: var(--ui-selected);
+}
+.bring-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bring-list label {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 8px;
+  border-radius: var(--ui-radius-control);
+  cursor: pointer;
+}
+.bring-list label:hover {
+  background: var(--ui-hover);
+}
+.bring-list label.is-locked {
+  cursor: default;
+  opacity: 0.6;
+}
+.bring-list input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+.bring-title {
+  overflow-wrap: anywhere;
+}
+.bring-meta,
+.bring-note,
+.bring-empty {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.bring-note,
+.bring-empty {
+  margin: 0;
+  line-height: 1.6;
+}
+@media (max-width: 700px) {
+  /* Two round buttons sit beside the title; the day's progress takes its own line. */
+  .tasks-card .card-header {
+    grid-template-columns: minmax(0, 1fr) 44px 44px;
+  }
+  .tasks-card .card-header h2 {
+    grid-row: 1;
+    grid-column: 1;
+  }
+  .tasks-card .bring-button {
+    grid-row: 1;
+    grid-column: 2;
+  }
+  .tasks-card .add-button {
+    grid-row: 1;
+    grid-column: 3;
+  }
+  .tasks-card .card-header .task-progress {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}

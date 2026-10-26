@@ -649,6 +649,39 @@ export function usePlanner() {
       optimistic,
     );
   };
+  // Bringing plans to another day only changes their date: progress, records and
+  // files stay with them. One write, read back once at the end.
+  const moveTasksToDate = async (taskIds: string[], date: string) => {
+    if (!validDate(date)) throw new Error('가져올 날짜를 확인해 주세요.');
+    const moved = new Set<string>();
+    await mutate(
+      (state) =>
+        reconcileCompletion({
+          ...state,
+          tasks: state.tasks.map((task) => (moved.has(task.id) ? { ...task, date } : task)),
+        }),
+      async (space) => {
+        for (const id of taskIds) {
+          const task = data.tasks.find((item) => item.id === id);
+          if (!task) continue;
+          const result = await supabase!.rpc('update_task_content', {
+            p_task_id: task.id,
+            p_workspace_id: space.id,
+            p_title: task.title,
+            p_date: date,
+            p_items: task.details.map((text, i) => ({ id: task.detailChecks![i].id, text })),
+            p_request_id: requestId.current,
+          });
+          if (result.error)
+            throw new Error(
+              `${moved.size ? `계획 ${moved.size}개는 옮겼어요. ` : ''}“${task.title}”을 옮기지 못했어요. ${readError(result.error)}`,
+            );
+          moved.add(task.id);
+        }
+      },
+    );
+    return moved.size;
+  };
   const duplicateTask = async (taskId: string, date: string) => {
     if (!validDate(date)) throw new Error('복제할 날짜를 확인해 주세요.');
     let copy: Task | undefined;
@@ -964,6 +997,7 @@ export function usePlanner() {
     lastSaved,
     saveTask,
     duplicateTask,
+    moveTasksToDate,
     toggleTask,
     toggleDetail,
     moveTask,

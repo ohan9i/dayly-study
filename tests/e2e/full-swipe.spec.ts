@@ -53,25 +53,37 @@ async function drag(
 }
 
 for (const target of ['plan', 'detail'] as const) {
-  test(`${target}: half swipe adds immediately without waiting or releasing`, async ({ page }) => {
-    await setup(page);
+  test(`${target}: half swipe opens the one-line quick add without waiting or releasing`, async ({
+    page,
+  }) => {
+    const cloud = await setup(page);
     await freeze(page);
     const row = target === 'plan' ? plan(page) : detail(page);
     await drag(page, row, 'add', 0.51, false);
-    await expect(page.getByLabel('할 일', { exact: true })).toBeVisible();
+    const field = page.locator('.quick-add input');
+    await expect(field).toBeVisible();
     await page.mouse.up();
     await expect(page.getByRole('dialog')).toHaveCount(1);
-    if (target === 'detail') {
-      const fields = page.locator('.detail-items-editor input[type=text]');
-      await expect(fields).toHaveCount(3);
-      await expect(fields.nth(1)).toBeFocused();
-      await fields.nth(1).fill('새 계산');
-    } else await page.getByLabel('할 일', { exact: true }).fill('새 계획');
-    await page.getByRole('button', { name: '할 일 저장', exact: true }).click();
+    // Only the one line, not the whole plan editor.
+    await expect(page.locator('.detail-items-editor')).toHaveCount(0);
+    await page.clock.runFor(100);
+    await expect(field).toBeFocused();
+    await field.fill(target === 'detail' ? '새 계산' : '새 계획');
+    await field.press('Enter');
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await page.clock.runFor(3000);
-    if (target === 'detail') await expect(page.locator('.task-details > li')).toHaveCount(3);
-    else await expect(page.locator('.task-title')).toHaveCount(2);
+    if (target === 'detail') {
+      // The new item lands right below the swiped row.
+      await expect(page.locator('.task-details > li')).toHaveCount(3);
+      expect(normalizeTask(cloud.tasks()[0]).details).toEqual([
+        '전단력 선도',
+        '새 계산',
+        '휨모멘트 계산',
+      ]);
+    } else {
+      await expect(page.locator('.task-title')).toHaveCount(2);
+      await expect(page.locator('.task-title').nth(1)).toHaveText('새 계획');
+    }
   });
 
   test(`${target}: halfway deletion needs a continuous 2000ms hold and executes once`, async ({
@@ -168,7 +180,7 @@ test('keyboard adds immediately and deletion requires holding Left for two secon
   await freeze(page);
   await plan(page).focus();
   await page.keyboard.press('ArrowRight');
-  await expect(page.getByLabel('할 일', { exact: true })).toHaveValue('');
+  await expect(page.locator('.quick-add input')).toHaveValue('');
   await page.getByRole('button', { name: '닫기', exact: true }).click();
   await detail(page).focus();
   await page.keyboard.down('ArrowLeft');
@@ -211,7 +223,7 @@ for (const direction of ['add', 'delete'] as const) {
       expect(normalizeTask(cloud.tasks()[0]).details).toHaveLength(2);
       await page.clock.runFor(1);
       await expect(page.locator('.task-details > li')).toHaveCount(1);
-    } else await expect(page.locator('.detail-items-editor input[type=text]')).toHaveCount(3);
+    } else await expect(page.locator('.quick-add input')).toBeVisible();
     await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await expect(page.locator('.detail-record-panel')).toHaveCount(0);
     expect(normalizeTask(cloud.tasks()[0]).detailChecks!.some((check) => check.completed)).toBe(

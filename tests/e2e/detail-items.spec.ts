@@ -60,8 +60,16 @@ test('title-only, one item and multiple items support ordered editing, empty fil
   await expect(field(page, 3)).toBeFocused();
   await field(page, 3).press('Enter');
   await expect(page.getByRole('dialog')).toBeVisible();
+  // Backspace in an emptied row stays there, even held down, and never reaches
+  // the item above. Arrow keys move between rows.
   await field(page, 3).press('Backspace');
+  await field(page, 3).press('Backspace');
+  await expect(field(page, 3)).toBeFocused();
+  await expect(field(page, 2)).toHaveValue('조건부확률 복습');
+  await field(page, 3).press('ArrowUp');
   await expect(field(page, 2)).toBeFocused();
+  await field(page, 2).press('ArrowDown');
+  await expect(field(page, 3)).toBeFocused();
   await expect(page.locator('.detail-input-row')).toHaveCount(5);
   await save(page);
   await expect(page.locator('.task-details .detail-row-title')).toHaveText([
