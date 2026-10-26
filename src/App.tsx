@@ -12,7 +12,6 @@ import {
   type ReactNode,
 } from 'react';
 import {
-  CalendarDays,
   CalendarArrowDown,
   Check,
   CheckCheck,
@@ -20,7 +19,6 @@ import {
   ChevronRight,
   CircleCheck,
   Download,
-  Home,
   Leaf,
   LockKeyhole,
   Mail,
@@ -28,20 +26,19 @@ import {
   Plus,
   RefreshCw,
   Search,
-  Settings,
   SquareCheckBig,
   ShieldCheck,
   Trash2,
   UserRound,
   Users,
   X,
-  ChartNoAxesColumnIncreasing,
   Copy,
   CircleAlert,
   Bell,
   BellOff,
   Timer,
 } from 'lucide-react';
+import { CalendarIcon, FlowIcon, SettingsIcon, TodayIcon } from './NavIcons';
 import {
   addDays,
   dateObject,
@@ -96,10 +93,10 @@ type ModalState =
   | { kind: 'history' }
   | null;
 const navigation = [
-  { id: 'home', label: '나의 하루', icon: Home },
-  { id: 'calendar', label: '달력', icon: CalendarDays },
-  { id: 'stats', label: '학습 흐름', icon: ChartNoAxesColumnIncreasing },
-  { id: 'settings', label: '설정', icon: Settings },
+  { id: 'home', label: '나의 하루', icon: TodayIcon },
+  { id: 'calendar', label: '달력', icon: CalendarIcon },
+  { id: 'stats', label: '학습 흐름', icon: FlowIcon },
+  { id: 'settings', label: '설정', icon: SettingsIcon },
 ] as const;
 const shortDay = (date: string) =>
   new Intl.DateTimeFormat('ko-KR', { timeZone: 'UTC', weekday: 'short' }).format(dateObject(date));
@@ -852,19 +849,11 @@ export default function App() {
               title={label}
               onClick={() => goView(id)}
             >
-              <Icon size={25} strokeWidth={1.7} />
+              <Icon />
               <span>{label}</span>
             </button>
           ))}
         </nav>
-        <div className="sidebar-bottom">
-          <Leaf size={19} />
-          <span lang="en">
-            one day
-            <br />
-            at a time
-          </span>
-        </div>
       </aside>
       <header className="topbar">
         <button className="mode-chip" onClick={() => goView('settings')}>
