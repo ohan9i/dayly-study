@@ -210,24 +210,25 @@ for (const [width, height] of [
     await expect(page.locator('.calendar-day')).toHaveCount(42);
     if (stage !== 'before') {
       const boxes = await page.locator('.calendar-day.is-today').evaluate((el) => {
-        const day = el.querySelector('.day-number')!.getBoundingClientRect();
-        const remaining = el.querySelector('.calendar-remaining')!.getBoundingClientRect();
-        const track = el.querySelector('.calendar-progress-track')!.getBoundingClientRect();
+        const cell = el.getBoundingClientRect();
+        const mark = el.querySelector('.day-mark')!.getBoundingClientRect();
+        const label = el.querySelector('.day-today')!.getBoundingClientRect();
         return {
-          day: { top: day.top, bottom: day.bottom, right: day.right },
-          remaining: { top: remaining.top, bottom: remaining.bottom, left: remaining.left },
-          track: { top: track.top },
+          cell: { bottom: cell.bottom },
+          mark: { bottom: mark.bottom },
+          label: { top: label.top, bottom: label.bottom },
         };
       });
-      expect(boxes.remaining.bottom).toBeLessThanOrEqual(boxes.track.top);
+      expect(boxes.label.top).toBeGreaterThanOrEqual(boxes.mark.bottom - 1);
+      expect(boxes.label.bottom).toBeLessThanOrEqual(boxes.cell.bottom);
       expect(
-        width <= 700
-          ? boxes.remaining.top >= boxes.day.bottom
-          : boxes.remaining.left >= boxes.day.right,
+        await page.locator('.calendar-card').evaluate((el) => el.scrollWidth <= el.clientWidth),
       ).toBe(true);
     }
     await capture('calendar');
     await page.locator('.calendar-day.is-today').click();
+    if (await page.locator('.month-preview-open').isVisible())
+      await page.locator('.month-preview-open').click();
     await page.getByRole('button', { name: '수학 공부 상세 보기' }).click();
     expect(await page.getByRole('dialog').evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
       true,

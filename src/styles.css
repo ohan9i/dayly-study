@@ -980,12 +980,6 @@ svg {
   max-width: 960px;
   margin: 0 auto;
 }
-.calendar-card {
-  padding: 26px var(--space-6) 20px;
-}
-.calendar-card .card-header {
-  margin-bottom: var(--space-4);
-}
 .row-actions {
   display: flex;
   align-items: center;
@@ -993,74 +987,6 @@ svg {
 }
 .row-actions .text-button {
   margin-right: var(--space-2);
-}
-.calendar-weekdays {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  text-align: center;
-  color: var(--text-muted);
-  font-size: var(--type-support);
-  padding-bottom: 10px;
-}
-.calendar-weekdays span:first-child {
-  color: var(--danger);
-}
-.calendar-weekdays span:last-child {
-  color: var(--sky-600);
-}
-.calendar-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 3px 6px;
-}
-.calendar-day {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  align-items: flex-start;
-  min-height: 72px;
-  padding: var(--space-2) 10px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  text-align: left;
-  transition:
-    background var(--duration) var(--ease),
-    border-color var(--duration) var(--ease);
-}
-.calendar-day.has-tasks {
-  background: var(--surface-hover);
-}
-.calendar-remaining {
-  position: absolute;
-  top: 14px;
-  right: 10px;
-  max-width: calc(100% - 48px);
-  color: var(--text-secondary);
-  font-size: var(--type-meta);
-  line-height: 1.4;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.calendar-progress-track {
-  display: block;
-  width: 100%;
-  height: 3px;
-  margin-top: auto;
-  border-radius: 3px;
-  overflow: hidden;
-  background: var(--line);
-}
-.calendar-progress-track i {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--accent-solid);
-  transition: width var(--duration) var(--ease);
-}
-.calendar-day.is-complete-day .day-number {
-  font-weight: 600;
 }
 .study-flow {
   margin: 0 0 var(--space-5);
@@ -1090,28 +1016,6 @@ svg {
   flex: 0 0 35%;
   margin: 0;
 }
-.calendar-day.selected-day {
-  border-color: var(--control-border);
-  background: var(--surface-selected);
-}
-.calendar-day.outside-month {
-  color: var(--text-faint);
-  opacity: 0.6;
-}
-.day-number {
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-}
-.is-today .day-number {
-  color: var(--on-accent);
-  background: var(--accent-solid);
-}
 .card-footnote {
   display: flex;
   align-items: center;
@@ -1120,26 +1024,6 @@ svg {
   color: var(--text-muted);
   line-height: 1.8;
   margin-top: var(--space-3);
-}
-.calendar-card .card-footnote {
-  margin-top: var(--space-4);
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
-}
-.legend-dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--accent-solid);
-}
-.legend-square {
-  display: inline-block;
-  width: 9px;
-  height: 9px;
-  border: 1px solid var(--sky-400);
-  border-radius: 3px;
-  margin-left: var(--space-3);
 }
 
 /* Progress is a single paper strip, rather than three dashboard cards. */
@@ -2254,9 +2138,6 @@ svg {
   .task-title:hover {
     color: var(--sky-600);
   }
-  .calendar-day:hover {
-    background: var(--surface-hover);
-  }
   .primary-button:not(:disabled):hover {
     background: var(--accent-hover);
     transform: translateY(-1px);
@@ -2343,25 +2224,8 @@ svg {
   .moment {
     margin-top: 52px;
   }
-  .calendar-day {
-    min-height: 52px;
-    padding-top: 6px;
-    padding-bottom: 6px;
-    gap: var(--space-1);
-  }
-  .calendar-progress-track {
-    width: 70%;
-  }
   .study-flow-row .detail-progress {
     flex-basis: 42%;
-  }
-  .calendar-card {
-    padding-top: 20px;
-    padding-bottom: var(--space-4);
-  }
-  .calendar-card .card-footnote {
-    margin-top: 10px;
-    padding-top: 10px;
   }
 }
 @media (max-width: 1200px) {
@@ -2422,18 +2286,6 @@ svg {
   }
   .workspace-bar {
     max-width: 660px;
-  }
-  .calendar-card {
-    padding: var(--space-5);
-  }
-  .calendar-grid {
-    gap: 3px;
-  }
-  .calendar-day {
-    padding: 7px;
-  }
-  .calendar-remaining-label {
-    display: none;
   }
   .stat-tile {
     padding: 0 20px;
@@ -2649,17 +2501,6 @@ svg {
   .wide-page {
     max-width: 540px;
   }
-  .calendar-card {
-    padding: 18px var(--space-3) var(--space-4);
-  }
-  .calendar-card .card-header {
-    gap: 0;
-    flex-wrap: nowrap;
-    margin-bottom: var(--space-4);
-  }
-  .calendar-card h2 {
-    font-size: 16px;
-  }
   .row-actions {
     gap: 0;
   }
@@ -2668,35 +2509,6 @@ svg {
   }
   .row-actions .icon-button {
     width: 36px;
-  }
-  .calendar-weekdays {
-    font-size: var(--type-meta);
-  }
-  .calendar-grid {
-    gap: var(--space-1) 0;
-  }
-  .calendar-day {
-    align-items: center;
-    padding: 7px 0;
-    min-height: 70px;
-    border-radius: var(--radius-sm);
-    gap: 6px;
-  }
-  .calendar-remaining {
-    top: auto;
-    bottom: var(--space-3);
-    left: 0;
-    right: 0;
-    max-width: none;
-    text-align: center;
-    white-space: nowrap;
-    line-height: 1.2;
-  }
-  .day-number {
-    font-size: 14px;
-  }
-  .calendar-card .card-footnote {
-    padding-left: 7px;
   }
   .section-toolbar {
     margin: -6px 0 var(--space-4);
@@ -2932,14 +2744,8 @@ svg {
   .task-title {
     font-size: 14px;
   }
-  .calendar-card h2 {
-    font-size: 15px;
-  }
   .calendar-card .row-actions .icon-button {
     width: 30px;
-  }
-  .calendar-day {
-    min-height: 66px;
   }
   .stat-tile {
     padding: 0 9px;
